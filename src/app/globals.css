@@ -1,26 +1,259 @@
 @import "tailwindcss";
 
+/*
+  Design tokens — sourced from Next Home Brand Guidelines (colors, typeface)
+  and DESIGN_SYSTEM.md (semantic roles, spacing floor, radius, motion).
+  status-rejected/status-error is a PROPOSED extension, not in the Brand
+  Guidelines — see DESIGN_SYSTEM.md §2. Flagged, not silently invented.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand-sourced palette (Brand Guidelines p.7-8) */
+  --color-deep-blue: #1b537b;
+  --color-blue: #0492c2;
+  --color-light-blue: #5dcffc;
+  --color-dark-blue: #172a3a;
+  --color-off-white: #f0f7f7;
+  --color-black: #000000;
+  --color-white: #ffffff;
+
+  /* Semantic roles (DESIGN_SYSTEM.md §2) */
+  --color-surface-base: var(--color-off-white);
+  --color-surface-raised: var(--color-white);
+  --color-surface-dense: #e7f0f0;
+  --color-text-primary: var(--color-dark-blue);
+  --color-text-secondary: var(--color-deep-blue);
+  --color-text-on-dark: var(--color-off-white);
+  --color-brand-primary: var(--color-blue);
+  --color-brand-primary-hover: var(--color-deep-blue);
+  --color-brand-accent: var(--color-light-blue);
+  /* TEXT-ONLY companion to Blue. Brand Blue (#0492c2) is a superb FILL —
+     white on it is well clear of AA — but as small text on our light
+     surfaces it measures 3.56:1 on white, 3.28:1 on Off-White and 3.07:1 on
+     Dense, all short of the 4.5:1 floor for text under 18.66px bold. This is
+     the same hue darkened to the lightest value that clears AA on all three
+     (5.36 / 4.94 / 4.63), so brand-coloured labels and small links stay
+     recognisably brand blue while remaining legible. NOT a new brand hue and
+     never used as a fill — --color-brand-primary is unchanged for that. */
+  --color-brand-primary-text: #037399;
+  --color-border-default: #d7e6e6;
+
+  /* Status colors — verified/pending/success reuse brand palette;
+     rejected/error is a proposed, non-brand extension pending sign-off */
+  --color-status-verified: var(--color-blue);
+  --color-status-pending: var(--color-deep-blue);
+  --color-status-success: var(--color-blue);
+  --color-status-rejected: #b3452c; /* PROPOSED — muted terracotta, not brand-sourced */
+
+  /* Spacing scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  /* Editorial/section-rhythm extension — public marketing surfaces only
+     (hero, chapter sections). Dashboards stay on the original 1–8 floor;
+     DESIGN_SYSTEM.md §12 keeps dashboards task-dense, never editorial. */
+  --space-9: 5rem;
+  --space-10: 6.5rem;
+  /* Protected minimum clearance around trust/status elements — a floor,
+     never compressed by dashboard density (DESIGN_SYSTEM.md §4) */
+  --space-status-min-clearance: var(--space-3);
+
+  /* Radius — one shared scale, no per-direction variants (Principle 5).
+     `feature` extends the same scale for large editorial image panels,
+     where a 1rem radius on a 700px-wide plate reads as almost square. */
+  --radius-control: 0.5rem;
+  --radius-card: 1rem;
+  --radius-modal: 1.25rem;
+  --radius-feature: 1.75rem;
+
+  /* Elevation — a considered scale (ambient + key light per step) rather
+     than one flat drop-shadow, so raised surfaces read as deliberate
+     depth, not default-browser shadow. Same technique used for both light
+     and dark (inverted) surfaces below, tuned per background. */
+  --elevation-xs: 0 1px 2px rgba(23, 42, 58, 0.06), 0 1px 1px rgba(23, 42, 58, 0.04);
+  --elevation-sm: 0 4px 12px -4px rgba(23, 42, 58, 0.12), 0 2px 4px -2px rgba(23, 42, 58, 0.06);
+  --elevation-raised: 0 8px 24px -8px rgba(23, 42, 58, 0.25);
+  --elevation-lg: 0 32px 64px -20px rgba(23, 42, 58, 0.38), 0 8px 20px -8px rgba(23, 42, 58, 0.16);
+
+  /* Inverted ("chapter") surface tokens — dark sections built ONLY from
+     the existing brand palette (Dark Blue base), used for layered
+     public-page composition. Never a new hue; see DESIGN_SYSTEM.md §2. */
+  --color-surface-inverted: var(--color-dark-blue);
+  --color-surface-inverted-raised: color-mix(in srgb, var(--color-dark-blue) 88%, white 12%);
+  --color-border-inverted: color-mix(in srgb, var(--color-off-white) 14%, transparent);
+  --color-text-inverted-secondary: color-mix(in srgb, var(--color-off-white) 72%, transparent);
+  /* Subtler alternative to --color-border-default for dense compositions
+     (bento dividers) on light surfaces — same hue, lower weight. */
+  --color-border-hairline: color-mix(in srgb, var(--color-dark-blue) 10%, transparent);
+
+  /* Motion (DESIGN_SYSTEM.md §16) */
+  --motion-duration-instant: 100ms;
+  --motion-duration-short: 180ms;
+  --motion-duration-standard: 280ms;
+  --motion-duration-rich: 420ms;
+  --motion-easing-functional: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-easing-warm: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-surface-base: var(--color-surface-base);
+  --color-surface-raised: var(--color-surface-raised);
+  --color-surface-dense: var(--color-surface-dense);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-on-dark: var(--color-text-on-dark);
+  --color-brand-primary: var(--color-brand-primary);
+  --color-brand-primary-hover: var(--color-brand-primary-hover);
+  --color-brand-primary-text: var(--color-brand-primary-text);
+  --color-brand-accent: var(--color-brand-accent);
+  --color-border-default: var(--color-border-default);
+  --color-status-verified: var(--color-status-verified);
+  --color-status-pending: var(--color-status-pending);
+  --color-status-success: var(--color-status-success);
+  --color-status-rejected: var(--color-status-rejected);
+  --color-surface-inverted: var(--color-surface-inverted);
+  --color-surface-inverted-raised: var(--color-surface-inverted-raised);
+  --color-border-inverted: var(--color-border-inverted);
+  --color-border-hairline: var(--color-border-hairline);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-quicksand);
+  --font-ui: var(--font-ui);
+
+  --radius-control: var(--radius-control);
+  --radius-card: var(--radius-card);
+  --radius-modal: var(--radius-modal);
+  --radius-feature: var(--radius-feature);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-quicksand), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ---------------------------------------------------------------------
+   EDITORIAL REDESIGN — typographic roles
+   Two faces, two strictly separated jobs (see layout.tsx for the why):
+   Quicksand owns display/headings/brand voice; Inter owns dense UI data.
+   These are semantic classes, not ad-hoc font switches, so the boundary
+   between the two faces stays reviewable in one place.
+   --------------------------------------------------------------------- */
+
+/* Display type. Quicksand is drawn on generous, rounded proportions, so at
+   large sizes it needs negative tracking and sub-1 line-height to stop
+   reading as soft/friendly and start reading as editorial. This is the
+   single biggest lever available while keeping the brand typeface. */
+.u-display {
+  font-family: var(--font-quicksand), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+/* Section headings — same face, less extreme tracking than display. */
+.u-heading {
+  font-family: var(--font-quicksand), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+/* Dense interface data: metadata rows, filters, table-like content. */
+.u-ui {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "cv05" 1;
+}
+
+/* Numeric data — prices, counts, bed/bath. Tabular figures keep numbers
+   aligned down a column, which proportional Quicksand figures cannot do. */
+.u-numeric {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.015em;
+}
+
+/* Small caps-ish eyebrow/label. Inter at small sizes with open tracking
+   stays legible where Quicksand's round counters start to close up. */
+.u-label {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* ---------------------------------------------------------------------
+   EDITORIAL GEOMETRY — clipped image containers.
+
+   The reference's character comes from photographs held in angled,
+   polygonal frames rather than plain rectangles. These are applied
+   SELECTIVELY (hero and the two large feature plates), never to the
+   listing grid — clipping every card would crop property photography
+   unpredictably and turn a deliberate device into noise.
+
+   Every clip is disabled below `md`. On a narrow screen an angled crop
+   eats a meaningful share of an already-small image and can slice through
+   the subject, so phones get the honest rectangle.
+   --------------------------------------------------------------------- */
+@media (min-width: 768px) {
+  /* Single cut at the lower-right — the quietest of the three. */
+  .u-clip-corner {
+    clip-path: polygon(0 0, 100% 0, 100% 86%, 90% 100%, 0 100%);
+  }
+  /* Opposing shallow angles top and bottom, echoing the reference's
+     rotated panels without literally rotating the element (rotation would
+     force layout compensation and risks overflow). */
+  .u-clip-blade {
+    clip-path: polygon(0 4%, 100% 0, 100% 96%, 0 100%);
+  }
+}
+
+/* Editorial image plate: a controlled tonal scrim so white text stays
+   legible over unpredictable photography without washing the image out.
+   Used instead of ad-hoc per-section gradient strings. */
+.u-plate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    0deg,
+    color-mix(in srgb, var(--color-dark-blue) 82%, transparent) 0%,
+    color-mix(in srgb, var(--color-dark-blue) 34%, transparent) 38%,
+    color-mix(in srgb, var(--color-dark-blue) 4%, transparent) 68%,
+    transparent 100%
+  );
+}
+
+/* Respect reduced motion for plain CSS transitions/animations (hover
+   states, etc). Motion-library animations (modals, dialogs) are handled
+   separately via <MotionConfig reducedMotion="user"> in providers.tsx —
+   this rule alone does NOT reach those (audit finding, Phase 4/5). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Focus states (DESIGN_SYSTEM.md §15). Light Blue alone is too low-contrast
+   against white/off-white surfaces to reliably clear WCAG's 3:1 non-text
+   contrast minimum, so the ring is paired with a Dark Blue halo — both
+   brand colors, no new hue introduced, but now legible on any surface. */
+:focus-visible {
+  outline: 2px solid var(--color-brand-accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-dark-blue) 20%, transparent);
+  border-radius: var(--radius-control);
 }

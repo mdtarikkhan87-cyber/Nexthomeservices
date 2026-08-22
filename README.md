@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NextHome Frontend
+
+Frontend for the NextHome real estate marketplace, built with Next.js (App Router), TypeScript, and Tailwind CSS.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Other scripts:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build   # production build
+npm run start   # run production build
+npm run lint    # lint
+```
 
-## Learn More
+## Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+- Next.js (App Router) + TypeScript
+- Tailwind CSS
+- Motion (`motion/react`) for animation
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Documentation
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Before making product or UI changes, read the relevant docs below — they are the source of truth for this project:
 
-## Deploy on Vercel
+- [PRODUCT_UNDERSTANDING.md](./PRODUCT_UNDERSTANDING.md)
+- [PRODUCT_DECISIONS.md](./PRODUCT_DECISIONS.md)
+- [DESIGN_INTENT.md](./DESIGN_INTENT.md)
+- [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md)
+- [DESIGN_DIRECTIONS.md](./DESIGN_DIRECTIONS.md)
+- [USER_JOURNEYS.md](./USER_JOURNEYS.md)
+- [INFORMATION_ARCHITECTURE.md](./INFORMATION_ARCHITECTURE.md)
+- [SCREEN_BLUEPRINTS.md](./SCREEN_BLUEPRINTS.md)
+- [COMPONENT_ARCHITECTURE.md](./COMPONENT_ARCHITECTURE.md)
+- [WIREFRAME_PLAN.md](./WIREFRAME_PLAN.md)
+- [RESPONSIVE_STRATEGY.md](./RESPONSIVE_STRATEGY.md)
+- [ROLE_EXPERIENCE_AUDIT.md](./ROLE_EXPERIENCE_AUDIT.md)
+- [IMPLEMENTATION_NOTES.md](./IMPLEMENTATION_NOTES.md) — known gaps / unresolved items, don't silently resolve these
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+See [CLAUDE.md](./CLAUDE.md) for the working rules AI assistants (and contributors) should follow in this repo.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Do not change approved product requirements or brand guidelines without explicit instruction.
