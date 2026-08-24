@@ -41,6 +41,7 @@ Before making product or UI changes, read the relevant docs below — they are t
 - [WIREFRAME_PLAN.md](./WIREFRAME_PLAN.md)
 - [RESPONSIVE_STRATEGY.md](./RESPONSIVE_STRATEGY.md)
 - [ROLE_EXPERIENCE_AUDIT.md](./ROLE_EXPERIENCE_AUDIT.md)
+- [REVISION_LOG.md](./REVISION_LOG.md) — the 22 Aug 2026 client revision: what changed, which approved decisions it amends, and what still needs client sign-off
 - [IMPLEMENTATION_NOTES.md](./IMPLEMENTATION_NOTES.md) — known gaps / unresolved items, don't silently resolve these
 
 See [CLAUDE.md](./CLAUDE.md) for the working rules AI assistants (and contributors) should follow in this repo.

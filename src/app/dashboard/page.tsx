@@ -16,8 +16,8 @@ const roleTitles: Record<string, string> = {
 };
 
 const contextCopy = {
-  rent: { title: "Renting", verb: "rent", browseHref: "/rent" as const },
-  sale: { title: "Buying", verb: "buy", browseHref: "/buy" as const },
+  rent: { title: "Renting", verb: "rent", browseHref: "/listings?mode=rent" as const },
+  sale: { title: "Buying", verb: "buy", browseHref: "/listings?mode=sale" as const },
 };
 
 // DESIGN_SYSTEM.md §4/§12: pending/urgent items always render first, before

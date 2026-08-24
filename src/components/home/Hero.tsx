@@ -98,7 +98,7 @@ export function Hero({ listing }: { listing: PropertyListing }) {
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
-              href="/rent"
+              href="/listings?mode=rent"
               className="group inline-flex items-center gap-2.5 rounded-full bg-[var(--color-brand-primary)] py-3 pl-6 pr-3 text-sm font-bold text-white shadow-[var(--elevation-sm)] transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-brand-primary-hover)]"
             >
               Browse rentals
@@ -107,7 +107,7 @@ export function Hero({ listing }: { listing: PropertyListing }) {
               </span>
             </Link>
             <Link
-              href="/buy"
+              href="/listings?mode=sale"
               className="inline-flex items-center rounded-full border border-[var(--color-border-default)] px-6 py-3 text-sm font-bold text-[var(--color-text-primary)] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-deep-blue)]"
             >
               Homes for sale

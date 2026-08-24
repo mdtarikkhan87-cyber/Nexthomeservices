@@ -24,7 +24,7 @@ export function FacetGrid() {
       key: state,
       label: state,
       count: liveRentals.filter((l) => l.state === state).length,
-      href: `/rent?state=${encodeURIComponent(state)}`,
+      href: `/listings?mode=rent&state=${encodeURIComponent(state)}`,
       Icon: IconHome,
     }))
     .sort((a, b) => b.count - a.count);
@@ -34,7 +34,7 @@ export function FacetGrid() {
       key: duration,
       label: duration === "short-term" ? "Short-Term" : "Long-Term",
       count: liveRentals.filter((l) => l.rentDuration === duration).length,
-      href: `/rent?duration=${duration}`,
+      href: `/listings?mode=rent&duration=${duration}`,
       Icon: IconClock,
     }))
     .filter((d) => d.count > 0);
@@ -51,7 +51,7 @@ export function FacetGrid() {
           </h2>
         </div>
         <Link
-          href="/rent"
+          href="/listings?mode=rent"
           className="u-ui text-[13px] font-semibold text-[var(--color-brand-primary-text)] hover:underline"
         >
           All rentals
@@ -107,7 +107,7 @@ export function FacetGrid() {
           <span className="u-ui">Every listing reviewed before it goes live</span>
         </span>
         <Link
-          href="/buy"
+          href="/listings?mode=sale"
           className="u-ui text-[13px] font-semibold text-[var(--color-brand-primary-text)] hover:underline"
         >
           Looking to buy instead?

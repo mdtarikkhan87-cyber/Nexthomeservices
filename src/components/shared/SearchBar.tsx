@@ -119,9 +119,11 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
     if (priceRange) params.set("price", priceRange);
     if (bedrooms) params.set("bedrooms", bedrooms);
     if (mode === "rent" && duration) params.set("duration", duration);
-    const qs = params.toString();
-    const destination = mode === "rent" ? "/rent" : "/buy";
-    router.push(qs ? `${destination}?${qs}` : destination);
+    // ROUTE MERGE (Website Revision Spec §3C): Buy and Rent are one page
+    // now, so the tab selects a ?mode= on the shared /listings route rather
+    // than a destination route. The filter params are unchanged.
+    params.set("mode", mode);
+    router.push(`/listings?${params.toString()}`);
   };
 
   // EDITORIAL REDESIGN: labels drop to a small tracked-out UI label and

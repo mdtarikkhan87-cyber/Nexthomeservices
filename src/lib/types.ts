@@ -18,6 +18,37 @@ export type SubscriptionState = "inactive" | "pending-confirmation" | "active";
 export type ContentItemState = "pending-review" | "live" | "rejected";
 
 export type ListingType = "rent" | "sale";
+
+/**
+ * The public, pre-registration view of a listing (Website Revision Spec §3B).
+ *
+ * This is a hard boundary, not a convenience type. The server passes ONLY these
+ * fields to the anonymous property-detail view, so the gated fields
+ * (description, specification, amenities, full gallery) are never serialised
+ * into the HTML or the RSC payload an unregistered visitor receives. Widening
+ * this type widens what an anonymous visitor can read — treat any addition as
+ * a product decision, not a refactor.
+ *
+ * The field list is deliberately identical to what the public listing CARD
+ * already shows, which is the defensible interim while Spec §4 item 3 (the
+ * exact teaser scope) is still open with the client.
+ */
+export interface ListingTeaser {
+  id: string;
+  type: ListingType;
+  title: string;
+  price: number;
+  currency: string;
+  state: string;
+  bedrooms: number;
+  photoUrl: string;
+  verified: boolean;
+  viewCount: number;
+  rentDuration?: RentDuration;
+  /** A COUNT, never the URLs — "3 more photos" is a fact about the listing;
+      the photos themselves are part of what registration unlocks. */
+  galleryCount: number;
+}
 export type RentDuration = "short-term" | "long-term";
 
 // ---------------------------------------------------------------------------
