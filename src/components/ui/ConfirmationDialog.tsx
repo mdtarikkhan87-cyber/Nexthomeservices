@@ -3,6 +3,7 @@
 import { AnimatePresence } from "motion/react";
 import { Button } from "./Button";
 import { Overlay } from "./Overlay";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 
 // DESIGN_SYSTEM.md §13: always modal/blocking, never a dismissible toast;
 // always names the specific consequence.
@@ -25,6 +26,10 @@ export function ConfirmationDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  // Keyed on `open`, not on the Overlay's mount lifetime — see
+  // lib/use-body-scroll-lock.ts.
+  useBodyScrollLock(open);
+
   return (
     <AnimatePresence>
       {open && (

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { Select } from "@/components/ui/Input";
 import { IconChevronDown, IconCheck } from "@/components/ui/icons";
@@ -40,20 +39,12 @@ export function FilterPanel({
   set,
   toggleAmenity,
   states,
-  otherModeHref,
-  otherModeLabel,
-  modeLabel,
-  onNavigateAway,
 }: {
   mode: ListingType;
   filters: ListingFilters;
   set: <K extends keyof ListingFilters>(key: K, value: ListingFilters[K]) => void;
   toggleAmenity: (a: Amenity) => void;
   states: string[];
-  otherModeHref: string;
-  otherModeLabel: string;
-  modeLabel: string;
-  onNavigateAway: () => void;
 }) {
   const advCount = advancedCount(filters, mode);
   const isCustomRange =
@@ -63,24 +54,15 @@ export function FilterPanel({
   // actively misleading.
   const [advOpen, setAdvOpen] = useState(advCount > 0);
 
-  const modeSwitchClass =
-    "flex-1 rounded-[var(--radius-control)] px-3 py-2 text-center text-sm font-bold transition-colors";
-
   return (
     <div className="flex flex-col gap-5">
-      {/* Rent / Buy — a route change, not in-page state */}
-      <div className="inline-flex rounded-[var(--radius-control)] bg-[var(--color-surface-dense)] p-1">
-        <span aria-current="page" className={`${modeSwitchClass} bg-[var(--color-brand-primary)] text-white`}>
-          {modeLabel}
-        </span>
-        <Link
-          href={otherModeHref}
-          onClick={onNavigateAway}
-          className={`${modeSwitchClass} text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]`}
-        >
-          {otherModeLabel}
-        </Link>
-      </div>
+      {/* REVISION (Website Revision Spec §3C): the Rent/Buy switch used to
+          live here as a pair of links, because Rent and Buy were two routes.
+          They are now one /listings route with one toggle, and that toggle
+          belongs in the page header where it reads as "what am I browsing",
+          not buried in the sidebar alongside "how am I narrowing it".
+          Removing it from here is what keeps there being exactly ONE mode
+          control on the page — two would be two sources of truth. */}
 
       {/* ---------------- Primary ---------------- */}
       <div>

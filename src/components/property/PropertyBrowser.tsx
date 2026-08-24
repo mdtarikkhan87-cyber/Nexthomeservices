@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useSearchParams } from "next/navigation";
+import { motion } from "motion/react";
 import { PropertyCard } from "@/components/property/PropertyCard";
 import { FilterPanel } from "@/components/property/FilterPanel";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -9,7 +10,17 @@ import { Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { IconClose } from "@/components/ui/icons";
 import { PRICE_RANGES } from "@/components/shared/SearchBar";
+import { ListingModeToggle } from "@/components/property/ListingModeToggle";
 import { mockListings } from "@/lib/mock-data";
+import {
+  DEFAULT_MODE,
+  MODE_COPY,
+  modeFromParam,
+  readStoredMode,
+  serverStoredMode,
+  subscribeStoredMode,
+  writeStoredMode,
+} from "@/lib/listings-mode";
 import { Amenity, ListingType } from "@/lib/types";
 import {
   ActiveChip,
@@ -25,37 +36,37 @@ import {
   sortListings,
 } from "@/lib/listing-filters";
 
-// ROUTE SPLIT: Rent and Buy are two dedicated routes (`/rent`, `/buy`) and
-// this component is the single shared implementation behind both.
+// ---------------------------------------------------------------------------
+// ROUTE MERGE (Website Revision Spec §3C, 24 Aug 2026)
 //
-// FILTER EXPANSION: the filter shape, URL encoding, predicate and sort now
-// live in lib/listing-filters.ts so the sidebar, the drawer and the chips
-// cannot disagree with one another. This file owns state, URL sync and
-// layout only.
-const MODE_COPY: Record<
-  ListingType,
-  { eyebrow: string; heading: string; intro: string; label: string; href: string }
-> = {
-  rent: {
-    eyebrow: "For rent",
-    heading: "Properties for Rent",
-    intro:
-      "Verified rental homes, reviewed by our team before they go live. Filter by state, budget, bedrooms, and rental duration.",
-    label: "Rent",
-    href: "/rent",
-  },
-  sale: {
-    eyebrow: "For sale",
-    heading: "Properties for Sale",
-    intro:
-      "Verified homes available to buy, reviewed by our team before they go live. Filter by state, budget, and bedrooms.",
-    label: "Buy",
-    href: "/buy",
-  },
-};
+// Rent and Buy were two dedicated routes (/rent, /buy) sharing this one
+// implementation. They are now ONE route — /listings — and `mode` is in-page
+// state driven by a toggle, exactly as the spec requires ("one URL, not two
+// separate pages"; "a toggle control, not tabs and not separate routes").
+//
+// Three things had to hold for that to be a merge rather than a regression:
+//
+//   1. Shareability. A filtered view still has to survive being copied into a
+//      message, so mode is mirrored into ?mode= alongside the filters. The URL
+//      reflects state; it no longer *is* the state.
+//   2. Memory. Spec: the toggle "is remembered ... for the duration of their
+//      visit ... rather than resetting on every navigation" — handled by
+//      lib/listings-mode.ts, which this file reads once on mount and writes to
+//      on every change.
+//   3. Price. Rent and sale prices are different scales, so a rent bucket
+//      carried into sale mode would silently return nothing. Price is cleared
+//      on mode change; every other filter (state, bedrooms, baths, type,
+//      amenities, verified) means the same thing in both modes and is kept —
+//      which is exactly what the old cross-route link did, now without the
+//      navigation.
+//
+// FILTER EXPANSION: the filter shape, URL encoding, predicate and sort live in
+// lib/listing-filters.ts so the sidebar, the drawer and the chips cannot
+// disagree with one another. This file owns state, URL sync and layout only.
+// ---------------------------------------------------------------------------
 
-export function PropertyBrowser({ mode }: { mode: ListingType }) {
-  const router = useRouter();
+export function PropertyBrowser() {
+
   const searchParams = useSearchParams();
 
   // Initialised from the URL so a filtered view is shareable and survives a
@@ -64,16 +75,70 @@ export function PropertyBrowser({ mode }: { mode: ListingType }) {
   const [filters, setFilters] = useState<ListingFilters>(() => filtersFromParams(searchParams));
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const copy = MODE_COPY[mode];
-  const otherCopy = MODE_COPY[mode === "rent" ? "sale" : "rent"];
+  // MODE RESOLUTION, in precedence order:
+  //
+  //   1. `chosen`   — a toggle press in this page instance. Local state, so
+  //                    the switch is instant and never waits on a navigation.
+  //   2. `?mode=`   — an explicit, shareable intent in the URL.
+  //   3. `remembered` — what this visitor last chose during this visit.
+  //   4. DEFAULT_MODE — first visit (see lib/listings-mode.ts; still an open
+  //                     item with the client).
+  //
+  // `remembered` is read through useSyncExternalStore rather than in a
+  // useState initialiser or a mount effect. sessionStorage does not exist on
+  // the server, and this is precisely the hook React provides for that: it
+  // renders the server snapshot (null) during SSR and hydration, then swaps in
+  // the real value — no mismatch, and no post-mount setState cascade.
+  const [chosen, setChosen] = useState<ListingType | null>(null);
+  const remembered = useSyncExternalStore(subscribeStoredMode, readStoredMode, serverStoredMode);
+  const urlMode = modeFromParam(searchParams.get("mode"));
+  const mode: ListingType = chosen ?? urlMode ?? remembered ?? DEFAULT_MODE;
 
-  // Mirror state back into the URL without adding a history entry per
-  // keystroke — `replace` keeps the Back button meaning "the previous page",
-  // not "the previous filter tweak".
+  const copy = MODE_COPY[mode];
+
+  /**
+   * Switching Buy/Rent. Price is dropped because rent and sale operate on
+   * entirely different scales — carrying "Under ₦1,000,000" into sale mode
+   * would silently match nothing and read as an empty catalog rather than as
+   * a stale filter. Everything else means the same thing on both sides and is
+   * deliberately preserved, so switching mode is a change of intent, not a
+   * reset of the work the user has already done narrowing things down.
+   *
+   * State is set synchronously here and never waits on the toggle's animation
+   * — rapid switching can reorder or interrupt motion, but it can never leave
+   * the results showing one mode while the control shows the other.
+   */
+  const changeMode = useCallback((next: ListingType) => {
+    setChosen(next);
+    writeStoredMode(next);
+    setFilters((prev) => (prev.priceRange ? { ...prev, priceRange: "" } : prev));
+  }, []);
+
+  // Mirror state back into the URL so a filtered view stays shareable, and
+  // mode rides along so a filtered Buy view is as linkable as it was when it
+  // had its own route.
+  //
+  // This uses history.replaceState rather than router.replace deliberately.
+  // router.replace is a real Next.js navigation: because this route is
+  // statically prerendered and reads useSearchParams, every filter keystroke
+  // and every mode flip re-suspended the page, which left the previous tree
+  // mounted-but-hidden in the DOM and remounted this component from scratch —
+  // discarding its local state (so the toggle's own transition never got to
+  // play) and doing a full re-render to change a query string nothing on the
+  // server depends on.
+  //
+  // replaceState updates the address bar and nothing else, which is exactly
+  // and only what is wanted here: the URL reflects state, it is not the
+  // source of it. No history entry per keystroke either, so Back still means
+  // "the previous page", not "the previous filter tweak".
   useEffect(() => {
-    const qs = filtersToParams(filters).toString();
-    router.replace(qs ? `${copy.href}?${qs}` : copy.href, { scroll: false });
-  }, [filters, copy.href, router]);
+    const params = filtersToParams(filters);
+    params.set("mode", mode);
+    const next = `/listings?${params.toString()}`;
+    if (`${window.location.pathname}${window.location.search}` !== next) {
+      window.history.replaceState(null, "", next);
+    }
+  }, [filters, mode]);
 
   const set = useCallback(
     <K extends keyof ListingFilters>(key: K, value: ListingFilters[K]) =>
@@ -102,21 +167,6 @@ export function PropertyBrowser({ mode }: { mode: ListingType }) {
     });
   }, []);
 
-  // Switching intent is a route change. State and Bedrooms mean the same in
-  // both modes so they carry across; Price does not (different scales) and
-  // Duration/Furnishing are rent-only.
-  const otherModeHref = useMemo(() => {
-    const p = new URLSearchParams();
-    if (filters.state) p.set("state", filters.state);
-    if (filters.bedrooms) p.set("bedrooms", filters.bedrooms);
-    if (filters.bathrooms) p.set("baths", filters.bathrooms);
-    if (filters.propertyType) p.set("ptype", filters.propertyType);
-    if (filters.amenities.length) p.set("amenities", filters.amenities.join(","));
-    if (filters.verifiedOnly) p.set("verified", "1");
-    const qs = p.toString();
-    return qs ? `${otherCopy.href}?${qs}` : otherCopy.href;
-  }, [filters, otherCopy.href]);
-
   const results = useMemo(() => {
     const matched = mockListings.filter((l) => matchesFilters(l, mode, filters));
     return sortListings(matched, filters.sort);
@@ -141,31 +191,62 @@ export function PropertyBrowser({ mode }: { mode: ListingType }) {
       set={set}
       toggleAmenity={toggleAmenity}
       states={states}
-      otherModeHref={otherModeHref}
-      otherModeLabel={otherCopy.label}
-      modeLabel={copy.label}
-      onNavigateAway={() => setFiltersOpen(false)}
     />
   );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-      <div className="mb-9 flex items-end justify-between gap-4 border-b border-[var(--color-border-hairline)] pb-8">
-        <div>
-          <p className="u-label text-[var(--color-brand-primary-text)]">{copy.eyebrow}</p>
-          <h1 className="u-display mt-3 text-[2.25rem] text-[var(--color-text-primary)] sm:text-5xl">
-            {copy.heading}
-          </h1>
-          <p className="mt-4 max-w-lg text-[var(--color-text-secondary)]">{copy.intro}</p>
+      {/* One page, one H1, one mode control. The eyebrow/heading/intro are
+          keyed on `mode` so the page states plainly which side of the toggle
+          is showing — a toggle whose only feedback is the pill position makes
+          the reader verify the control instead of reading the page.
+
+          The copy is keyed on `mode` so switching genuinely replaces it and
+          Motion can animate the arrival, rather than the text changing
+          character-by-character under the reader. `min-h` reserves the
+          block's height so the results grid below it cannot jump while the
+          two-line and three-line intros swap. */}
+      <div className="mb-9 border-b border-[var(--color-border-hairline)] pb-8">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-5">
+          <div className="min-h-[9.5rem] sm:min-h-[11.5rem]">
+            {/* No AnimatePresence, and no exit animation, on purpose.
+                The heading is the page telling you which mode you are in —
+                required state, not decoration. Any presence-based exit makes
+                the removal of the OLD heading dependent on an animation
+                completing, and a stalled frame loop then leaves two
+                contradictory headings on screen at once. A plain keyed
+                element is swapped by React synchronously, so the text is
+                always right; Motion then animates only the arrival.
+
+                `initial` is false until the user has actually pressed the
+                toggle, for the same reason as the results grid below: page
+                content must never start invisible on first paint. */}
+            <motion.div
+              key={mode}
+              initial={chosen === null ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <p className="u-label text-[var(--color-brand-primary-text)]">{copy.eyebrow}</p>
+              <h1 className="u-display mt-3 text-[2.25rem] text-[var(--color-text-primary)] sm:text-5xl">
+                {copy.heading}
+              </h1>
+              <p className="mt-4 max-w-lg text-[var(--color-text-secondary)]">{copy.intro}</p>
+            </motion.div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-3">
+            <ListingModeToggle mode={mode} onChange={changeMode} />
+            <Button
+              variant="secondary"
+              size="dense"
+              className="shrink-0 lg:hidden"
+              onClick={() => setFiltersOpen(true)}
+            >
+              Filters{chips.length > 0 ? ` (${chips.length})` : ""}
+            </Button>
+          </div>
         </div>
-        <Button
-          variant="secondary"
-          size="dense"
-          className="shrink-0 lg:hidden"
-          onClick={() => setFiltersOpen(true)}
-        >
-          Filters{chips.length > 0 ? ` (${chips.length})` : ""}
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[280px_1fr]">
@@ -274,11 +355,47 @@ export function PropertyBrowser({ mode }: { mode: ListingType }) {
               }
             />
           ) : (
-            <div className="grid grid-cols-1 gap-x-5 gap-y-9 sm:grid-cols-2 xl:grid-cols-3">
-              {results.map((listing) => (
-                <PropertyCard key={listing.id} listing={listing} />
+            /* Results are keyed on `mode`, so flipping the toggle replaces the
+               grid rather than mutating it in place — a short lift-and-fade,
+               lightly staggered, which reads as "a different set of homes"
+               instead of prices silently changing under the cursor.
+
+               The stagger is capped at the first row's worth of cards: a
+               per-card delay applied to twenty results would still be
+               animating long after the user has started scanning.
+
+               CRITICAL: `initial` is false until the user has actually pressed
+               the toggle (`chosen === null` means they have not). The listings
+               are the page's content, and content must never be invisible
+               until an animation agrees to reveal it — a backgrounded tab, a
+               starved rAF loop or any JS hiccup during the entrance would
+               otherwise leave the grid stuck at opacity 0 with nothing to
+               recover it. So first paint renders the cards outright, and the
+               entrance animation exists only for the mode SWITCH, which is
+               the only moment it actually communicates anything. */
+            <motion.div
+              key={mode}
+              initial={chosen === null ? false : "hidden"}
+              animate="shown"
+              variants={{ shown: { transition: { staggerChildren: 0.035 } } }}
+              className="grid grid-cols-1 gap-x-5 gap-y-9 sm:grid-cols-2 xl:grid-cols-3"
+            >
+              {results.map((listing, i) => (
+                <motion.div
+                  key={listing.id}
+                  variants={{
+                    hidden: { opacity: 0, y: i < 6 ? 14 : 0 },
+                    shown: {
+                      opacity: 1,
+                      y: 0,
+                      transition: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
+                    },
+                  }}
+                >
+                  <PropertyCard listing={listing} />
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
         </div>
       </div>

@@ -1,19 +1,9 @@
-import { Suspense } from "react";
-import type { Metadata } from "next";
-import { PropertyBrowser } from "@/components/property/PropertyBrowser";
+import { redirect } from "next/navigation";
+import { forwardListingParams } from "@/lib/listing-redirect";
 
-export const metadata: Metadata = {
-  title: "Properties for Sale | NextHome",
-  description: "Browse verified homes for sale on NextHome, reviewed by our team before they go live.",
-};
-
-// Dedicated Buy route. Uses the existing `sale` ListingType vocabulary
-// internally (lib/types.ts) — only the URL and user-facing label are
-// "buy", no new domain term was introduced.
-export default function BuyPage() {
-  return (
-    <Suspense fallback={null}>
-      <PropertyBrowser mode="sale" />
-    </Suspense>
-  );
+// COMPATIBILITY SHIM (Website Revision Spec §3C) — see rent/page.tsx for the
+// reasoning. `sale` is the internal ListingType; only the URL and the
+// user-facing label were ever "buy".
+export default async function BuyRedirectPage({ searchParams }: PageProps<"/buy">) {
+  redirect(forwardListingParams(await searchParams, "sale"));
 }

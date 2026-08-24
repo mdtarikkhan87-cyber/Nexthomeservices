@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Overlay } from "@/components/ui/Overlay";
 import { useAuth } from "@/lib/auth-context";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { RoleName } from "@/lib/types";
 
 // Implements PRODUCT_DECISIONS.md §9 / USER_JOURNEYS.md §3's canonical
@@ -146,6 +147,9 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [pending, setPending] = useState<PendingAction | null>(null);
 
+  // Driven by the logical open state, not by the modal's mount lifetime.
+  useBodyScrollLock(pending !== null);
+
   const requireAuth = useCallback(
     (action: PendingAction) => {
       if (isAuthenticated) {
@@ -225,8 +229,8 @@ export function AuthRequired({
       </div>
       <p className="mt-4 text-center text-sm text-[var(--color-text-secondary)]">
         Just looking?{" "}
-        <Link href="/rent" className="font-bold text-[var(--color-brand-primary)] hover:underline">
-          Browse homes to rent
+        <Link href="/listings" className="font-bold text-[var(--color-brand-primary-text)] hover:underline">
+          Browse listings
         </Link>{" "}
         or{" "}
         <Link href="/services" className="font-bold text-[var(--color-brand-primary)] hover:underline">

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Quicksand } from "next/font/google";
+import { Quicksand } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -12,22 +12,18 @@ const quicksand = Quicksand({
   weight: ["500", "700"],
 });
 
-// EDITORIAL REDESIGN — a second, deliberately neutral face used ONLY as the
-// UI workhorse: metadata, prices, labels, filters, table-like rows. Quicksand
-// remains the brand voice and owns every display/heading size, so the brand
-// identity is unchanged where it is actually read as identity.
+// BRAND COMPLIANCE (Website Revision Spec §3E, 24 Aug 2026): the previous
+// pass introduced Inter as a second "UI workhorse" face for dense numeric
+// content. That directly contradicts DESIGN_SYSTEM.md §3 ("no third
+// typeface is introduced") and the Brand Guidelines' two-weight Quicksand
+// system, and it is what the client saw as "headings/body do not use the
+// brand typeface." Inter is removed entirely — Quicksand Bold/Medium now
+// owns every heading, label, button, form field and card text sitewide.
 //
-// The reason this pairing exists: Quicksand is a rounded geometric with
-// proportional figures, which makes dense numeric content (₦95,000,000 · 4 bd
-// · 214 views) read soft and slightly toy-like at small sizes. Inter is
-// metric-neutral and ships true tabular numerals, so prices align in a column
-// and carry the authority a marketplace needs. Two faces, two clearly
-// separated jobs — never mixed within one line of type.
-const inter = Inter({
-  variable: "--font-ui",
-  subsets: ["latin"],
-  display: "swap",
-});
+// The semantic classes that pointed at Inter (.u-ui / .u-numeric / .u-label)
+// are kept and repointed at Quicksand in globals.css, so the roles they
+// encode (dense UI text, tabular figures, tracked-out labels) survive as
+// *typographic treatments of the brand face* rather than as a second face.
 
 export const metadata: Metadata = {
   title: "NextHome — Rent, Buy, and Connect With Confidence",
@@ -37,7 +33,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${quicksand.variable} ${inter.variable} h-full antialiased`}>
+    <html lang="en" className={`${quicksand.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         {/* Scroll-reveal safety net. Motion serialises its `initial` state as
             an inline opacity:0 during SSR, so with JavaScript unavailable the

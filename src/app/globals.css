@@ -19,29 +19,48 @@
   /* Semantic roles (DESIGN_SYSTEM.md §2) */
   --color-surface-base: var(--color-off-white);
   --color-surface-raised: var(--color-white);
-  --color-surface-dense: #e7f0f0;
+  /* BRAND HEX AUDIT (Website Revision Spec §3D): every value below now
+     resolves to one of the seven approved brand hexes, or to a documented
+     mix of two of them — no free-standing approximated shades remain.
+     Off-white carrying a trace of Dark Blue, exactly as DESIGN_SYSTEM.md
+     §2 specifies for the dense/dashboard surface (same family, denser
+     application), replacing the previously hand-picked #e7f0f0. */
+  --color-surface-dense: color-mix(in srgb, var(--color-dark-blue) 5%, var(--color-off-white));
   --color-text-primary: var(--color-dark-blue);
   --color-text-secondary: var(--color-deep-blue);
   --color-text-on-dark: var(--color-off-white);
   --color-brand-primary: var(--color-blue);
   --color-brand-primary-hover: var(--color-deep-blue);
   --color-brand-accent: var(--color-light-blue);
-  /* TEXT-ONLY companion to Blue. Brand Blue (#0492c2) is a superb FILL —
-     white on it is well clear of AA — but as small text on our light
-     surfaces it measures 3.56:1 on white, 3.28:1 on Off-White and 3.07:1 on
-     Dense, all short of the 4.5:1 floor for text under 18.66px bold. This is
-     the same hue darkened to the lightest value that clears AA on all three
-     (5.36 / 4.94 / 4.63), so brand-coloured labels and small links stay
-     recognisably brand blue while remaining legible. NOT a new brand hue and
-     never used as a fill — --color-brand-primary is unchanged for that. */
-  --color-brand-primary-text: #037399;
-  --color-border-default: #d7e6e6;
+  /* TEXT-ONLY companion to Blue, now an EXACT brand hex.
+     Brand Blue (#0492C2) is a superb FILL — white on it clears AA — but as
+     small text on our light surfaces it measures 3.56:1 on white, short of
+     the 4.5:1 floor. The previous pass solved that by darkening the hue to
+     #037399, which is precisely the kind of approximated shade the client
+     flagged. Deep Blue (#1B537B) is an approved PRIMARY brand color and
+     measures 7.75:1 on white / 6.85:1 on Off-white, so brand-coloured
+     labels and small links are now both brand-exact and legible.
+     Consequence, handled deliberately: this equals --color-text-secondary,
+     so "active/link" can no longer be carried by hue alone. Every such
+     state now carries weight + a Blue rule instead — non-hue cues that
+     also survive greyscale and colour-blindness (DESIGN_SYSTEM.md §7). */
+  --color-brand-primary-text: var(--color-deep-blue);
+  /* DESIGN_SYSTEM.md §2 literally specifies "derived from Dark Blue at low
+     opacity" — now implemented as that, instead of the flattened #d7e6e6. */
+  --color-border-default: color-mix(in srgb, var(--color-dark-blue) 10%, var(--color-off-white));
 
   /* Status colors — verified/pending/success reuse brand palette;
      rejected/error is a proposed, non-brand extension pending sign-off */
   --color-status-verified: var(--color-blue);
   --color-status-pending: var(--color-deep-blue);
   --color-status-success: var(--color-blue);
+  /* THE ONE REMAINING NON-BRAND VALUE, and deliberately not resolved here.
+     Website Revision Spec §3D says every colour must match a brand hex
+     exactly — but the Brand Guidelines define no error/danger colour, and
+     rendering "rejected" in a blue from the same palette as "verified"
+     would make two opposite states indistinguishable. Left as the flagged
+     proposal it already was (IMPLEMENTATION_NOTES.md #1) rather than
+     silently resolved; it is the one item needing a brand-owner decision. */
   --color-status-rejected: #b3452c; /* PROPOSED — muted terracotta, not brand-sourced */
 
   /* Spacing scale */
@@ -121,12 +140,23 @@
   --color-border-hairline: var(--color-border-hairline);
 
   --font-sans: var(--font-quicksand);
-  --font-ui: var(--font-ui);
+  /* BRAND COMPLIANCE: --font-ui used to resolve to Inter. It now resolves
+     to the brand face, so `font-ui` utilities anywhere in the codebase are
+     Quicksand too — the token survives, the second typeface does not. */
+  --font-ui: var(--font-quicksand);
 
   --radius-control: var(--radius-control);
   --radius-card: var(--radius-card);
   --radius-modal: var(--radius-modal);
   --radius-feature: var(--radius-feature);
+}
+
+/* The header is sticky, so an anchor jump or a keyboard focus move can land
+   a control underneath it. WCAG 2.2 AA (Focus Not Obscured) requires focus
+   to stay at least partially visible — reserving the header's height as
+   scroll padding is the fix, applied once here rather than per-page. */
+html {
+  scroll-padding-top: 5rem;
 }
 
 body {
@@ -136,17 +166,28 @@ body {
 }
 
 /* ---------------------------------------------------------------------
-   EDITORIAL REDESIGN — typographic roles
-   Two faces, two strictly separated jobs (see layout.tsx for the why):
-   Quicksand owns display/headings/brand voice; Inter owns dense UI data.
-   These are semantic classes, not ad-hoc font switches, so the boundary
-   between the two faces stays reviewable in one place.
+   TYPOGRAPHIC ROLES — one typeface, two weights.
+
+   Brand Guidelines p.9 / Website Revision Spec §3E: Quicksand Bold for
+   headings, key messaging and prominent titles; Quicksand Medium for body,
+   captions and supporting information. Nothing else, anywhere.
+
+   next/font loads exactly those two weights (500, 700). CSS font matching
+   then does the right thing for every Tailwind weight utility in the
+   codebase without loading a third weight: `font-medium` (500) resolves to
+   Medium; `font-semibold` (600) and `font-bold` (700) both resolve up to
+   Bold; unweighted body text (400) resolves to Medium. So the two-weight
+   brand system holds sitewide — nav labels, buttons, form fields and card
+   text included — without auditing every utility class by hand.
+
+   The classes below are TREATMENTS of that one face (tracking, line-height,
+   figure style), not font switches. They previously pointed at Inter; the
+   roles they encode are worth keeping, the second typeface was not.
    --------------------------------------------------------------------- */
 
 /* Display type. Quicksand is drawn on generous, rounded proportions, so at
    large sizes it needs negative tracking and sub-1 line-height to stop
-   reading as soft/friendly and start reading as editorial. This is the
-   single biggest lever available while keeping the brand typeface. */
+   reading as soft/friendly and start reading as editorial. */
 .u-display {
   font-family: var(--font-quicksand), ui-sans-serif, system-ui, sans-serif;
   font-weight: 700;
@@ -164,27 +205,32 @@ body {
   text-wrap: balance;
 }
 
-/* Dense interface data: metadata rows, filters, table-like content. */
+/* Dense interface data: metadata rows, filters, table-like content. Slight
+   positive tracking is what buys back the small-size legibility Inter was
+   previously brought in for — Quicksand's round counters close up when set
+   tight and small, and open tracking is the in-family fix for that. */
 .u-ui {
-  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
-  font-feature-settings: "cv05" 1;
+  font-family: var(--font-quicksand), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.005em;
 }
 
-/* Numeric data — prices, counts, bed/bath. Tabular figures keep numbers
-   aligned down a column, which proportional Quicksand figures cannot do. */
+/* Numeric data — prices, counts, bed/bath. `tabular-nums` is requested so
+   figures align down a column wherever the face supports it; Quicksand's
+   figures are near-monospaced by design, so prices still stack cleanly. */
 .u-numeric {
-  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-quicksand), ui-sans-serif, system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.015em;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: 0;
 }
 
-/* Small caps-ish eyebrow/label. Inter at small sizes with open tracking
-   stays legible where Quicksand's round counters start to close up. */
+/* Small caps-ish eyebrow/label. Bold + generous tracking keeps Quicksand
+   legible at 11px, where its rounded forms are otherwise at their weakest. */
 .u-label {
-  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
-  font-weight: 600;
+  font-family: var(--font-quicksand), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
   font-size: 0.6875rem;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   line-height: 1;
 }

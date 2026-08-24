@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { SearchBar } from "@/components/shared/SearchBar";
-import { ProtectedLink } from "@/components/shared/AuthGate";
+import { ClosingCta } from "@/components/home/ClosingCta";
 import { Hero } from "@/components/home/Hero";
 import { FeatureBar } from "@/components/home/FeatureBar";
 import { Reveal } from "@/components/home/Reveal";
@@ -35,8 +34,9 @@ import { mockListings } from "@/lib/mock-data";
 //
 // Brand: palette, logo and Quicksand are unchanged. The reference's
 // black-and-white identity is NOT imported — Dark Blue plays the role its
-// black tiles played. The only addition is Inter as a UI-data face
-// (see layout.tsx), which never touches display type.
+// black tiles played. (An earlier pass had added Inter as a second UI face;
+// that has been removed — Quicksand Bold/Medium is the whole type system
+// again, per the Brand Guidelines and Website Revision Spec §3E.)
 export default function HomePage() {
   const live = mockListings.filter((l) => l.status === "live");
   // A verified home with gallery depth makes the strongest hero plate; fall
@@ -83,37 +83,13 @@ export default function HomePage() {
 
       {/* ---- Close: the tightest band on the page. Deliberately not another
            full-height dark chapter — the trust section already carried the
-           inverted weight, and repeating it would flatten the sequence. ---- */}
-      <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-        <div className="flex flex-col gap-6 border-t border-[var(--color-border-hairline)] pt-10 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="u-heading max-w-sm text-2xl text-[var(--color-text-primary)] sm:text-3xl">
-              Ready to find your next home?
-            </h2>
-            <p className="u-ui mt-2 max-w-md text-sm text-[var(--color-text-secondary)]">
-              Browsing is free and open — no account needed until you save, message or list.
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2.5">
-            <Link
-              href="/rent"
-              className="inline-flex items-center justify-center rounded-[var(--radius-control)] bg-[var(--color-brand-primary)] px-5 py-3 text-sm font-bold text-white transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-brand-primary-hover)]"
-            >
-              Browse listings
-            </Link>
-            {/* Posting is a protected action — ProtectedLink prompts in
-                place for guests instead of bouncing them into a gated route. */}
-            <ProtectedLink
-              href="/dashboard/listings/new"
-              actionLabel="Log in to post a property"
-              suggestedRole="landlord"
-              className="inline-flex items-center justify-center rounded-[var(--radius-control)] border border-[var(--color-border-default)] px-5 py-3 text-sm font-bold text-[var(--color-text-primary)] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-deep-blue)]"
-            >
-              Post a property
-            </ProtectedLink>
-          </div>
-        </div>
-      </section>
+           inverted weight, and repeating it would flatten the sequence.
+
+           Now role-aware (see ClosingCta.tsx): what it offers depends on who
+           is reading it, so it can never invite an anonymous visitor to do
+           something the revised access model no longer lets them do. ---- */}
+      <ClosingCta />
+
     </div>
   );
 }

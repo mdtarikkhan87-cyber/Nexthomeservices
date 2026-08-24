@@ -7,25 +7,39 @@ import Link from "next/link";
 // logo (the only variant verified to hold contrast on a light surface;
 // the secondary mark's Deep Blue strokes aren't legible on a dark chapter
 // background, so it's intentionally not used here).
+// NAV RELOCATION (Website Revision Spec §3A): "Services and Help content is
+// not deleted — it is relocated (e.g. footer or account/help menu; exact
+// placement pending)". Both already lived here alongside their top-nav
+// entries, so the footer becoming their primary home is a promotion of an
+// existing location rather than a new one invented for them — and it is the
+// destination the spec names first.
+//
+// Services is lifted out of "Discover" into its own group so it reads as a
+// destination in its own right now that the top nav no longer carries it,
+// rather than as a third bullet under two property links.
+// ⚠ Spec §4 item 1 (exact destination) is still open — this is the interim.
 const LINK_GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
   {
     title: "Discover",
     links: [
-      { href: "/rent", label: "Rent a home" },
-      { href: "/buy", label: "Buy a home" },
+      { href: "/listings?mode=rent", label: "Homes to rent" },
+      { href: "/listings?mode=sale", label: "Homes to buy" },
+    ],
+  },
+  {
+    title: "Services",
+    links: [
       { href: "/services", label: "Find a service provider" },
+      { href: "/advertise", label: "Advertise on NextHome" },
     ],
   },
   {
-    title: "NextHome",
+    // Help joins the existing support links rather than becoming a group of
+    // one — they are the same errand from the reader's side, and a lone
+    // column reads as an oversight next to two full ones.
+    title: "Help & support",
     links: [
-      { href: "/advertise", label: "Advertise" },
       { href: "/help", label: "Help & FAQ" },
-    ],
-  },
-  {
-    title: "Support",
-    links: [
       { href: "/feedback", label: "Send Feedback" },
       { href: "/complaints", label: "Report a Concern" },
     ],

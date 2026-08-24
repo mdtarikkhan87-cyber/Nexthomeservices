@@ -66,7 +66,7 @@ export function CuratedListings() {
           </div>
 
           <Link
-            href={mode === "rent" ? "/rent" : "/buy"}
+            href={`/listings?mode=${mode}`}
             className="group u-ui inline-flex items-center gap-1.5 text-[13px] font-semibold text-[var(--color-brand-primary-text)] hover:underline"
           >
             View all
