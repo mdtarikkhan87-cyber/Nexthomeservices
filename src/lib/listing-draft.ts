@@ -1,4 +1,5 @@
 import { Amenity, FurnishingStatus, ListingType, PropertyType, RentDuration } from "./types";
+import { NIGERIAN_STATES, isLgaInState } from "./nigeria-locations";
 
 // ---------------------------------------------------------------------------
 // The listing draft: its shape, its validation rules, and the mapping from a
@@ -22,6 +23,9 @@ export interface ListingDraft {
   title: string;
   propertyType: PropertyType | "";
   state: string;
+  /** LGA within `state`. Required — it is what makes a listing findable by
+      someone searching their own area rather than the whole state. */
+  lga: string;
   price: string;
   bedrooms: string;
   bathrooms: string;
@@ -37,6 +41,7 @@ export const EMPTY_DRAFT: ListingDraft = {
   title: "",
   propertyType: "",
   state: "",
+  lga: "",
   price: "",
   bedrooms: "",
   bathrooms: "",
@@ -48,8 +53,9 @@ export const EMPTY_DRAFT: ListingDraft = {
 };
 
 /** PRD §4: location is a fixed dropdown, never free text, "so results stay
-    accurate" — the same list the public search uses. */
-export const LISTING_STATES = ["Lagos", "Abuja (FCT)", "Rivers", "Oyo", "Kano", "Enugu"];
+    accurate" — and it is literally the same list the public search reads, so
+    a published listing can always be reached by the filter that matches it. */
+export const LISTING_STATES = NIGERIAN_STATES;
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const MAX_IMAGES = 8;
@@ -84,6 +90,12 @@ export function validateStep(step: StepId, d: ListingDraft): DraftErrors {
       e.title = `Use at least ${MIN_TITLE} characters so renters know what this is.`;
     if (!d.propertyType) e.propertyType = "Choose the property type.";
     if (!d.state) e.state = "Choose the state this property is in.";
+    if (!d.lga) e.lga = "Choose the Local Government Area.";
+    // Guards the case where the state was changed after an LGA was picked and
+    // the pair was left inconsistent — publishing that would put the listing
+    // somewhere no search can find it.
+    else if (d.state && !isLgaInState(d.state, d.lga))
+      e.lga = `That LGA isn't in ${d.state} — choose one from the list.`;
   }
 
   if (step === "details") {

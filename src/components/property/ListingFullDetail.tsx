@@ -7,6 +7,7 @@ import { PropertyGallery } from "@/components/property/PropertyGallery";
 import { IconCheck } from "@/components/ui/icons";
 import { mockListings } from "@/lib/mock-data";
 import { AMENITY_LABELS, FURNISHING_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/types";
+import { formatLocation } from "@/lib/nigeria-locations";
 
 function formatPrice(price: number, currency: string, type: string) {
   const amount = new Intl.NumberFormat("en-NG").format(price);
@@ -63,7 +64,7 @@ export function ListingFullDetail({ id }: { id: string }) {
 
           <h1 className="mt-2.5 text-2xl font-bold text-[var(--color-text-primary)]">{listing.title}</h1>
           <p className="mt-1.5 text-[var(--color-text-secondary)]">
-            {listing.state} · {listing.bedrooms} bedroom{listing.bedrooms !== 1 ? "s" : ""} · {listing.viewCount} views
+            {formatLocation(listing.state, listing.lga)} · {listing.bedrooms} bedroom{listing.bedrooms !== 1 ? "s" : ""} · {listing.viewCount} views
           </p>
 
           <div className="mt-8 border-t border-[var(--color-border-hairline)] pt-8">

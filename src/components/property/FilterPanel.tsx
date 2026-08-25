@@ -5,6 +5,7 @@ import { Select } from "@/components/ui/Input";
 import { IconChevronDown, IconCheck } from "@/components/ui/icons";
 import { PRICE_RANGES } from "@/components/shared/SearchBar";
 import { ListingFilters, advancedCount, formatPriceRange } from "@/lib/listing-filters";
+import { NIGERIAN_STATES, lgasForState } from "@/lib/nigeria-locations";
 import {
   AMENITY_LABELS,
   Amenity,
@@ -20,7 +21,7 @@ import {
 // and the mobile drawer.
 //
 // TWO TIERS, deliberately:
-//   Primary (always visible)  — mode, State, Price, Bedrooms.
+//   Primary (always visible)  — mode, State, LGA, Price, Bedrooms.
 //   Advanced (collapsed)      — Property type, Bathrooms, Furnishing,
 //                               Amenities, Verified only.
 //
@@ -38,15 +39,17 @@ export function FilterPanel({
   filters,
   set,
   toggleAmenity,
-  states,
 }: {
   mode: ListingType;
   filters: ListingFilters;
   set: <K extends keyof ListingFilters>(key: K, value: ListingFilters[K]) => void;
   toggleAmenity: (a: Amenity) => void;
-  states: string[];
 }) {
   const advCount = advancedCount(filters, mode);
+  // The LGA list is whatever the chosen state actually contains — empty until
+  // a state is picked, because an LGA name on its own is ambiguous (several
+  // states have an "Obi", an "Ifelodun", a "Bassa").
+  const lgas = lgasForState(filters.state);
   const isCustomRange =
     !!filters.priceRange && !PRICE_RANGES[mode].some((p) => p.value === filters.priceRange);
   // Open by default when advanced filters are already applied (e.g. arriving
@@ -71,9 +74,33 @@ export function FilterPanel({
         </label>
         <Select id="f-state" value={filters.state} onChange={(e) => set("state", e.target.value)}>
           <option value="">Any state</option>
-          {states.map((s) => (
+          {NIGERIAN_STATES.map((s) => (
             <option key={s} value={s}>
               {s}
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      {/* LGA sits directly under State and is driven by it. It stays visible
+          (disabled) with no state chosen rather than appearing out of nowhere:
+          a control that materialises mid-column shifts every filter below it
+          and hides the fact that the product can narrow this far at all.
+          Clearing or changing the state clears this — see PropertyBrowser. */}
+      <div>
+        <label className={FIELD_LABEL} htmlFor="f-lga">
+          Local Government Area
+        </label>
+        <Select
+          id="f-lga"
+          value={filters.lga}
+          disabled={!filters.state}
+          onChange={(e) => set("lga", e.target.value)}
+        >
+          <option value="">{filters.state ? "Any LGA" : "Select a state first"}</option>
+          {lgas.map((l) => (
+            <option key={l} value={l}>
+              {l}
             </option>
           ))}
         </Select>

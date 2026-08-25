@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { IconArrowRight, IconStar } from "@/components/ui/icons";
 import { useAuthGate } from "@/components/shared/AuthGate";
 import { PropertyListing } from "@/lib/types";
+import { formatLocation } from "@/lib/nigeria-locations";
 
 function formatPrice(listing: PropertyListing) {
   const amount = new Intl.NumberFormat("en-NG").format(listing.price);
@@ -60,7 +61,7 @@ export function PropertyCard({
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold text-[var(--color-text-primary)]">{listing.title}</p>
           <p className="text-sm text-[var(--color-text-secondary)]">
-            <span className="font-bold text-[var(--color-text-primary)]">{formatPrice(listing)}</span> · {listing.state} · {listing.bedrooms} bd
+            <span className="font-bold text-[var(--color-text-primary)]">{formatPrice(listing)}</span> · {formatLocation(listing.state, listing.lga)} · {listing.bedrooms} bd
           </p>
         </div>
         <p className="hidden shrink-0 text-sm text-[var(--color-text-secondary)] sm:block">{listing.viewCount} views</p>
@@ -118,7 +119,7 @@ export function PropertyCard({
           <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/20 pt-4">
             <p className="u-numeric text-xl font-bold text-white">{formatPrice(listing)}</p>
             <p className="u-ui text-[13px] text-white/75">
-              {listing.state} · {listing.bedrooms} bedroom{listing.bedrooms !== 1 ? "s" : ""} · {listing.viewCount} views
+              {formatLocation(listing.state, listing.lga)} · {listing.bedrooms} bedroom{listing.bedrooms !== 1 ? "s" : ""} · {listing.viewCount} views
             </p>
           </div>
         </div>
@@ -175,7 +176,7 @@ export function PropertyCard({
           <div className="min-w-0">
             <p className="truncate font-bold leading-snug text-[var(--color-text-primary)]">{listing.title}</p>
             <p className="u-ui mt-1 truncate text-[13px] text-[var(--color-text-secondary)]">
-              {listing.state} · {listing.bedrooms} bd · {listing.viewCount} views
+              {formatLocation(listing.state, listing.lga)} · {listing.bedrooms} bd · {listing.viewCount} views
             </p>
           </div>
           <p className="u-numeric shrink-0 text-[15px] font-bold text-[var(--color-text-primary)]">

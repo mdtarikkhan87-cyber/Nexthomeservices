@@ -31,6 +31,7 @@ import {
   validateAll,
   validateStep,
 } from "@/lib/listing-draft";
+import { lgasForState } from "@/lib/nigeria-locations";
 
 type Outcome = "blocked" | "subscription" | "submitted" | null;
 
@@ -68,7 +69,11 @@ export default function PostPropertyPage() {
   const step = STEPS[stepIndex].id;
 
   const set = useCallback(<K extends keyof ListingDraft>(key: K, value: ListingDraft[K]) => {
-    setDraft((prev) => ({ ...prev, [key]: value }));
+    // Changing the state resets the LGA: LGAs belong to exactly one state, so
+    // keeping the old one would publish a location that does not exist.
+    setDraft((prev) =>
+      key === "state" ? { ...prev, state: value as string, lga: "" } : { ...prev, [key]: value }
+    );
     // Clear this field's error as soon as the user edits it — leaving a stale
     // error under a field the user has already fixed is its own usability bug.
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
@@ -163,6 +168,7 @@ export default function PostPropertyPage() {
       price: Number(draft.price),
       currency: "NGN",
       state: draft.state,
+      lga: draft.lga,
       bedrooms: Number(draft.bedrooms),
       bathrooms: Number(draft.bathrooms),
       propertyType: draft.propertyType as PropertyType,
@@ -334,6 +340,32 @@ export default function PostPropertyPage() {
                 {LISTING_STATES.map((s) => (
                   <option key={s} value={s}>
                     {s}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            {/* LGA is required, not optional: seekers filter by the area they
+                actually want to live in, and a listing recorded only as
+                "Lagos" is invisible to every one of those searches. The
+                options come from the same table the filters read. */}
+            <div>
+              <Label htmlFor="lga">Local Government Area</Label>
+              <Select
+                id="lga"
+                value={draft.lga}
+                disabled={!draft.state}
+                onChange={(e) => set("lga", e.target.value)}
+                error={errors.lga}
+                hint={
+                  draft.state
+                    ? "Seekers filter by LGA, so this is how your listing gets found."
+                    : "Choose a state first."
+                }
+              >
+                <option value="">{draft.state ? "Select an LGA" : "Select a state first"}</option>
+                {lgasForState(draft.state).map((l) => (
+                  <option key={l} value={l}>
+                    {l}
                   </option>
                 ))}
               </Select>
@@ -556,6 +588,7 @@ export default function PostPropertyPage() {
               { k: "Title", v: draft.title.trim() || "—" },
               { k: "Type", v: draft.propertyType ? PROPERTY_TYPE_LABELS[draft.propertyType] : "—" },
               { k: "State", v: draft.state || "—" },
+              { k: "LGA", v: draft.lga || "—" },
               { k: draft.type === "rent" ? "Annual rent" : "Sale price", v: formatNaira(draft.price) },
               { k: "Bedrooms", v: draft.bedrooms || "—" },
               { k: "Bathrooms", v: draft.bathrooms || "—" },

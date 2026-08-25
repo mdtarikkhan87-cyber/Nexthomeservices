@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { mockListings } from "@/lib/mock-data";
+import { formatLocation } from "@/lib/nigeria-locations";
 
 export default function ListingManagementDetail({ params }: PageProps<"/dashboard/listings/[id]">) {
   const { id } = use(params);
@@ -39,8 +40,10 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
           <p className="mt-1 font-bold text-[var(--color-text-primary)]">{listing.status === "live" ? listing.viewCount : "—"}</p>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">State</p>
-          <p className="mt-1 font-bold text-[var(--color-text-primary)]">{listing.state}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">Location</p>
+          <p className="mt-1 font-bold text-[var(--color-text-primary)]">
+            {formatLocation(listing.state, listing.lga)}
+          </p>
         </div>
       </div>
 

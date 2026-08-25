@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { IconCheck, IconLock, IconMessageCircle, IconStar } from "@/components/ui/icons";
 import { ListingTeaser } from "@/lib/types";
+import { formatLocation } from "@/lib/nigeria-locations";
 
 // ---------------------------------------------------------------------------
 // The anonymous view of a property detail page (Website Revision Spec §3B).
@@ -141,7 +142,7 @@ export function ListingRegistrationWall({ teaser }: { teaser: ListingTeaser }) {
 
           <h1 className="mt-2.5 text-2xl font-bold text-[var(--color-text-primary)]">{listing.title}</h1>
           <p className="u-ui mt-1.5 text-[var(--color-text-secondary)]">
-            {listing.state} · {listing.bedrooms} bedroom{listing.bedrooms !== 1 ? "s" : ""} ·{" "}
+            {formatLocation(listing.state, listing.lga)} · {listing.bedrooms} bedroom{listing.bedrooms !== 1 ? "s" : ""} ·{" "}
             {listing.viewCount} views
           </p>
 

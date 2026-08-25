@@ -155,6 +155,51 @@ Not requested; found by testing the above in a browser, and each one a correctne
 
 ---
 
+## 11. NEW — Every Nigerian state and LGA, with LGA as a filter
+
+**Source:** client-supplied workbook `States and LGAs.xlsx` (26 Aug 2026) — all 36 states plus the FCT, and all 774 Local Government Areas.
+
+**Was:** the location dropdown offered six states (`Lagos, Abuja (FCT), Rivers, Oyo, Kano, Enugu`), hard-coded in three separate places — `SearchBar`, `listing-draft.ts`, and `PropertyBrowser`, which derived its list from whatever states the mock listings happened to use. A seeker outside those six could not describe where they were looking, and "state" was the finest grain available: "Lagos" covers twenty LGAs and roughly twenty million people, which is not a search result.
+
+**Now:** one table — `lib/nigeria-locations.ts` — holds all 37 states and their 774 LGAs, and every location control in the product reads from it. A second filter, **Local Government Area**, sits directly under State and is scoped by it.
+
+| Concern | Resolution |
+|---|---|
+| Where the list lives | `LGAS_BY_STATE` in `lib/nigeria-locations.ts`, generated from the client workbook. `NIGERIAN_STATES` is derived from its keys, so a state can never exist in one control and not another. |
+| Search + filter | `SearchBar` (LGA appears inside the Location column once a state is chosen) and `FilterPanel` (a primary control, under State). Both read the same table. |
+| Publishing | The listing wizard's Basics step now requires an LGA. A listing recorded only as "Lagos" is invisible to every LGA search, so making it optional would quietly punish the landlord who left it blank. |
+| Cascade | Changing or clearing the state always clears the LGA — in the search bar, the filter panel, the chips, and the wizard. An LGA belongs to exactly one state; carrying a stale one would apply a filter the control cannot display. |
+| URL | `?lga=` alongside `?state=`, so a filtered view stays shareable. An `lga` that does not belong to its `state` (hand-edited or stale link) is **dropped, not applied** — `filtersFromParams` validates the pair. |
+| Display | `formatLocation(state, lga)` renders "Eti-Osa, Lagos" on cards, detail pages, the registration wall, and the landlord's listing view — one function, so the surfaces cannot drift. |
+| Existing listings | `lga` is optional on `PropertyListing`; a listing without one still renders (state only) and simply never matches an LGA filter. The 16 mock listings were given their real LGAs. |
+| Services | The directory filters by State and LGA too, on a coverage-area model rather than a single LGA — see the sub-entry below. |
+
+**Data note.** Two names in the workbook carried stray spacing (`Ibeju- Lekki`, `Ila- Orangun`) and one an en dash (`Oshodi–Isolo`); these are normalised in the table. `KEEBI STATE` is recorded as **Kebbi**. FCT is spelled **Abuja (FCT)** — the label the listing data already used; renaming it would orphan every existing Abuja listing. Totals check out at 37 states / 774 LGAs.
+
+### 11a. Services: coverage areas, and the LGA filter that needed them
+
+The Services directory had **no location data at all** — `ServiceListing` carried a category, a provider name, a description and a verification flag, and nothing else. The homepage search bar acknowledged this with a disabled Location field reading *"Location filtering for services is coming soon"*. So "add the LGA filter to the services page" could not be a UI change alone; the record had to gain a location first.
+
+**A trade is not a building.** A property sits in one LGA and that is the whole truth about it. An electrician based in Lagos Mainland works across Shomolu, Surulere and Ikeja, and recording only where they sleep would hide them from every customer in the other three. So services do **not** reuse the property model: they carry a coverage area.
+
+| Concern | Resolution |
+|---|---|
+| Model | `ServiceListing` gains `state` and `lgas: string[]` — every LGA in that state the provider will travel to. An **empty list means the whole state**: a real answer (a mobile mechanic taking calls anywhere in Rivers), not missing data. |
+| Matching | The LGA filter asks *"do you cover here?"*, not *"are you here?"* — `coversLga()` in `lib/nigeria-locations.ts`, one function, used by the directory. A statewide provider matches every LGA in their state. |
+| Directory | State and LGA selects under the category chips, seeded and validated from `?state=` / `?lga=`. Category, state and LGA combine with AND. |
+| Homepage search bar | The Location field is **live in Services mode now**, LGA included, and both are carried into `/services?…`. Leaving it disabled would have the homepage denying a filter the page it links to actually has. |
+| Provider form | `/dashboard/service-listing` asks for a state, then a checklist of that state's LGAs with a running count, plus one "I cover the whole state" control so nobody has to tick forty-four boxes. Submitting with a state and no areas is blocked — it would publish a listing that matches no search at all. |
+| Display | Cards abbreviate ("Lagos Mainland, Shomolu +2 more, Lagos", or "Rivers — statewide"); the provider's detail page names **every** area served, since that is the page where a customer checks for their own LGA. |
+| Empty results | A location filter can genuinely empty this directory — five providers against 774 LGAs. The empty case says so and offers Clear filters, rather than showing a bare grid. |
+
+**Scope note on the model.** Coverage is expressed within **one** state. A provider working across a state line (Ogun and Lagos, say) is not representable today; that would be `coverage: { state, lgas }[]`, and it is a bigger change than the client asked for. Flagged rather than guessed at.
+
+---
+
+**Scope note.** PRODUCT_DECISIONS.md §40 enumerates the approved filter set as state, price, bedrooms, and Short-Term/Long-Term. LGA is a fifth dimension, added on the client's instruction and their own data. It is a *narrowing* of the existing location filter rather than a new kind of filter, and it keeps the PRD's rule that location is a fixed dropdown and never free text. The Services directory previously had no location filter of any kind; §11a records what giving it one required.
+
+---
+
 ## Open items — still need client confirmation
 
 Carried forward from Spec §4 and the revision request. **None of these were guessed at**; each has a documented interim and a single place to change it.
@@ -168,5 +213,6 @@ Carried forward from Spec §4 and the revision request. **None of these were gue
 | 5 | Are Service Provider and Advertiser still in scope? | Still offered, visually secondary | `SECONDARY_ROLES` in `app/register/page.tsx` |
 | 6 | Brand-owner decision on an error/rejected colour | Flagged proposal, unchanged | `--color-status-rejected` |
 | 7 | Logo-as-home vs. an explicit label | Logo (the spec's own recommended default) | `Header.tsx` |
+| 8 | Can a service provider cover **more than one state**? (Multi-LGA coverage within a state is implemented — §11a.) | Coverage is a list of LGAs inside one state; an empty list means statewide | `ServiceListing.lgas` in `lib/types.ts` (§11a) |
 
 Also unchanged and still open: everything in [IMPLEMENTATION_NOTES.md](./IMPLEMENTATION_NOTES.md). None of those nine items were silently resolved by this pass.

@@ -140,9 +140,13 @@ export function PropertyBrowser() {
     }
   }, [filters, mode]);
 
+  // Changing the state drops the LGA with it. LGAs are state-scoped, so
+  // "Lagos / Ikeja" -> "Oyo" would otherwise leave an Ikeja filter applied
+  // that the Oyo LGA list cannot even display — a hidden filter matching
+  // nothing.
   const set = useCallback(
     <K extends keyof ListingFilters>(key: K, value: ListingFilters[K]) =>
-      setFilters((prev) => ({ ...prev, [key]: value })),
+      setFilters((prev) => (key === "state" ? { ...prev, state: value as string, lga: "" } : { ...prev, [key]: value })),
     []
   );
 
@@ -163,6 +167,8 @@ export function PropertyBrowser() {
         return { ...prev, amenities: prev.amenities.filter((a) => a !== chip.value) };
       }
       if (chip.key === "verifiedOnly") return { ...prev, verifiedOnly: false };
+      // Same reasoning as `set`: an LGA cannot outlive its state.
+      if (chip.key === "state") return { ...prev, state: "", lga: "" };
       return { ...prev, [chip.key]: "" };
     });
   }, []);
@@ -171,8 +177,6 @@ export function PropertyBrowser() {
     const matched = mockListings.filter((l) => matchesFilters(l, mode, filters));
     return sortListings(matched, filters.sort);
   }, [mode, filters]);
-
-  const states = useMemo(() => Array.from(new Set(mockListings.map((l) => l.state))).sort(), []);
 
   // Prefer the bucket's own wording; fall back to formatting the raw range
   // so an off-bucket value from a shared URL still reads as a price, not as
@@ -190,7 +194,6 @@ export function PropertyBrowser() {
       filters={filters}
       set={set}
       toggleAmenity={toggleAmenity}
-      states={states}
     />
   );
 

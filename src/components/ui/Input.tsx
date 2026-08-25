@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 // by the consumer, never a generic "Invalid input" default).
 
 const fieldBase =
-  "w-full rounded-[var(--radius-control)] border bg-[var(--color-surface-raised)] px-4 py-3 text-[var(--color-text-primary)] outline-none transition-[border-color,box-shadow] duration-[var(--motion-duration-short)] placeholder:text-[var(--color-text-secondary)]/60 hover:border-[var(--color-deep-blue)]/40 focus:border-[var(--color-brand-accent)] focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-dark-blue)_12%,transparent)]";
+  "w-full rounded-[var(--radius-control)] border bg-[var(--color-surface-raised)] px-4 py-3 text-[var(--color-text-primary)] outline-none transition-[border-color,box-shadow] duration-[var(--motion-duration-short)] placeholder:text-[var(--color-text-secondary)]/60 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-[var(--color-border-default)] hover:border-[var(--color-deep-blue)]/40 focus:border-[var(--color-brand-accent)] focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-dark-blue)_12%,transparent)]";
 
 export const Label = ({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) => (
   <label className={cn("mb-1.5 block text-sm font-bold text-[var(--color-text-primary)]", className)} {...props} />

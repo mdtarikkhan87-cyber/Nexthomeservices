@@ -40,6 +40,8 @@ export interface ListingTeaser {
   price: number;
   currency: string;
   state: string;
+  /** See PropertyListing.lga. */
+  lga?: string;
   bedrooms: number;
   photoUrl: string;
   verified: boolean;
@@ -127,6 +129,10 @@ export interface PropertyListing {
   price: number;
   currency: "USD" | "NGN";
   state: string;
+  /** Local Government Area within `state`. Optional on the type so listings
+      created before LGAs existed still parse; a listing without one simply
+      cannot match an LGA filter. See lib/nigeria-locations.ts. */
+  lga?: string;
   bedrooms: number;
   rentDuration?: RentDuration;
   /** See the FILTERING EXTENSION note above — optional by design, and a
@@ -151,6 +157,24 @@ export interface ServiceListing {
   category: string;
   providerName: string;
   description: string;
+  /** The state the provider works in. Same vocabulary as
+      PropertyListing.state, read from lib/nigeria-locations.ts, so one
+      location filter can serve both sides of the product. */
+  state: string;
+  /**
+   * COVERAGE AREA — every LGA within `state` this provider will travel to.
+   *
+   * A trade is not "at" an address the way a property is: an electrician
+   * based in Lagos Mainland may work across Surulere, Yaba and Ikeja, and
+   * modelling that as one base LGA hid them from every customer in the other
+   * three. So this is a list, and the filter asks "do you cover here?", not
+   * "are you here?".
+   *
+   * An EMPTY list means the provider covers the whole state — that is a real
+   * answer (a mobile mechanic taking calls anywhere in Lagos), not missing
+   * data, and it matches every LGA filter within that state.
+   */
+  lgas: string[];
   photoUrl?: string;
   verified: boolean;
   status: ContentItemState;
