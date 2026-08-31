@@ -102,8 +102,13 @@ export const MODE_COPY: Record<
   sale: {
     label: "Buy",
     eyebrow: "For sale",
-    heading: "Homes to buy",
+    // Client copy, 31 Aug 2026: "Homes for sale", not "Homes to buy". The
+    // intro's "available to buy" moves with it — leaving the rejected phrasing
+    // in the sentence directly beneath the heading would only reintroduce it.
+    // `label` stays "Buy": that is the mode toggle beside "Rent", a verb pair,
+    // not a title.
+    heading: "Homes for sale",
     intro:
-      "Verified homes available to buy, reviewed by our team before they go live. Filter by state, budget, and bedrooms.",
+      "Verified homes available for sale, reviewed by our team before they go live. Filter by state, budget, and bedrooms.",
   },
 };

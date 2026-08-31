@@ -23,6 +23,7 @@ export function forwardListingParams(params: RawParams, fallbackMode?: ListingTy
   // four the previous shim happened to forward.
   for (const key of [
     "state",
+    "lga",
     "price",
     "bedrooms",
     "baths",

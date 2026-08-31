@@ -1,19 +1,17 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { AuthRequired } from "@/components/shared/AuthGate";
 import { useNotifications } from "@/lib/notification-context";
+import { ROLE_LABELS as roleLabels, roleLandingHref } from "@/lib/roles";
 import { RoleName } from "@/lib/types";
 
-const roleLabels: Record<RoleName, string> = {
-  landlord: "Landlord",
-  "tenant-buyer": "Tenant / Buyer",
-  "service-provider": "Service Provider",
-  advertiser: "Advertiser",
-};
-
+// The private copy of this label map that used to live here is gone — it is
+// how two surfaces drift into calling the same role two different things
+// (ROLE_EXPERIENCE_AUDIT.md §6, gap 8). lib/roles.ts owns the vocabulary.
 const ADDABLE: RoleName[] = ["landlord", "tenant-buyer", "service-provider", "advertiser"];
 
 // COMPONENT_ARCHITECTURE.md §4: Account/Verification Status Panel — must
@@ -37,11 +35,19 @@ export default function AccountPage() {
 function AccountContent() {
   const { roles, activeRole, setActiveRole, addRole, setTenantBuyerContext } = useAuth();
   const { notify } = useNotifications();
+  const router = useRouter();
 
   // Landlord and Service Provider enter document review; Tenant/Buyer and
   // Advertiser reach role-verified immediately (PRODUCT_DECISIONS.md §5), so
   // the two paths report genuinely different outcomes rather than one
   // generic "role added" message.
+  //
+  // ROLE-SELECTION REVISION — role added later (1 → 2 roles): the new role
+  // becomes active immediately (auth-context addRoles) and the user LANDS on
+  // its dashboard. Adding a role is an act of intent; leaving someone on the
+  // account page afterwards makes them go and find the thing they just asked
+  // for. A pending document review does not change this — the dashboard is
+  // reachable in every role state, and it is where the pending banner is.
   const handleAddRole = (r: RoleName) => {
     addRole(r);
     const needsReview = r === "landlord" || r === "service-provider";
@@ -55,6 +61,7 @@ function AccountContent() {
       href: "/account",
       status: needsReview ? "pending" : "verified",
     });
+    router.push(roleLandingHref(r));
   };
 
   return (
@@ -121,8 +128,18 @@ function AccountContent() {
                   </div>
                 )}
               </div>
+              {/* Switching from here lands on the role's home too, exactly as
+                  the header switcher does — one rule for switching, wherever
+                  it is triggered from. */}
               {activeRole !== r.role && (
-                <Button variant="secondary" size="dense" onClick={() => setActiveRole(r.role)}>
+                <Button
+                  variant="secondary"
+                  size="dense"
+                  onClick={() => {
+                    setActiveRole(r.role);
+                    router.push(roleLandingHref(r.role));
+                  }}
+                >
                   Switch to
                 </Button>
               )}

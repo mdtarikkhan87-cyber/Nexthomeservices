@@ -12,8 +12,11 @@ import { useListings } from "@/lib/listings-context";
 import {
   AMENITY_LABELS,
   Amenity,
+  BATHROOM_TYPE_LABELS,
+  BathroomType,
   FURNISHING_LABELS,
   FurnishingStatus,
+  OccupancyType,
   PROPERTY_TYPE_LABELS,
   PropertyListing,
   PropertyType,
@@ -24,13 +27,18 @@ import {
   LISTING_STATES,
   ListingDraft,
   MAX_IMAGES,
+  MAX_OCCUPANTS_PER_ROOM,
+  MAX_ROOMS,
   STEPS,
   firstInvalidStep,
   formatNaira,
+  isSharedDraft,
   rejectImage,
   validateAll,
   validateStep,
 } from "@/lib/listing-draft";
+import { buildRooms } from "@/lib/shared-property";
+import { lgasForState } from "@/lib/nigeria-locations";
 
 type Outcome = "blocked" | "subscription" | "submitted" | null;
 
@@ -68,7 +76,11 @@ export default function PostPropertyPage() {
   const step = STEPS[stepIndex].id;
 
   const set = useCallback(<K extends keyof ListingDraft>(key: K, value: ListingDraft[K]) => {
-    setDraft((prev) => ({ ...prev, [key]: value }));
+    // Changing the state resets the LGA: LGAs belong to exactly one state, so
+    // keeping the old one would publish a location that does not exist.
+    setDraft((prev) =>
+      key === "state" ? { ...prev, state: value as string, lga: "" } : { ...prev, [key]: value }
+    );
     // Clear this field's error as soon as the user edits it — leaving a stale
     // error under a field the user has already fixed is its own usability bug.
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
@@ -156,17 +168,44 @@ export default function PostPropertyPage() {
       return;
     }
 
+    const shared = isSharedDraft(draft);
+    const listingId = `draft-${Date.now()}`;
+    const roomCount = Number(draft.totalRooms);
+
     const listing: PropertyListing = {
-      id: `draft-${Date.now()}`,
+      id: listingId,
       type: draft.type,
       title: draft.title.trim(),
+      // On a shared listing this is the per-room rent — the number the renter
+      // actually pays, and therefore the honest one to filter and sort on.
+      // It is mirrored into `shared.rentPerRoom` below.
       price: Number(draft.price),
       currency: "NGN",
       state: draft.state,
-      bedrooms: Number(draft.bedrooms),
+      lga: draft.lga,
+      // A shared listing derives its bedroom count from its rooms rather than
+      // asking twice — one number, so the two can never disagree, and the
+      // existing bedrooms filter keeps working untouched.
+      bedrooms: shared ? roomCount : Number(draft.bedrooms),
       bathrooms: Number(draft.bathrooms),
       propertyType: draft.propertyType as PropertyType,
       amenities: draft.amenities,
+      // Written only when shared. An entire-property listing carries neither
+      // field, exactly like every listing created before this feature — which
+      // is what "absent means entire" is protecting.
+      ...(shared
+        ? {
+            occupancyType: "shared" as const,
+            shared: {
+              totalRooms: roomCount,
+              bathroomType: draft.bathroomType as BathroomType,
+              kitchenShared: draft.kitchenShared,
+              maxOccupantsPerRoom: Number(draft.maxOccupantsPerRoom),
+              rentPerRoom: Number(draft.price),
+              rooms: buildRooms(listingId, roomCount),
+            },
+          }
+        : {}),
       ...(draft.type === "rent"
         ? {
             rentDuration: draft.rentDuration,
@@ -278,7 +317,14 @@ export default function PostPropertyPage() {
                 <button
                   key={t}
                   type="button"
-                  onClick={() => set("type", t)}
+                  onClick={() => {
+                    set("type", t);
+                    // Switching to For Sale clears any shared configuration
+                    // rather than hiding it: a stale shared object surviving
+                    // behind a sale listing is exactly the invalid state the
+                    // rent-only rule exists to prevent.
+                    if (t === "sale") set("occupancyType", "entire");
+                  }}
                   aria-pressed={draft.type === t}
                   className={`rounded-[var(--radius-control)] px-4 py-2 text-sm font-bold transition-colors duration-[var(--motion-duration-short)] ${
                     draft.type === t
@@ -291,6 +337,62 @@ export default function PostPropertyPage() {
               ))}
             </div>
           </div>
+
+          {/* PROPERTY TYPE selector — rentals only. A shared property is a
+              tenancy arrangement; one room of a house is not a thing you buy,
+              so on a sale listing this control does not exist rather than
+              existing and being disabled. "Entire Property" is preselected and
+              leaves the rest of the form exactly as it was. */}
+          {draft.type === "rent" && (
+            <div>
+              <Label htmlFor="occupancy">How is it let?</Label>
+              <div
+                id="occupancy"
+                className="mt-1 grid grid-cols-1 gap-2.5 sm:grid-cols-2"
+                role="radiogroup"
+                aria-label="How is it let?"
+              >
+                {(
+                  [
+                    {
+                      value: "entire",
+                      label: "Entire Property",
+                      blurb: "One tenant or household takes the whole place.",
+                    },
+                    {
+                      value: "shared",
+                      label: "Shared Property",
+                      blurb: "Let room by room, with shared facilities.",
+                    },
+                  ] as { value: OccupancyType; label: string; blurb: string }[]
+                ).map((o) => {
+                  const selected = draft.occupancyType === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => set("occupancyType", o.value)}
+                      className={`rounded-[var(--radius-card)] border p-3.5 text-left transition-[border-color,background-color,box-shadow] duration-[var(--motion-duration-short)] ${
+                        selected
+                          ? "border-[var(--color-brand-primary)] bg-[color-mix(in_srgb,var(--color-brand-primary)_8%,transparent)] shadow-[var(--elevation-xs)]"
+                          : "border-[var(--color-border-hairline)] hover:border-[var(--color-brand-accent)]"
+                      }`}
+                    >
+                      <span className="block text-sm font-bold text-[var(--color-text-primary)]">
+                        {o.label}
+                      </span>
+                      <span className="u-ui mt-0.5 block text-[13px] text-[var(--color-text-secondary)]">
+                        {o.blurb}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {errors.occupancyType && <FieldError error={errors.occupancyType} />}
+            </div>
+          )}
 
           <div>
             <Label htmlFor="title">Listing title</Label>
@@ -338,6 +440,32 @@ export default function PostPropertyPage() {
                 ))}
               </Select>
             </div>
+            {/* LGA is required, not optional: seekers filter by the area they
+                actually want to live in, and a listing recorded only as
+                "Lagos" is invisible to every one of those searches. The
+                options come from the same table the filters read. */}
+            <div>
+              <Label htmlFor="lga">Local Government Area</Label>
+              <Select
+                id="lga"
+                value={draft.lga}
+                disabled={!draft.state}
+                onChange={(e) => set("lga", e.target.value)}
+                error={errors.lga}
+                hint={
+                  draft.state
+                    ? "Seekers filter by LGA, so this is how your listing gets found."
+                    : "Choose a state first."
+                }
+              >
+                <option value="">{draft.state ? "Select an LGA" : "Select a state first"}</option>
+                {lgasForState(draft.state).map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
         </>
       )}
@@ -345,7 +473,13 @@ export default function PostPropertyPage() {
       {step === "details" && (
         <>
           <div>
-            <Label htmlFor="price">{draft.type === "rent" ? "Annual rent (₦)" : "Sale price (₦)"}</Label>
+            <Label htmlFor="price">
+              {draft.type === "sale"
+                ? "Sale price (₦)"
+                : isSharedDraft(draft)
+                  ? "Annual rent per room (₦)"
+                  : "Annual rent (₦)"}
+            </Label>
             <Input
               id="price"
               type="number"
@@ -354,28 +488,134 @@ export default function PostPropertyPage() {
               value={draft.price}
               onChange={(e) => set("price", e.target.value)}
               error={errors.price}
-              hint={draft.price && !errors.price ? formatNaira(draft.price) : "Enter the full amount in naira."}
+              hint={
+                draft.price && !errors.price
+                  ? formatNaira(draft.price)
+                  : isSharedDraft(draft)
+                    ? "What one room costs for a year, in full naira."
+                    : "Enter the full amount in naira."
+              }
               placeholder="0"
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="bedrooms">Bedrooms</Label>
-              <Select
-                id="bedrooms"
-                value={draft.bedrooms}
-                onChange={(e) => set("bedrooms", e.target.value)}
-                error={errors.bedrooms}
-              >
-                <option value="">Select</option>
-                {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </Select>
+          {/* SHARED-ONLY FIELDS. They appear here, beside price and rooms,
+              because that is what they are — not in a separate step, which
+              would make the shared path feel like a different product. Every
+              control is the same Input/Select the rest of the wizard uses. */}
+          {isSharedDraft(draft) && (
+            <div className="rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-dense)]/50 p-5">
+              <p className="u-label text-[var(--color-text-secondary)]">Shared property details</p>
+              <p className="u-ui mt-1.5 text-[13px] text-[var(--color-text-secondary)]">
+                Renters enquire about one specific room. You mark rooms occupied or available yourself,
+                from the listing&apos;s management page.
+              </p>
+
+              <div className="mt-4 flex flex-col gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {/* NO `min`/`max` ATTRIBUTES ON THESE TWO, deliberately.
+                      Continue is a submit button, so native HTML5 constraint
+                      validation runs BEFORE React sees the event: a value
+                      outside min/max makes the browser cancel submission and
+                      show its own unstyled bubble, which means validateStep()
+                      never runs and the wizard silently refuses to advance
+                      with no message of its own on screen. Caught in testing
+                      with 25 rooms — the form just stopped responding.
+
+                      The bounds are enforced in validateStep() instead, which
+                      is where every other rule in this wizard lives and is
+                      what renders a specific, persistent, styled error
+                      (DESIGN_SYSTEM.md §9). */}
+                  <div>
+                    <Label htmlFor="total-rooms">Rooms available to let</Label>
+                    <Input
+                      id="total-rooms"
+                      type="number"
+                      inputMode="numeric"
+                      value={draft.totalRooms}
+                      onChange={(e) => set("totalRooms", e.target.value)}
+                      error={errors.totalRooms}
+                      hint={`Each one becomes a room a renter can ask about by name. Up to ${MAX_ROOMS}.`}
+                      placeholder="3"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="max-occupants">Maximum occupants per room</Label>
+                    <Input
+                      id="max-occupants"
+                      type="number"
+                      inputMode="numeric"
+                      value={draft.maxOccupantsPerRoom}
+                      onChange={(e) => set("maxOccupantsPerRoom", e.target.value)}
+                      error={errors.maxOccupantsPerRoom}
+                      hint={`How many people may share one room. Up to ${MAX_OCCUPANTS_PER_ROOM}.`}
+                      placeholder="1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="bathroom-type">Bathroom</Label>
+                  <Select
+                    id="bathroom-type"
+                    value={draft.bathroomType}
+                    onChange={(e) => set("bathroomType", e.target.value as BathroomType)}
+                    error={errors.bathroomType}
+                    hint="Whether each room has its own bathroom, or they share."
+                  >
+                    <option value="">Select</option>
+                    {(Object.keys(BATHROOM_TYPE_LABELS) as BathroomType[]).map((b) => (
+                      <option key={b} value={b}>
+                        {BATHROOM_TYPE_LABELS[b]}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
+                {/* A checkbox rather than a select: both answers are valid and
+                    neither is a missing value, so there is nothing to
+                    validate — only a fact to record. */}
+                <label className="flex min-h-11 items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={draft.kitchenShared}
+                    onChange={(e) => set("kitchenShared", e.target.checked)}
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-brand-primary)]"
+                  />
+                  <span>
+                    <span className="block text-sm font-bold text-[var(--color-text-primary)]">
+                      Kitchen is shared
+                    </span>
+                    <span className="u-ui block text-[13px] text-[var(--color-text-secondary)]">
+                      Leave unticked if each room has its own kitchen or kitchenette.
+                    </span>
+                  </span>
+                </label>
+              </div>
             </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* Bedrooms is not asked on a shared listing — the room count is
+                the bedroom count, and it is derived from it on submit. */}
+            {!isSharedDraft(draft) && (
+              <div>
+                <Label htmlFor="bedrooms">Bedrooms</Label>
+                <Select
+                  id="bedrooms"
+                  value={draft.bedrooms}
+                  onChange={(e) => set("bedrooms", e.target.value)}
+                  error={errors.bedrooms}
+                >
+                  <option value="">Select</option>
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
             <div>
               <Label htmlFor="bathrooms">Bathrooms</Label>
               <Select
@@ -553,11 +793,32 @@ export default function PostPropertyPage() {
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] p-5 sm:grid-cols-3">
             {[
               { k: "Intent", v: draft.type === "rent" ? "For Rent" : "For Sale" },
+              ...(draft.type === "rent"
+                ? [{ k: "Let as", v: isSharedDraft(draft) ? "Shared Property" : "Entire Property" }]
+                : []),
               { k: "Title", v: draft.title.trim() || "—" },
               { k: "Type", v: draft.propertyType ? PROPERTY_TYPE_LABELS[draft.propertyType] : "—" },
               { k: "State", v: draft.state || "—" },
-              { k: draft.type === "rent" ? "Annual rent" : "Sale price", v: formatNaira(draft.price) },
-              { k: "Bedrooms", v: draft.bedrooms || "—" },
+              { k: "LGA", v: draft.lga || "—" },
+              {
+                k: draft.type === "sale"
+                  ? "Sale price"
+                  : isSharedDraft(draft)
+                    ? "Rent per room"
+                    : "Annual rent",
+                v: formatNaira(draft.price),
+              },
+              ...(isSharedDraft(draft)
+                ? [
+                    { k: "Rooms to let", v: draft.totalRooms || "—" },
+                    {
+                      k: "Bathroom",
+                      v: draft.bathroomType ? BATHROOM_TYPE_LABELS[draft.bathroomType] : "—",
+                    },
+                    { k: "Kitchen", v: draft.kitchenShared ? "Shared" : "Not shared" },
+                    { k: "Max per room", v: draft.maxOccupantsPerRoom || "—" },
+                  ]
+                : [{ k: "Bedrooms", v: draft.bedrooms || "—" }]),
               { k: "Bathrooms", v: draft.bathrooms || "—" },
               ...(draft.type === "rent"
                 ? [

@@ -3,8 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { mockServices } from "@/lib/mock-data";
-
-const NIGERIAN_STATES = ["Lagos", "Abuja (FCT)", "Rivers", "Oyo", "Kano", "Enugu"];
+import { NIGERIAN_STATES, lgasForState } from "@/lib/nigeria-locations";
 
 // Service categories are read from the catalog, not hard-coded, so this list
 // and the /services directory can never disagree about what exists.
@@ -95,6 +94,9 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
   const router = useRouter();
   const [mode, setMode] = useState<SearchMode>(initialMode);
   const [state, setState] = useState("");
+  // LGA is state-scoped, so it is cleared whenever the state changes rather
+  // than being allowed to go stale against a state that does not contain it.
+  const [lga, setLga] = useState("");
   const [priceRange, setPriceRange] = useState("");
   const [bedrooms, setBedrooms] = useState("");
   const [duration, setDuration] = useState("");
@@ -104,18 +106,23 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
   // longer carried as a query param into a shared /search page, it selects
   // /buy or /rent. The filter params themselves are unchanged.
   const handleSearch = () => {
-    // Services routes to its own directory. Location is intentionally NOT
-    // carried: ServiceListing has no location field yet (see the disabled
-    // field below), so sending a `state` param would be a filter that
-    // silently does nothing.
+    // Services routes to its own directory, and now carries location with it:
+    // ServiceListing has a state and an LGA (added when the directory gained
+    // its location filter), so these params land as real, applied filters
+    // rather than the no-op they would have been before.
     if (mode === "services") {
-      const qs = serviceType ? `?category=${encodeURIComponent(serviceType)}` : "";
-      router.push(`/services${qs}`);
+      const p = new URLSearchParams();
+      if (serviceType) p.set("category", serviceType);
+      if (state) p.set("state", state);
+      if (state && lga) p.set("lga", lga);
+      const qs = p.toString();
+      router.push(`/services${qs ? `?${qs}` : ""}`);
       return;
     }
 
     const params = new URLSearchParams();
     if (state) params.set("state", state);
+    if (state && lga) params.set("lga", lga);
     if (priceRange) params.set("price", priceRange);
     if (bedrooms) params.set("bedrooms", bedrooms);
     if (mode === "rent" && duration) params.set("duration", duration);
@@ -191,34 +198,50 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
           {/* Kept a dropdown, not free text — PRD §4: "Location filtering
               uses a dropdown list of states rather than free text, so
               results stay accurate." */}
-          {/* Rendered in every mode so the bar keeps a consistent shape, but
-              DISABLED for Services: ServiceListing carries no location field
-              yet, so an enabled control here would collect input that the
-              directory cannot act on. Disabled rather than hidden — the user
-              asked for the field to be present — and it is removed from the
-              tab order, with the reason stated in the label instead of
-              leaving it mysteriously dead. */}
+          {/* Live in every mode, Services included. It used to be disabled
+              there with a "coming soon" note, because ServiceListing had no
+              location to filter on; it has one now, and the directory filters
+              by it, so leaving this dead would have the homepage denying a
+              feature the page it links to actually has. */}
           <select
             id="sb-location"
-            value={mode === "services" ? "" : state}
-            onChange={(e) => setState(e.target.value)}
-            disabled={mode === "services"}
-            aria-describedby={mode === "services" ? "sb-location-note" : undefined}
-            className={`${fieldValue} disabled:cursor-not-allowed disabled:text-[var(--color-text-secondary)]/50`}
+            value={state}
+            onChange={(e) => {
+              setState(e.target.value);
+              setLga("");
+            }}
+            className={fieldValue}
           >
-            <option value="">{mode === "services" ? "Any location" : "State, locality or area"}</option>
-            {mode !== "services" &&
-              NIGERIAN_STATES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+            <option value="">{mode === "services" ? "Any state" : "State, locality or area"}</option>
+            {NIGERIAN_STATES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          {/* LGA lives INSIDE the Location column rather than taking a column
+              of its own: a sixth `fr` track in rent mode would squeeze every
+              field back to the cramped widths the grid pass just fixed. It
+              appears only once a state is chosen, because until then it has
+              nothing to offer — an LGA name is only unambiguous within its
+              state. */}
+          {state && (
+            <select
+              id="sb-lga"
+              aria-label="Local Government Area"
+              value={lga}
+              onChange={(e) => setLga(e.target.value)}
+              className="u-ui mt-1.5 w-full appearance-none overflow-hidden text-ellipsis whitespace-nowrap bg-transparent text-[13px] font-medium text-[var(--color-text-secondary)] outline-none"
+            >
+              <option value="">All LGAs in {state}</option>
+              {lgasForState(state).map((l) => (
+                <option key={l} value={l}>
+                  {l}
                 </option>
               ))}
-          </select>
-          {mode === "services" && (
-            <p id="sb-location-note" className="u-ui mt-1 text-[11px] text-[var(--color-text-secondary)]/70">
-              Location filtering for services is coming soon
-            </p>
+            </select>
           )}
+
         </div>
 
         {/* Property-only fields. `PRICE_RANGES[mode]` is indexed here, which

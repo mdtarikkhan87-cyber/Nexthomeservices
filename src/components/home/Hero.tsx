@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { IconArrowRight, IconShield } from "@/components/ui/icons";
+import { IconShield } from "@/components/ui/icons";
 import { PropertyListing } from "@/lib/types";
 
 // ============================================================================
@@ -18,8 +18,10 @@ import { PropertyListing } from "@/lib/types";
 // contained block above the copy, since a bleeding image on a phone just
 // crops the subject.
 //
-// CONTENT IS UNCHANGED — same eyebrow, same headline wording, same
-// description, same two CTAs and destinations, same featured listing.
+// CONTENT: same eyebrow, same headline wording, same description, same
+// featured listing. The two CTAs the redesign preserved were removed on 31
+// Aug 2026 — see the note at the foot of the type column for why, and for
+// where their destinations still live.
 //
 // TASK 1: the floating dark "Services" card that used to sit over the
 // photograph has been DELETED, not restyled. The hero image is now clean.
@@ -44,10 +46,12 @@ export function Hero({ listing }: { listing: PropertyListing }) {
           and slightly overshoots the container, so it feels part of the page
           rather than placed on it. */}
       {/* `lg:pb-14` is load-bearing, not decoration: it extends the section
-          (and with it the inset-anchored photograph) below the CTA buttons so
-          the search card can be pulled up into a true half-on/half-off
-          straddle WITHOUT landing on "Browse rentals". Measured — without it
-          a 50% straddle overlapped the button by 25px. */}
+          (and with it the inset-anchored photograph) far enough below the type
+          for the search card to be pulled up into a true half-on/half-off
+          straddle. It originally existed to keep that straddle off the
+          "Browse rentals" button; with the buttons gone it still sets the
+          section's bottom edge, which is what the card's negative margin at
+          the call site is measured against. Kept, with its reason updated. */}
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:pb-14">
         <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[56%] lg:block">
           <Link
@@ -96,23 +100,17 @@ export function Hero({ listing }: { listing: PropertyListing }) {
             scattered groups and unreliable agents.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link
-              href="/listings?mode=rent"
-              className="group inline-flex items-center gap-2.5 rounded-full bg-[var(--color-brand-primary)] py-3 pl-6 pr-3 text-sm font-bold text-white shadow-[var(--elevation-sm)] transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-brand-primary-hover)]"
-            >
-              Browse rentals
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 transition-transform duration-[var(--motion-duration-short)] group-hover:translate-x-0.5">
-                <IconArrowRight className="h-3.5 w-3.5" />
-              </span>
-            </Link>
-            <Link
-              href="/listings?mode=sale"
-              className="inline-flex items-center rounded-full border border-[var(--color-border-default)] px-6 py-3 text-sm font-bold text-[var(--color-text-primary)] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-deep-blue)]"
-            >
-              Homes for sale
-            </Link>
-          </div>
+          {/* THE TWO CTAs THAT SAT HERE ARE GONE (client, 31 Aug 2026).
+              "Browse rentals" and "Homes for sale" were a second way to do
+              what the search panel directly below already does better: they
+              chose a mode and nothing else, so anyone who used one landed on
+              an unfiltered list and had to start filtering anyway. The search
+              card is now the single entry point, and it carries the whole
+              query — mode, state, LGA, price, bedrooms, duration.
+
+              NO DESTINATION WAS LOST. /listings?mode=rent and ?mode=sale are
+              still reached from the search panel's Rent/Buy tabs, the header's
+              Listings link, and the footer. */}
         </div>
 
         {/* ---------- Photograph, compact viewports ---------------------- */}

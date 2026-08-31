@@ -32,11 +32,16 @@ export default async function ListingDetailPage({ params }: PageProps<"/listing/
     price: listing.price,
     currency: listing.currency,
     state: listing.state,
+    lga: listing.lga,
     bedrooms: listing.bedrooms,
     photoUrl: listing.photoUrl,
     verified: listing.verified,
     viewCount: listing.viewCount,
     rentDuration: listing.rentDuration,
+    // The category label only — never the room records, the available count,
+    // the per-room rent or the facility details. Those stay behind the wall
+    // (REVISION_LOG.md §15).
+    occupancyType: listing.occupancyType,
     galleryCount: listing.galleryUrls?.length ?? 1,
   };
 

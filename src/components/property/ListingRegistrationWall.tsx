@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { IconCheck, IconLock, IconMessageCircle, IconStar } from "@/components/ui/icons";
 import { ListingTeaser } from "@/lib/types";
+import { formatLocation } from "@/lib/nigeria-locations";
 
 // ---------------------------------------------------------------------------
 // The anonymous view of a property detail page (Website Revision Spec §3B).
@@ -44,7 +45,15 @@ import { ListingTeaser } from "@/lib/types";
 
 function formatPrice(listing: ListingTeaser) {
   const amount = new Intl.NumberFormat("en-NG").format(listing.price);
-  return `${listing.currency === "NGN" ? "₦" : "$"}${amount}${listing.type === "rent" ? "/yr" : ""}`;
+  // Matches PropertyCard's suffix exactly. Card parity is this component's
+  // whole contract — a card reading "/room" and the page it links to reading
+  // "/yr" for the same number is the kind of small disagreement that makes a
+  // listing look untrustworthy, which is the one thing this product cannot
+  // afford. The per-room amount itself is public because the PRICE is public;
+  // what stays gated is how many rooms are left and what they include.
+  const suffix =
+    listing.type === "rent" ? (listing.occupancyType === "shared" ? "/room" : "/yr") : "";
+  return `${listing.currency === "NGN" ? "₦" : "$"}${amount}${suffix}`;
 }
 
 /** What registration unlocks, stated as facts about this listing rather than
@@ -132,6 +141,16 @@ export function ListingRegistrationWall({ teaser }: { teaser: ListingTeaser }) {
             ) : (
               <StatusBadge kind="pending" label="Not yet verified" />
             )}
+            {/* Card parity, and nothing more. The badge is a category label —
+                the same class of fact as type, bedrooms and duration, all of
+                which this wall already shows. Room-level facts (how many are
+                free, what one costs, the bathroom and kitchen arrangement)
+                stay behind the wall; see the redacted Rooms block below. */}
+            {listing.occupancyType === "shared" && (
+              <span className="rounded-full bg-[var(--color-surface-dense)] px-3 py-1 text-sm font-bold text-[var(--color-text-secondary)]">
+                Shared Property
+              </span>
+            )}
             {listing.rentDuration && (
               <span className="rounded-full bg-[var(--color-surface-dense)] px-3 py-1 text-sm font-bold text-[var(--color-text-secondary)]">
                 {listing.rentDuration === "short-term" ? "Short-Term" : "Long-Term"}
@@ -141,12 +160,19 @@ export function ListingRegistrationWall({ teaser }: { teaser: ListingTeaser }) {
 
           <h1 className="mt-2.5 text-2xl font-bold text-[var(--color-text-primary)]">{listing.title}</h1>
           <p className="u-ui mt-1.5 text-[var(--color-text-secondary)]">
-            {listing.state} · {listing.bedrooms} bedroom{listing.bedrooms !== 1 ? "s" : ""} ·{" "}
+            {formatLocation(listing.state, listing.lga)} · {listing.bedrooms} bedroom{listing.bedrooms !== 1 ? "s" : ""} ·{" "}
             {listing.viewCount} views
           </p>
 
           <div className="mt-8 flex flex-col gap-8">
             <RedactedBlock title="About this property" lines={[100, 96, 88, 62]} />
+            {/* The room detail is gated, so it is shown as redacted rather
+                than omitted — the whole point of these blocks is to say that
+                more exists, and for a shared listing this is the part a
+                renter most wants. */}
+            {listing.occupancyType === "shared" && (
+              <RedactedBlock title="Rooms and facilities" lines={[82, 60, 74]} className="border-t-0 pt-0" />
+            )}
             <RedactedBlock title="Specification" lines={[70, 55]} className="border-t-0 pt-0" />
             <RedactedBlock title="Amenities" lines={[64, 78, 48]} className="border-t-0 pt-0" />
           </div>

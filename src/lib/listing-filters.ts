@@ -8,6 +8,7 @@ import {
   PropertyListing,
   PropertyType,
 } from "./types";
+import { isLgaInState } from "./nigeria-locations";
 
 // ---------------------------------------------------------------------------
 // One place that owns filtering: the shape, the URL encoding, the predicate,
@@ -44,6 +45,9 @@ export function formatPriceRange(value: string): string {
 
 export interface ListingFilters {
   state: string;
+  /** Local Government Area. Only meaningful with a state selected — an LGA
+      name is not unique across Nigeria, so it is always scoped by its state. */
+  lga: string;
   /** "min-max"; max omitted for open-ended ("2000000-"). */
   priceRange: string;
   /** Minimum, not exact — the control is labelled "2+". */
@@ -62,6 +66,7 @@ export interface ListingFilters {
 
 export const EMPTY_FILTERS: ListingFilters = {
   state: "",
+  lga: "",
   priceRange: "",
   bedrooms: "",
   bathrooms: "",
@@ -99,8 +104,16 @@ export function filtersFromParams(params: URLSearchParams): ListingFilters {
 
   const sort = params.get("sort");
 
+  const state = params.get("state") ?? "";
+  // An LGA without its state, or paired with the wrong one, is dropped rather
+  // than applied: a hand-edited or stale link would otherwise filter on a
+  // location the state select cannot even display.
+  const lgaParam = params.get("lga") ?? "";
+  const lga = state && isLgaInState(state, lgaParam) ? lgaParam : "";
+
   return {
-    state: params.get("state") ?? "",
+    state,
+    lga,
     priceRange: params.get("price") ?? "",
     bedrooms: params.get("bedrooms") ?? "",
     bathrooms: params.get("baths") ?? "",
@@ -116,6 +129,7 @@ export function filtersFromParams(params: URLSearchParams): ListingFilters {
 export function filtersToParams(f: ListingFilters): URLSearchParams {
   const p = new URLSearchParams();
   if (f.state) p.set("state", f.state);
+  if (f.state && f.lga) p.set("lga", f.lga);
   if (f.priceRange) p.set("price", f.priceRange);
   if (f.bedrooms) p.set("bedrooms", f.bedrooms);
   if (f.bathrooms) p.set("baths", f.bathrooms);
@@ -144,6 +158,7 @@ export function matchesFilters(listing: PropertyListing, mode: ListingType, f: L
   if (listing.type !== mode) return false;
 
   if (f.state && listing.state !== f.state) return false;
+  if (f.lga && listing.lga !== f.lga) return false;
 
   if (f.priceRange) {
     const [minStr, maxStr] = f.priceRange.split("-");
@@ -205,6 +220,7 @@ export interface ActiveChip {
 export function activeChips(f: ListingFilters, mode: ListingType, priceLabel: (v: string) => string): ActiveChip[] {
   const chips: ActiveChip[] = [];
   if (f.state) chips.push({ key: "state", label: f.state });
+  if (f.lga) chips.push({ key: "lga", label: f.lga });
   if (f.priceRange) chips.push({ key: "priceRange", label: priceLabel(f.priceRange) });
   if (f.bedrooms) chips.push({ key: "bedrooms", label: `${f.bedrooms}+ bed` });
   if (f.bathrooms) chips.push({ key: "bathrooms", label: `${f.bathrooms}+ bath` });

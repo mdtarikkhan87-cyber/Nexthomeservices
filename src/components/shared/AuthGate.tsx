@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Overlay } from "@/components/ui/Overlay";
 import { useAuth } from "@/lib/auth-context";
+import { demoAccountForRoles } from "@/lib/demo-accounts";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { RoleName } from "@/lib/types";
 
@@ -94,7 +95,18 @@ function AuthPrompt({
 
   const handleInlineLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    login();
+    // Demo sign-in grants ONE role: the one this gate implies, or Renter for
+    // the gates that imply none (Message, Feedback, the dashboard itself).
+    //
+    // Single-role is the right default here specifically because of the role
+    // rules: one role means no "Act as" prompt, which means the gated action
+    // resumes instantly and exactly, as PRODUCT_DECISIONS.md §10 requires.
+    // Granting a multi-role account at this moment would interrupt the very
+    // action the user was in the middle of with a dialog about roles.
+    // Multi-role accounts are reachable from the demo picker on /login, and
+    // from Add a Role on /account. Real credentials remain out of scope
+    // (IMPLEMENTATION_NOTES.md #9).
+    login(demoAccountForRoles([suggestedRole ?? "tenant-buyer"]));
     onAuthenticated?.(); // exact, in-place resume — no navigation occurred
   };
 
