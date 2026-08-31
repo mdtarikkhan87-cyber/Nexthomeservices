@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { IconBell, IconChevronDown, IconClose, IconMenu } from "@/components/ui/icons";
 import { RoleSwitcher } from "@/components/shared/RoleSwitcher";
 import { useAuth } from "@/lib/auth-context";
+import { DEMO_LANDLORD_RENTER } from "@/lib/demo-accounts";
 import { useNotifications } from "@/lib/notification-context";
 import { roleDisplay } from "@/lib/roles";
 
@@ -269,9 +270,11 @@ export function Header() {
                 </Button>
               </Link>
               {/* Demo shortcut only — no real credential flow exists yet
-                  (IMPLEMENTATION_NOTES.md #9). Grants Renter + Landlord so the
-                  session prompt, the role switcher and the role-gated
-                  "List Your Property" item are all reachable in review. */}
+                  (IMPLEMENTATION_NOTES.md #9). Signs in as the two-role demo
+                  account, so the "Act as" prompt, the role switcher and the
+                  role-gated "List Your Property" item are all reachable in one
+                  click. The single-role accounts — which show the opposite
+                  behaviour, no prompt and no switcher — live on /login. */}
               {/* Wrapped rather than given `hidden lg:inline-flex` directly:
                   this repo's `cn` is a plain join with no tailwind-merge, so
                   that class fought the Button base's own `inline-flex` and lost
@@ -281,7 +284,7 @@ export function Header() {
                 <Button
                   variant="text"
                   size="dense"
-                  onClick={() => login()}
+                  onClick={() => login(DEMO_LANDLORD_RENTER)}
                   title="Demo: simulate login as a multi-role user"
                 >
                   (demo login)
@@ -306,13 +309,22 @@ export function Header() {
                   }`}
                 />
               </Button>
+              {/* NO EXIT ANIMATION on the panel below, for the reason
+                  Overlay.tsx sets out at length: every item in this menu closes
+                  it AND navigates, and a route change interrupts the exit
+                  animation before it completes — leaving the panel mounted,
+                  visible, and covering the page it just navigated to. Worse,
+                  the detached node is out of React's tree, so its "Viewing as"
+                  line freezes on whatever role was active before the navigation
+                  and contradicts the header switcher beside it. Observed in
+                  testing, not theorised. Enter is still animated; that is where
+                  the meaning is. */}
               <AnimatePresence>
                 {accountMenuOpen && (
                   <motion.div
                     role="menu"
                     initial={{ opacity: 0, y: -6, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                     className="absolute right-0 top-full mt-2 w-56 origin-top-right rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-2 shadow-[var(--elevation-lg)]"
                   >
@@ -324,7 +336,7 @@ export function Header() {
                         competing way to change it. */}
                     {activeRole && (
                       <p className="border-b border-[var(--color-border-hairline)] px-2 pb-2 pt-1 text-xs text-[var(--color-text-secondary)]">
-                        Acting as{" "}
+                        Viewing as{" "}
                         <span className="font-bold text-[var(--color-text-primary)]">
                           {roleDisplay(activeRole, roles.find((r) => r.role === activeRole)?.context)}
                         </span>
@@ -377,7 +389,9 @@ export function Header() {
             aria-label="Primary"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+            // Same reason as the account menu above — its links navigate, and
+            // an interrupted exit leaves the whole drawer stuck open over the
+            // destination page, with a stale role switcher inside it.
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             className="overflow-hidden border-t border-[var(--color-border-hairline)] md:hidden"
           >

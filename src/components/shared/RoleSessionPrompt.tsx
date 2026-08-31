@@ -1,31 +1,37 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { Overlay } from "@/components/ui/Overlay";
 import { IconArrowRight, IconHome, IconMegaphone, IconMessageCircle, IconShield } from "@/components/ui/icons";
 import { useAuth } from "@/lib/auth-context";
-import { ROLE_BLURBS, roleDisplay, roleLandingHref } from "@/lib/roles";
+import { ROLE_BLURBS, ROLE_DESTINATION_LABEL, roleDisplay, roleLandingHref } from "@/lib/roles";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { RoleName } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
-// "How do you want to act today?" — the once-per-session role prompt.
+// "How do you want to act today?" — the conditional role prompt.
 //
-// Website Revision Spec §3B, verbatim: "A user holding multiple roles is
-// prompted to choose an active role only once, at the start of a fresh session
-// (e.g. after logging in following a logout or expired session) — never on
-// every page load."
+// IT APPEARS ONLY WHEN THERE IS A GENUINE CHOICE TO MAKE. That is the whole
+// rule, and every part of it is decided in lib/auth-context.tsx
+// (`needsRoleChoice`), never here — this component renders a decision, it does
+// not make one. That separation is what guarantees the prompt cannot creep
+// back into page loads: there is no per-render condition in this file that
+// could reintroduce nagging.
 //
-// Everything about *when* this appears is decided in lib/auth-context.tsx
-// (`needsSessionRoleChoice`), not here — this component renders the decision,
-// it does not make it. That separation is what guarantees "never on every page
-// load": there is no per-render condition in this file that could reintroduce
-// nagging.
+// What "a genuine choice" excludes:
+//   • a single-role account — auto-selected, silently, always
+//   • a multi-role account with a saved, still-valid preference in
+//     localStorage["activeRole:" + user.id] — restored, silently
 //
-// NOTE — this is a NEW mechanism, not previously in PRODUCT_DECISIONS.md §8,
-// where role switching was manual and user-initiated only. It needs its own
-// decision entry; see REVISION_LOG.md.
+// CHOOSING NAVIGATES, unconditionally. The earlier version only redirected
+// from a small allow-list of entry points, to avoid sweeping someone off a
+// deep-linked listing. That guard is no longer needed and was actively wrong:
+// the prompt now only appears when there is no saved preference — i.e. at the
+// start of a genuinely fresh session — and a choice that leaves you exactly
+// where you were is indistinguishable from no choice at all. Deep links into
+// role-scoped routes are handled by RoleScoped instead, which switches the
+// role in place and never shows this prompt.
 // ---------------------------------------------------------------------------
 
 const ROLE_ICONS: Record<RoleName, typeof IconHome> = {
@@ -35,53 +41,32 @@ const ROLE_ICONS: Record<RoleName, typeof IconHome> = {
   advertiser: IconMegaphone,
 };
 
-/** Where each role lands, said plainly. A prompt that asks you to choose
-    without saying what either choice does is a quiz, not a control. */
-const ROLE_DESTINATION: Record<RoleName, string> = {
-  "tenant-buyer": "Takes you to Listings",
-  landlord: "Takes you to your Landlord dashboard",
-  "service-provider": "Takes you to your Service dashboard",
-  advertiser: "Takes you to your Advertiser dashboard",
-};
-
-/**
- * Pages where answering the prompt should also move the user to that role's
- * landing view. Spec §3B: "Active role determines the default landing view."
- *
- * It deliberately does NOT redirect from anywhere else. If someone opened a
- * shared listing link and signed in there, sweeping them off to a dashboard
- * because of a role choice would destroy the context the whole product works
- * to preserve (PRODUCT_DECISIONS.md §10). So the landing rule applies where
- * "landing" is actually what is happening — the entry points — and elsewhere
- * the choice quietly takes effect around the user, where they already are.
- */
-const LANDING_ENTRY_POINTS = ["/", "/login"];
-
 export function RoleSessionPrompt() {
-  const { needsSessionRoleChoice, roles, activeRole, chooseSessionRole } = useAuth();
+  const { needsRoleChoice, user, roles, activeRole, chooseSessionRole } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
 
   // Belt and braces: auth-context never sets the flag for a single-role user,
   // and a prompt offering one option would be a dialog with no decision in it.
-  const show = needsSessionRoleChoice && roles.length > 1;
+  // The check reads user.roles — the permanent list — for the same reason the
+  // switcher does.
+  const show = needsRoleChoice && !!user && user.roles.length > 1;
 
   useBodyScrollLock(show);
 
   const choose = (role: RoleName) => {
     chooseSessionRole(role);
-    if (LANDING_ENTRY_POINTS.includes(pathname)) {
-      router.push(roleLandingHref(role));
-    }
+    router.push(roleLandingHref(role));
   };
 
   return (
     <AnimatePresence>
       {show && (
         // Dismissing (Escape / backdrop) keeps whichever role auth-context
-        // pre-selected and settles the session, so the prompt never reappears
-        // mid-visit. The choice stays fully available afterwards through the
-        // persistent header switcher, which is the point of that switcher.
+        // pre-selected and settles the choice, so the prompt never reappears
+        // mid-visit. It deliberately does NOT navigate — a dismissal is not a
+        // selection, and someone who pressed Escape has not asked to be moved.
+        // The choice stays fully available afterwards through the persistent
+        // header switcher, which is the point of that switcher.
         <Overlay
           onDismiss={() => activeRole && chooseSessionRole(activeRole)}
           labelledBy="role-session-title"
@@ -91,8 +76,8 @@ export function RoleSessionPrompt() {
             How do you want to act today?
           </h2>
           <p className="mt-1.5 text-sm text-[var(--color-text-secondary)]">
-            Your account holds more than one role. Pick the one you want to start in — you can switch
-            any time from the header, without logging out.
+            Your account holds more than one role. Pick the one you want to start in — we&apos;ll remember
+            it, and you can switch any time from the header, without logging out.
           </p>
 
           <div className="mt-5 flex flex-col gap-2.5">
@@ -126,7 +111,7 @@ export function RoleSessionPrompt() {
                       {ROLE_BLURBS[held.role]}
                     </span>
                     <span className="u-label mt-1.5 block text-[var(--color-text-secondary)]">
-                      {ROLE_DESTINATION[held.role]}
+                      {ROLE_DESTINATION_LABEL[held.role]}
                     </span>
                   </span>
                   <IconArrowRight
@@ -139,7 +124,8 @@ export function RoleSessionPrompt() {
           </div>
 
           <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
-            Acting as a Landlord never hides Listings — you can browse homes in any role.
+            This only picks where you start. Listings, messages and your account stay open to you in
+            every role.
           </p>
         </Overlay>
       )}

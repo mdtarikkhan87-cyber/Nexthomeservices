@@ -258,3 +258,94 @@ Instead, the Tenant/Buyer role gains a switchable **context**: `"rent" | "sale"`
 The Figma design was never verified against this decision (inaccessible — see ROLE_EXPERIENCE_AUDIT.md §0). If the Figma turns out to require full role-level separation (e.g., independent verification requirements per Renter/Buyer, or independent monetization), this decision should be revisited explicitly — it was not silently assumed to be impossible, only deprioritized against the option that best fit currently-approved documentation.
 
 "Shortlets" and property categories beyond Rent/Sale remain **not approved** and were not introduced by this decision (consistent with PRD §14 and the prior SearchBar decision excluding them for the same reason).
+
+---
+
+## Decision: Role Selection & Active-Role Model
+
+**Status:** APPROVED
+**Date:** 2026-08-31
+**Supersedes/extends:** Amends §8 (Role Switching Behavior). Supersedes the once-per-session prompt model recorded in [REVISION_LOG.md](REVISION_LOG.md) §4. Amends [INFORMATION_ARCHITECTURE.md](INFORMATION_ARCHITECTURE.md) "Role Switching Access" (already amended once, in REVISION_LOG.md §3).
+**Source:** Client instruction, 31 August 2026
+
+### Background
+
+The "how do you want to act today?" screen appeared for every sign-in, including accounts holding a single role — a dialog presenting a choice with one option in it.
+
+The prompt was not the cause. The cause was that **two different concepts had never been separated**, so one value was doing two incompatible jobs: naming what a user is currently doing, and deciding what they are permitted to open. Once one value carries both meanings, every consequence follows — a prompt that has to fire before anything can render, dashboards that appear to close when a role is switched, and route protection that exists only as an absence of links.
+
+### 1. The distinction
+
+|  | `user.roles` | `activeRole` |
+|---|---|---|
+| **What it is** | The permanent set of roles the account registered for | The role the user is currently acting as |
+| **Lifetime** | Permanent. Only ever grows (§8.1: adding a role never removes one) | Session-level, freely changed, remembered per account |
+| **Stored** | On the account | `localStorage["activeRole:" + user.id]` |
+| **Decides** | **Permissions.** Every route guard and permission check reads this and only this | **View context.** Which dashboard is shown, and which role-specific *actions* are offered |
+| **Never decides** | Which dashboard is currently displayed | Whether a route may be opened |
+
+Both are set in exactly one place (`lib/auth-context.tsx`) and read through one vocabulary file (`lib/roles.ts`), so no surface can invent a third interpretation.
+
+### 2. Conditional role prompt — the rules
+
+The prompt appears **only when there is a genuine choice to make**:
+
+1. **One role** — auto-selected. Never prompted. The role switcher does not render at all.
+2. **More than one role** — the saved preference at `localStorage["activeRole:" + user.id]` is restored if it is still a role the user holds, and the prompt is skipped. Otherwise the "Act as" screen is shown.
+3. **On selection** — persist, then navigate to that role's landing page.
+
+A saved preference that is no longer in `user.roles` is **discarded**, not merely ignored, and rule 2 is re-applied.
+
+The preference deliberately **survives logout**. The previous model wiped it on sign-out, which is why a returning multi-role user was re-asked every time. A remembered answer is the mechanism that makes "only when there is a real choice" true across sessions, not only within one.
+
+### 3. Landing pages
+
+A landing page is a **post-login destination, not an access boundary**. Being sent somewhere says nothing about what else the account may open.
+
+| Role | Lands on |
+|---|---|
+| Landlord | `/dashboard/landlord` |
+| Tenant/Buyer (Renter) | `/listings` |
+| Service Provider | `/dashboard/services` |
+| Advertiser | `/dashboard/ads` |
+
+Applies after sign-in, after answering the prompt, after switching role, and after adding a role.
+
+### 4. Route access buckets
+
+| Bucket | Who | Contains |
+|---|---|---|
+| **public** | anyone | Homepage, listings grid, the partial (teaser) listing detail |
+| **shared** | any signed-in user, **whatever role they are acting as** | Full listing detail, enquire, save, `/dashboard`, `/dashboard/messages`, `/dashboard/notifications`, `/account` |
+| **role-scoped** | `user.roles.includes(requiredRole)` | The four dashboards |
+
+**Listings is shared, not Tenant/Buyer-scoped.** A Landlord-only account browses listings freely, and the Listings nav item stays visible to every signed-in user. This is stated explicitly because the natural mistake — treating browsing as the Renter's dashboard — would lock a landlord out of the product's main surface for holding the wrong role.
+
+### 5. Role switcher
+
+Header dropdown reading **"Viewing as: {role}"**. It renders only when `user.roles.length > 1` — checked against the permanent list, so it can never appear for a single-role account in any view context.
+
+Changing role updates `activeRole`, persists it, **and navigates** to that role's landing page. It does not merely re-render the current page: a switch that leaves the user where they were is indistinguishable from no switch at all.
+
+### 6. Edge cases
+
+| Case | Resolution |
+|---|---|
+| Deep link to a role-scoped route while acting as a **different role the user also holds** | Switch `activeRole` automatically, announce it briefly, and let them through. Never block — they hold the role, and a view context should follow the user rather than argue with them. |
+| Account does **not** hold the role | Block, naming the missing role specifically, with Add a Role (§8.1) as the way forward. |
+| Role added later (1 → 2 roles) | The new role becomes active immediately and the user lands on its dashboard. Asking which role, one second after they said, is an echo rather than a choice. |
+| Saved `activeRole` no longer in `user.roles` | Discard it and re-apply the rules in §2. |
+
+### 7. Cross-role actions — enquire and save
+
+**Any signed-in user may enquire and save, regardless of role.** No role check, and no prompt to add the Tenant/Buyer role first.
+
+The alternative considered was to intercept a non-tenant with an offer to add the Tenant/Buyer role in one click. It was rejected because it contradicts §4: enquire and save are *shared* actions, and gating them on a role would make the shared bucket untrue at the two points where it matters most. A landlord who wants to message another landlord about a flat is behaving perfectly reasonably, and the account model already lets one person hold both roles precisely so this is not a wall.
+
+### 8. What this amends, stated plainly
+
+- **§8 above** said role switching is "accessible from the account/profile area" and described switching as changing dashboard context. It is now a persistent header control, and it navigates. (The header placement was already amended once by the client revision — REVISION_LOG.md §3.)
+- **REVISION_LOG.md §4** recorded a once-per-*session* prompt held in `sessionStorage` and cleared on logout. It is now a conditional prompt with a per-account preference in `localStorage` that survives logout.
+- **INFORMATION_ARCHITECTURE.md** listed dashboards as reachable by role without defining any enforcement. Role-scoped routes are now genuinely guarded; previously the only thing standing between a role and another role's routes was the sidebar not linking there.
+
+Nothing else in this document is changed. The four-role list (§1), the account-level vs. role-level verification model (§6), Trust Layer reuse (§8.1), and the Renter/Buyer context decision are all untouched — this decision separates *selection* from *permission*, and touches neither the roles themselves nor their states.

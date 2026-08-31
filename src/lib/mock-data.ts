@@ -371,6 +371,99 @@ export const mockListings: PropertyListing[] = [
     description:
       "Character-filled courtyard house in Port Harcourt's Old GRA, with mature trees and a shaded veranda on every side.",
   },
+  // -------------------------------------------------------------------------
+  // SHARED PROPERTIES (added 31 Aug 2026)
+  //
+  // Rentals only, and the only two records in this file carrying
+  // `occupancyType`/`shared` — the sixteen above are untouched and still parse
+  // exactly as before, which is the point of the field being optional.
+  //
+  // `price` equals `shared.rentPerRoom` on both: what a renter pays for a
+  // shared property is the room rent, so that is what the price filter, the
+  // sort and the card should be reading.
+  //
+  // "18" is deliberately FULLY OCCUPIED. A shared listing with no rooms left
+  // has to stay viewable while refusing new enquiries, and that state needs to
+  // exist in the catalog or it never gets looked at.
+  // -------------------------------------------------------------------------
+  {
+    id: "17",
+    type: "rent",
+    title: "Room in Shared 4-Bedroom Flat, Yaba",
+    price: 700000,
+    currency: "NGN",
+    state: "Lagos",
+    lga: "Lagos Mainland",
+    bedrooms: 4,
+    propertyType: "apartment",
+    bathrooms: 2,
+    furnishing: "semi-furnished",
+    amenities: ["borehole", "power-backup", "parking", "fitted-kitchen"],
+    rentDuration: "long-term",
+    occupancyType: "shared",
+    shared: {
+      totalRooms: 4,
+      bathroomType: "shared",
+      kitchenShared: true,
+      maxOccupantsPerRoom: 1,
+      rentPerRoom: 700000,
+      rooms: [
+        { id: "17-r1", label: "Room 1", status: "occupied" },
+        { id: "17-r2", label: "Room 2", status: "available" },
+        { id: "17-r3", label: "Room 3", status: "available" },
+        { id: "17-r4", label: "Room 4", status: "occupied" },
+      ],
+    },
+    photoUrl: "https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=1200&q=70",
+    galleryUrls: [
+      "https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=1200&q=70",
+      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=70",
+      "https://images.unsplash.com/photo-1484154218962-a197022b5858?w=1200&q=70",
+    ],
+    verified: true,
+    status: "live",
+    viewCount: 143,
+    description:
+      "A room in a well-kept four-bedroom flat a short walk from the Yaba tech cluster. Housemates are working professionals; the kitchen and bathrooms are shared and cleaned on a rota.",
+  },
+  {
+    id: "18",
+    type: "rent",
+    title: "Room in Shared 3-Bedroom Duplex, Wuse II",
+    price: 950000,
+    currency: "NGN",
+    state: "Abuja (FCT)",
+    lga: "Abuja Municipal Area Council",
+    bedrooms: 3,
+    propertyType: "duplex",
+    bathrooms: 3,
+    furnishing: "furnished",
+    amenities: ["borehole", "power-backup", "gated-security", "parking", "air-conditioning"],
+    rentDuration: "long-term",
+    occupancyType: "shared",
+    shared: {
+      totalRooms: 3,
+      bathroomType: "private",
+      kitchenShared: true,
+      maxOccupantsPerRoom: 2,
+      rentPerRoom: 950000,
+      rooms: [
+        { id: "18-r1", label: "Room 1", status: "occupied" },
+        { id: "18-r2", label: "Room 2", status: "occupied" },
+        { id: "18-r3", label: "Room 3", status: "occupied" },
+      ],
+    },
+    photoUrl: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=70",
+    galleryUrls: [
+      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=70",
+      "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200&q=70",
+    ],
+    verified: true,
+    status: "live",
+    viewCount: 87,
+    description:
+      "En-suite rooms in a quiet, gated Wuse II duplex with full backup power. Each room has its own bathroom; the kitchen and living areas are shared between the three tenants.",
+  },
 ];
 
 // Categories match dashboard/service-listing's approved CATEGORIES list —

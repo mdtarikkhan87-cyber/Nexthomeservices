@@ -6,7 +6,9 @@ import { ListingActions } from "@/components/property/ListingActions";
 import { PropertyGallery } from "@/components/property/PropertyGallery";
 import { IconCheck } from "@/components/ui/icons";
 import { mockListings } from "@/lib/mock-data";
-import { AMENITY_LABELS, FURNISHING_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/types";
+import { useListings } from "@/lib/listings-context";
+import { AMENITY_LABELS, BATHROOM_TYPE_LABELS, FURNISHING_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/types";
+import { isShared, roomAvailabilityLabel } from "@/lib/shared-property";
 import { formatLocation } from "@/lib/nigeria-locations";
 
 function formatPrice(price: number, currency: string, type: string) {
@@ -22,12 +24,20 @@ function formatPrice(price: number, currency: string, type: string) {
 // component with conditional sections, none of the gated content below is ever
 // serialised into the markup an anonymous visitor receives.
 export function ListingFullDetail({ id }: { id: string }) {
+  // Rooms carry this session's landlord changes applied over the catalog —
+  // marking a room occupied on the dashboard has to be visible here, or the
+  // two surfaces disagree about the same room.
+  const { resolveRooms } = useListings();
+
   // Looked up here rather than passed in as a prop: a prop would be serialised
   // into the RSC payload of every request, including the anonymous ones this
   // component is not rendered for (see ListingDetailGate). Resolving by id on
   // the client means the gated fields are only ever read after the auth check.
   const listing = mockListings.find((l) => l.id === id);
   if (!listing) return null;
+
+  const shared = isShared(listing) ? listing.shared : undefined;
+  const rooms = resolveRooms(listing);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
@@ -55,12 +65,25 @@ export function ListingFullDetail({ id }: { id: string }) {
               {formatPrice(listing.price, listing.currency, listing.type)}
             </p>
             {listing.verified ? <StatusBadge kind="verified" /> : <StatusBadge kind="pending" label="Not yet verified" />}
+            {shared && (
+              <span className="rounded-full bg-[var(--color-surface-dense)] px-3 py-1 text-sm font-bold text-[var(--color-text-secondary)]">
+                Shared Property
+              </span>
+            )}
             {listing.rentDuration && (
               <span className="rounded-full bg-[var(--color-surface-dense)] px-3 py-1 text-sm font-bold text-[var(--color-text-secondary)]">
                 {listing.rentDuration === "short-term" ? "Short-Term" : "Long-Term"}
               </span>
             )}
           </div>
+          {/* The headline price on a shared listing is one room's rent, and
+              the line under it has to say so — the number on its own is the
+              single most misreadable fact on this page. */}
+          {shared && (
+            <p className="u-ui mt-1.5 text-sm text-[var(--color-text-secondary)]">
+              Per room, per year — not for the whole property.
+            </p>
+          )}
 
           <h1 className="mt-2.5 text-2xl font-bold text-[var(--color-text-primary)]">{listing.title}</h1>
           <p className="mt-1.5 text-[var(--color-text-secondary)]">
@@ -71,6 +94,81 @@ export function ListingFullDetail({ id }: { id: string }) {
             <h2 className="text-lg font-bold text-[var(--color-text-primary)]">About this property</h2>
             <p className="mt-3 leading-relaxed text-[var(--color-text-secondary)]">{listing.description}</p>
           </div>
+
+          {/* ROOMS AND FACILITIES — gated content: this whole block lives
+              inside ListingFullDetail, which is only ever rendered for a
+              signed-in visitor, so none of it reaches the anonymous payload.
+              Same dl/dt/dd anatomy as Specification below, so the shared
+              listing reads as the same product with one more section. */}
+          {shared && (
+            <div className="mt-8 border-t border-[var(--color-border-hairline)] pt-8">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Rooms and facilities</h2>
+                <span className="u-ui text-sm font-bold text-[var(--color-text-secondary)]">
+                  {roomAvailabilityLabel(rooms)}
+                </span>
+              </div>
+
+              <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+                <div>
+                  <dt className="u-label text-[var(--color-text-secondary)]">Rent per room</dt>
+                  <dd className="u-numeric mt-1.5 font-semibold text-[var(--color-text-primary)]">
+                    {formatPrice(shared.rentPerRoom, listing.currency, "rent")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="u-label text-[var(--color-text-secondary)]">Bathroom</dt>
+                  <dd className="u-ui mt-1.5 font-semibold text-[var(--color-text-primary)]">
+                    {BATHROOM_TYPE_LABELS[shared.bathroomType]}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="u-label text-[var(--color-text-secondary)]">Kitchen</dt>
+                  <dd className="u-ui mt-1.5 font-semibold text-[var(--color-text-primary)]">
+                    {shared.kitchenShared ? "Shared" : "Private to each room"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="u-label text-[var(--color-text-secondary)]">Max per room</dt>
+                  <dd className="u-numeric mt-1.5 font-semibold text-[var(--color-text-primary)]">
+                    {shared.maxOccupantsPerRoom}{" "}
+                    {shared.maxOccupantsPerRoom === 1 ? "person" : "people"}
+                  </dd>
+                </div>
+              </dl>
+
+              {/* Every room, occupied ones included. A renter deciding whether
+                  to wait for this house needs to see how full it is, not just
+                  what is free — and hiding the occupied rooms would make the
+                  count above unverifiable against anything on the page. */}
+              <ul className="mt-5 flex flex-wrap gap-2">
+                {rooms.map((room) => {
+                  const free = room.status === "available";
+                  return (
+                    <li
+                      key={room.id}
+                      className={`u-ui inline-flex items-center gap-2 rounded-[var(--radius-control)] border px-3 py-2 text-sm ${
+                        free
+                          ? "border-[var(--color-border-default)] font-bold text-[var(--color-text-primary)]"
+                          : "border-[var(--color-border-hairline)] text-[var(--color-text-secondary)]"
+                      }`}
+                    >
+                      <span
+                        aria-hidden
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          free ? "bg-[var(--color-status-verified)]" : "bg-[var(--color-text-secondary)]/40"
+                        }`}
+                      />
+                      {room.label}
+                      <span className={free ? "font-medium text-[var(--color-text-secondary)]" : ""}>
+                        {free ? "available" : "occupied"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
 
           {/* FILTER EXPANSION: every dimension a buyer can now filter on is
               stated here too. A filter that silently matches on data the
@@ -135,7 +233,9 @@ export function ListingFullDetail({ id }: { id: string }) {
 
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-6 shadow-[var(--elevation-sm)]">
-            <ListingActions listingTitle={listing.title} />
+            {/* `rooms` is passed only for a shared listing — an entire-property
+                listing gets exactly the component it had before. */}
+            <ListingActions listingTitle={listing.title} rooms={shared ? rooms : undefined} />
           </div>
         </aside>
       </div>

@@ -3,14 +3,28 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useNotifications } from "@/lib/notification-context";
+import { ROLE_DASHBOARD_HOME } from "@/lib/roles";
 import { RoleName } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 // COMPONENT_ARCHITECTURE.md §4: Dashboard Sidebar/Nav — shared structure,
 // role-specific content injected (never a separate component per role).
+//
+// ROLE-SELECTION REVISION (31 Aug 2026): "Overview" now points at
+// ROLE_DASHBOARD_HOME[role] rather than a hard-coded /dashboard, because two
+// roles gained a named home of their own. It reads the same table
+// /dashboard/page.tsx redirects by, so the nav can never point somewhere the
+// entry route immediately redirects away from.
+//
+// This nav decides what is OFFERED, never what is permitted — it is a view,
+// scoped to the role being viewed. Access is enforced by RoleScoped in the
+// dashboard layout, against the permanent user.roles list. Before that guard
+// existed, this table's omissions were the only thing standing between a role
+// and another role's routes, which is not a guard at all: the URL was always
+// typeable.
 const NAV_BY_ROLE: Record<RoleName, { href: string; label: string }[]> = {
   landlord: [
-    { href: "/dashboard", label: "Overview" },
+    { href: ROLE_DASHBOARD_HOME.landlord, label: "Overview" },
     { href: "/dashboard/listings", label: "My Listings" },
     { href: "/dashboard/listings/new", label: "List Your Property" },
     { href: "/dashboard/subscription", label: "Subscription" },
@@ -18,19 +32,19 @@ const NAV_BY_ROLE: Record<RoleName, { href: string; label: string }[]> = {
     { href: "/dashboard/notifications", label: "Notifications" },
   ],
   "tenant-buyer": [
-    { href: "/dashboard", label: "Overview" },
+    { href: ROLE_DASHBOARD_HOME["tenant-buyer"], label: "Overview" },
     { href: "/dashboard/saved", label: "Saved Homes" },
     { href: "/dashboard/messages", label: "Messages" },
     { href: "/dashboard/notifications", label: "Notifications" },
   ],
   "service-provider": [
-    { href: "/dashboard", label: "Overview" },
+    { href: ROLE_DASHBOARD_HOME["service-provider"], label: "Overview" },
     { href: "/dashboard/service-listing", label: "My Service Listing" },
     { href: "/dashboard/messages", label: "Messages" },
     { href: "/dashboard/notifications", label: "Notifications" },
   ],
   advertiser: [
-    { href: "/dashboard", label: "Overview" },
+    { href: ROLE_DASHBOARD_HOME.advertiser, label: "Overview" },
     { href: "/dashboard/ads", label: "My Advertisements" },
     { href: "/dashboard/ads/new", label: "Submit Advertisement" },
     { href: "/dashboard/notifications", label: "Notifications" },

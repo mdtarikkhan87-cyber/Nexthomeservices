@@ -1,6 +1,8 @@
 # NextHome — Role, Routing & Post-Login Experience Audit
 
 **Status:** Audit complete; Section 4's Option C has since been approved and implemented — see [PRODUCT_DECISIONS.md](PRODUCT_DECISIONS.md) "Decision: Renter/Buyer Context Model" for the recorded decision, and Section 6 below for updated gap statuses. The analysis in Sections 1–5 is left as originally written (it's what the decision was based on); only the gap table in Section 6 has been updated to reflect what's now resolved.
+
+**Update, 31 August 2026 — roles vs. activeRole.** A second pass separated the account's permanent role list from the role it is currently acting as, and made the role prompt conditional. This resolved gaps 6, 7 and 8 below and is recorded in PRODUCT_DECISIONS.md "Decision: Role Selection & Active-Role Model". **Section 7, added at the end of this document, is the part worth reading** — it lists every place `activeRole` had been standing in for a permission check, which is where the reported symptom (a role prompt for single-role accounts) actually came from. Sections 1–5 remain as originally written.
 **Sources inspected:** `NextHome_PRD_Phase1_Final.pdf`, [PRODUCT_UNDERSTANDING.md](PRODUCT_UNDERSTANDING.md), [PRODUCT_DECISIONS.md](PRODUCT_DECISIONS.md), [USER_JOURNEYS.md](USER_JOURNEYS.md), [INFORMATION_ARCHITECTURE.md](INFORMATION_ARCHITECTURE.md), [SCREEN_BLUEPRINTS.md](SCREEN_BLUEPRINTS.md), [WIREFRAME_PLAN.md](WIREFRAME_PLAN.md), [COMPONENT_ARCHITECTURE.md](COMPONENT_ARCHITECTURE.md), [RESPONSIVE_STRATEGY.md](RESPONSIVE_STRATEGY.md), [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md), and the live implementation in `frontend/src/lib/auth-context.tsx`, `frontend/src/lib/types.ts`, `frontend/src/components/dashboard/DashboardNav.tsx`, `frontend/src/app/dashboard/page.tsx`, `frontend/src/app/register/page.tsx`, `frontend/src/app/account/page.tsx`, `frontend/src/components/shared/AuthGate.tsx`.
 
 ## 0. Figma Accessibility
@@ -138,9 +140,42 @@ No new top-level route trees are proposed under either option — role/context d
 | 3 | If Option B is chosen: PRODUCT_DECISIONS.md §1 role list needs formal amendment | **MOOT** | Option C was chosen instead — §1 was left untouched, exactly as this gap recommended if B were avoided |
 | 4 | If Option B is chosen: USER_JOURNEYS.md, INFORMATION_ARCHITECTURE.md, SCREEN_BLUEPRINTS.md need re-authoring for two journeys | **MOOT** | Same reason — Option C requires no changes to these documents |
 | 5 | "Shortlets" and "other publicly browsable property categories" aren't approved product concepts | **HIGH** (unchanged, not addressed by this decision) | Still open — was out of scope for the Renter/Buyer decision specifically and was not introduced |
-| 6 | Post-login redirect logic is role-branching content on one shared route, not per-role landing routes | **RESOLVED as N/A** | Option C keeps this exactly as-is by design — no route changes were needed or made |
-| 7 | No route-level guard exists yet anywhere (dashboard access is a client-side render check) | **MEDIUM** (unchanged) | Pre-existing, unrelated to this decision, not addressed |
-| 8 | `roleLabels`/`roleTitles` duplicated across three files | **LOW** (unchanged) | Not addressed by this pass |
+| 6 | Post-login redirect logic is role-branching content on one shared route, not per-role landing routes | ~~RESOLVED as N/A~~ **REOPENED then RESOLVED (31 Aug 2026)** | The client subsequently specified per-role landing pages, so this stopped being N/A. `ROLE_LANDING_HREF` in `lib/roles.ts` now maps each role to a destination; `/dashboard/landlord` and `/dashboard/services` were added as real routes, `/listings` and `/dashboard/ads` already existed. `/dashboard` is a resolver that hands over to the active role's home. Landing is explicitly **not** an access boundary — see gap 7 |
+| 7 | No route-level guard exists yet anywhere (dashboard access is a client-side render check) | ~~MEDIUM~~ **RESOLVED (31 Aug 2026)** | `RoleScoped` (`components/shared/RoleScoped.tsx`), applied once in the dashboard layout against a route→role table in `lib/roles.ts`. It checks `user.roles.includes(requiredRole)` — the permanent list, never `activeRole`. Holding the role while acting as another switches and continues; not holding it blocks and names the missing role. Still a client-side check (there is no backend), but it is now an actual check rather than an absence of links |
+| 8 | `roleLabels`/`roleTitles` duplicated across three files | ~~LOW~~ **RESOLVED (31 Aug 2026)** | `lib/roles.ts` is the only copy. The account page's private map was deleted; the dashboard's `roleTitles` moved into the single `RoleOverview` component that now renders every role's overview |
+
+---
+
+## 7. Where `activeRole` was standing in for a permission check (31 Aug 2026)
+
+The reported symptom was a role prompt shown to single-role accounts. The cause underneath it was that `activeRole` had accumulated a second job it was never suited for. Below is every place that had happened, separated into the ones that were genuinely wrong and the ones that are correct view-context use and were deliberately left alone.
+
+### 7a. Genuine misuse — fixed
+
+| # | Where | What it was doing | Why it was wrong | Now |
+|---|---|---|---|---|
+| 1 | `app/dashboard/layout.tsx` + `components/dashboard/DashboardNav.tsx` | `NAV_BY_ROLE[activeRole]` decided which dashboard links existed. **No route-level check existed anywhere.** | This is the big one, and it is a permission check by *omission*. A Renter who typed `/dashboard/listings` got the landlord's listings; a Landlord who typed `/dashboard/saved` got Saved Homes. The sidebar was the entire security model, and a URL bar defeats it. | `RoleScoped` in the layout, checking `user.roles`. The nav is back to deciding only what is *offered* |
+| 2 | `components/shared/Header.tsx` — `canListProperty` | `isAuthenticated && activeRole === "landlord"` gated the **only** link to `/dashboard/listings/new` | Using activeRole to decide whether to *show* a landlord action is correct and is kept. The problem was that this visibility check was also the only thing protecting the route behind it | Unchanged as a visibility rule. The route itself is now guarded independently |
+| 3 | `components/home/ClosingCta.tsx` | Same `activeRole === "landlord"` shape on the homepage CTA | Same as #2 | Unchanged, same reason |
+| 4 | `lib/auth-context.tsx` — `addRoles` | Set `activeRole` to `primaryRole(fresh)`, i.e. by a fixed priority order (Renter first) rather than to the role just added | A Renter who added Landlord stayed acting as a Renter. They had just asked for the Landlord role and were left looking at the view they already had — the new dashboard existed but nothing took them to it | The newly added role becomes active immediately, and `/account` lands the user on its dashboard |
+| 5 | `app/dashboard/page.tsx` | Every role's overview lived in one component branching on `activeRole` read from context | Not a permission bug, but it made per-role landing routes impossible: `/dashboard/landlord` cannot render the landlord overview if the component asks the global active role what to draw | Extracted to `components/dashboard/RoleOverview.tsx`, which takes the role as a **prop**. One component, four bodies, no duplicated markup |
+| 6 | `lib/auth-context.tsx` — `login()` | Hard-coded a grant of Renter **and** Landlord for every demo sign-in | The proximate cause of the reported symptom. Not a permission misuse, but it meant every sign-in was multi-role, so the prompt was always owed and rule 1 was unreachable in review | Three demo accounts of different shapes (`lib/demo-accounts.ts`), chosen from the picker on `/login` |
+
+### 7b. Correct view-context use — deliberately not changed
+
+| Where | Why it is fine |
+|---|---|
+| `app/account/page.tsx` — active-role card highlight, "Switch to" button | States and changes the view context. Exactly what activeRole is for |
+| `components/shared/RoleSwitcher.tsx`, `RoleSessionPrompt.tsx` | Both now decide *whether to render at all* from `user.roles`, and use `activeRole` only to mark which option is currently selected — the correct split |
+| `components/dashboard/RoleOverview.tsx` | Branches on a role prop, not on global state |
+
+### 7c. One left open — notifications are scoped by `activeRole`
+
+`lib/notification-context.tsx` filters the feed to `activeRole` (lines 41–43), and `markAllRead` marks only the active role's items (line 55).
+
+This is view context, and scoping a role's inbox to that role is the intended behaviour (INFORMATION_ARCHITECTURE.md: the notifications entry point "surfaces the active role's inbox"). But it is the one remaining place where a *view* context decides what **data** a user can see at all: a Landlord + Renter acting as Renter cannot see their landlord notifications, and the header bell's unread count under-reports everything happening in their other role. A landlord could miss an enquiry entirely because they were browsing.
+
+**Not changed, and not silently resolved.** Whether the bell should aggregate across held roles (with per-role grouping) or stay scoped to the active role is a product question, not a refactor — and answering it by guessing is exactly what this document exists to prevent. Raising it here as the natural next question this work exposes.
 
 ---
 
@@ -150,3 +185,5 @@ No new top-level route trees are proposed under either option — role/context d
 2. ✅ Implemented and verified in-browser: `frontend/src/lib/types.ts`, `frontend/src/lib/auth-context.tsx`, `frontend/src/app/dashboard/page.tsx`, `frontend/src/app/dashboard/saved/page.tsx`, `frontend/src/app/account/page.tsx`, `frontend/src/components/shared/Header.tsx`. Build and lint both clean.
 3. ⏳ Figma still not accessible — this decision was made without it. If your reference design actually requires full role separation (Option B), say so explicitly and this should be revisited as its own decision, not silently reworked.
 4. ⏳ "Shortlet" and other property categories beyond Rent/Sale remain unaddressed — separate decision needed if you want them.
+5. ✅ **Roles vs. activeRole separated (31 Aug 2026)**, recorded in PRODUCT_DECISIONS.md "Decision: Role Selection & Active-Role Model" and [REVISION_LOG.md](REVISION_LOG.md) §12. Gaps 6, 7 and 8 closed. Verified in-browser across all three demo account shapes: single-role sign-in prompts nobody and renders no switcher, a saved preference restores without prompting, a deep link into a role-scoped route switches and continues, and an account that does not hold a role is blocked by name. Build and lint clean.
+6. ⏳ **Notifications are still scoped to `activeRole`** (§7c) — the one place a view context still decides what data is visible. Needs a product answer, not a refactor.

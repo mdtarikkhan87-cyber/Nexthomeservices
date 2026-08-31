@@ -200,6 +200,136 @@ The Services directory had **no location data at all** — `ServiceListing` carr
 
 ---
 
+## 12. AMENDMENT — Role selection: `user.roles` vs. `activeRole`
+
+**Instruction:** client, 31 August 2026 (a later instruction than the 22 Aug review this log records; kept here because this is where amendments to approved decisions live).
+**Recorded as a decision in:** [PRODUCT_DECISIONS.md](PRODUCT_DECISIONS.md) "Decision: Role Selection & Active-Role Model" · [ROLE_EXPERIENCE_AUDIT.md](ROLE_EXPERIENCE_AUDIT.md) §7
+
+**Reported problem:** the "how do you want to act today?" screen appeared on every sign-in, including for accounts holding a single role.
+
+**Actual cause:** two of them, and only the second is interesting.
+
+1. The demo `login()` hard-coded a grant of Renter **and** Landlord, so every sign-in was multi-role by construction. The single-role path existed and was correct — it was simply unreachable.
+2. Underneath that, `activeRole` was doing two incompatible jobs: naming what the user is currently doing, **and** deciding what they may open. That is why no route guard existed anywhere — the sidebar's per-role link table was standing in for one.
+
+### What changed
+
+| Concern | Before | Now |
+|---|---|---|
+| Permission source | `activeRole`, implicitly, via which links the sidebar rendered | `user.roles` — the permanent list — checked by `RoleScoped` in the dashboard layout against a route→role table in `lib/roles.ts` |
+| Prompt | Every sign-in with >1 role, once per browser session | Only when there is no valid saved preference to restore |
+| Preference store | `sessionStorage`, one key for everyone, wiped on logout | `localStorage["activeRole:" + user.id]`, per account, survives logout |
+| Landing | Everyone to `/dashboard` | Per role: `/dashboard/landlord`, `/listings`, `/dashboard/services`, `/dashboard/ads` |
+| Switching | Re-rendered in place | Navigates to the role's landing page |
+| Switcher copy | "Acting as" | "Viewing as" |
+| Deep link to another held role's route | Nothing stopped it, and nothing acknowledged it | Switches automatically, announces it, continues |
+| Deep link to a role **not** held | Rendered the page anyway | Blocked, naming the missing role, with Add a Role as the way out |
+
+### ⚠ What this amends
+
+- **PRODUCT_DECISIONS.md §8** — "Role switching is accessible from the account/profile area", and switching described as changing dashboard context only. It is now a persistent header control that navigates.
+- **§4 of this log** — the once-per-session prompt, held in `sessionStorage` and cleared on logout. Superseded by the conditional prompt with a persistent per-account preference. The client's own framing is the reason: a prompt that reappears every session is not "only when there is a genuine choice to make".
+- **INFORMATION_ARCHITECTURE.md** — dashboards were listed as role-reachable with no enforcement defined. They are now genuinely guarded.
+
+### Two things fixed that were only visible once switching navigated
+
+Both were found in browser testing, not review, and both are recorded because they are the kind of defect that reappears if the reasoning is not written down.
+
+1. **The guard fought the switcher.** On `/dashboard/landlord`, switching to Renter set the active role — and the still-mounted route guard, seeing a mismatch, immediately set it back. The page did change to `/listings`, but the header still read Landlord and the saved preference had been rewritten: the user pressed a control and the product undid it a frame later. `RoleScoped` now aligns **once per arrival** and never re-asserts, so deliberately switching away is not contested.
+2. **The account menu survived its own navigation.** Every item in it closes the menu *and* navigates; the route change interrupted the exit animation before it completed, leaving the panel mounted and visible over the destination page — and, being detached from React's tree, showing a frozen "Viewing as" that contradicted the switcher beside it. Exit animations are dropped from the account menu, the role switcher and the mobile drawer, exactly as `Overlay.tsx` already documents for the same failure mode.
+
+### Judgement calls, flagged
+
+- **`/dashboard` is a resolver, not a fifth landing page.** The client named landing pages for all four roles but a dashboard *route* for only two. Rather than invent `/dashboard/tenant` and `/dashboard/advertiser`, `/dashboard` hands over to the named home where one exists and renders the overview in place where it does not. One table (`ROLE_DASHBOARD_HOME`) drives both the redirect and the sidebar, so they cannot disagree.
+- **A transient notice is a new pattern here.** The automatic-switch acknowledgement is the product's first non-persistent message. DESIGN_SYSTEM.md §13 bars toasts for destructive confirmations and §14 bars them for pending state; this is neither — it reports a completed, reversible change whose result stays permanently visible in the header switcher. Scoped to that one job so it cannot become a general toast service.
+- **The demo picker is scaffolding.** Three accounts on `/login` (Renter only, Landlord only, Landlord + Renter) exist because the behaviour this revision changes cannot be demonstrated from a single hard-coded user. It goes when a backend arrives.
+
+---
+
+## 13. COMPLIANCE — hero CTAs removed; the search panel is the only entry point
+
+**Instruction:** client, 31 August 2026.
+
+The hero carried two buttons, "Browse rentals" and "Homes for sale", directly above the search panel. Both are gone.
+
+**This is compliance, not an amendment.** SCREEN_BLUEPRINTS.md §Homepage lists the main sections in priority order as *"1) Rent/Sale mode + search bar 2) Post Property CTA 3) Featured/browsable listings preview 4) Services/Help entry points"*, and WIREFRAME_PLAN.md gives the same order. Neither approves a pair of mode-selection buttons above the search bar — they arrived with the editorial redesign pass, not from the docs. Removing them restores the approved order: the search entry is the first and only thing the hero asks the visitor to do.
+
+They were also strictly weaker than the control below them. Each chose a mode and nothing else, so anyone who used one landed on an unfiltered list and started filtering from scratch; the search panel sets mode **and** state, LGA, price, bedrooms and duration in the same action.
+
+**No destination was lost.** `/listings?mode=rent` and `?mode=sale` are still reached from the search panel's Rent/Buy tabs, the header's Listings link, and the footer's two listing links.
+
+## 14. COPY — "Homes for sale" replaces "Homes to buy"
+
+**Instruction:** client, 31 August 2026.
+
+`MODE_COPY.sale.heading` in `lib/listings-mode.ts`. The intro beneath it moved with the heading — "available to buy" → "available for sale" — since leaving the rejected phrasing in the sentence directly under the new heading would just reintroduce it one line down.
+
+`MODE_COPY.sale.label` stays **"Buy"**: that is the Rent/Buy mode toggle, a verb pair, not a title.
+
+**Three related surfaces still use the old phrasing** and were left alone rather than changed on inference — flag them if they should follow:
+
+| Surface | Currently reads | Where |
+|---|---|---|
+| Rent-mode heading | "Homes to rent" | `MODE_COPY.rent.heading` |
+| Footer listing links | "Homes to rent" / "Homes to buy" | `Footer.tsx` |
+| Browser tab title | "Listings — Homes to Rent and Buy" | `/listings` route metadata |
+
+Note also that the heading now sits directly beneath a "FOR SALE" eyebrow, so the page states "for sale" twice in two lines. Left as instructed; the eyebrow is the easy thing to drop if it reads as repetition.
+
+---
+
+## 15. NEW — Shared Property (room-by-room rentals)
+
+**Instruction:** client, 31 August 2026. Rentals only.
+
+A listing can now be let **room by room** instead of as one whole unit. Rooms are individual records with their own ids and status; the available count is always derived from them.
+
+### What was NOT built, and why
+
+The instruction asked to *extend the existing booking model* and *mirror the existing booking lifecycle*. **There is no booking model in this project** — no model, no endpoints, no state machine, no cancellation — and its absence is deliberate and documented: PRD §14 / PRODUCT_UNDERSTANDING.md §203 record Short-/Long-Term as *"a filter tag only — not a separate booking system… a booking calendar would be a separately scoped addition"*, and PRODUCT_DECISIONS.md §4.2 **rejected** structured applications in favour of messaging.
+
+Rather than build that subsystem and silently reverse two approved decisions, the client chose the option that stays inside them:
+
+- A renter's enquiry **names a specific room**. It does not claim or reserve one.
+- **Availability is landlord-managed** — the landlord marks a room occupied or available from `/dashboard/listings/[id]`, the page that already owns listing status. That is the only thing that moves the count.
+- No approval step, no cancellation state, no lifecycle. PRODUCT_DECISIONS.md §4.2 is untouched.
+
+### Naming
+
+The field is `occupancyType`, **not** `propertyType`. `propertyType` already exists and means the physical form of the building (apartment, duplex, bungalow…), and is read by the mock catalog, the wizard, `matchesFilters`, the `?ptype=` URL param, the filter chips and the detail Specification block. Two different questions, two different fields.
+
+### Backward compatibility
+
+`occupancyType` is optional and **absent means "entire"**. All sixteen pre-existing listings are unchanged and still valid; no migration exists because none is needed. Every read goes through `isShared()` so the default lives in one place.
+
+### ⚠ AMENDMENT — the public teaser was widened
+
+`ListingTeaser` carries a standing rule that *"widening this type widens what an anonymous visitor can read — treat any addition as a product decision, not a refactor."* This is that decision, taken deliberately:
+
+| Visible to anyone | Gated behind registration |
+|---|---|
+| The **"Shared Property" badge**, and the `/room` price suffix | Available room count, the room list, rent per room, bathroom type, kitchen sharing, max occupants per room |
+
+The badge is a **category label** — the same class of fact as type, bedrooms and rentDuration, all of which the teaser already exposes. The public card shows it, so withholding it on the page that card links to would make the two disagree, which reads as a bug rather than as privacy. Verified in-browser: an anonymous request for a shared listing contains no room ids, no `rentPerRoom`, no `bathroomType`, no `maxOccupantsPerRoom` and no availability count anywhere in the HTML or RSC payload. The gated section is shown as a redacted "Rooms and facilities" block, consistent with the three that were already there.
+
+### Concurrency, stated honestly
+
+`setRoomOccupied` in `lib/listings-context.tsx` is a single conditional state update — it tests `available` and writes `occupied` in one pass, and returns false to the loser. It is marked in the file as the swap point for `UPDATE rooms SET status='occupied' WHERE id=$1 AND status='available'`.
+
+**Its scope is one browser tab.** There is no server, so two users cannot see each other's state at all and this does not make concurrent writers safe. It puts the check in the one place that becomes safe once a server exists — nothing more is claimed.
+
+### One bug found in testing
+
+The two new number inputs were first given `min`/`max` attributes. Continue is a **submit** button, so native HTML5 constraint validation ran first: entering 25 rooms made the browser cancel the submit and show its own unstyled bubble, so `validateStep()` never ran and the wizard silently refused to advance with nothing on screen explaining why. The attributes are gone; the bounds are enforced in `validateStep()` like every other rule, which renders a specific, persistent, styled error (DESIGN_SYSTEM.md §9).
+
+**Pre-existing, not fixed:** the price field still carries `min={0}`, which has the same failure mode for a negative value. Out of scope for this change, flagged here.
+
+### Also flagged, not fixed
+
+`/dashboard/listings/[id]` resolves against the static catalog only, so a listing created in the wizard this session 404s on Manage — including its rooms. That is a **pre-existing** gap, unrelated to this feature, and fixing it was outside the "minimum viable change, no unrelated refactoring" instruction. The shared flow is fully exercisable through the two catalog listings (`17`, `18`).
+
+---
+
 ## Open items — still need client confirmation
 
 Carried forward from Spec §4 and the revision request. **None of these were guessed at**; each has a documented interim and a single place to change it.

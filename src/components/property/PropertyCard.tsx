@@ -8,12 +8,27 @@ import { Button } from "@/components/ui/Button";
 import { IconArrowRight, IconStar } from "@/components/ui/icons";
 import { useAuthGate } from "@/components/shared/AuthGate";
 import { PropertyListing } from "@/lib/types";
+import { isShared } from "@/lib/shared-property";
 import { formatLocation } from "@/lib/nigeria-locations";
 
 function formatPrice(listing: PropertyListing) {
   const amount = new Intl.NumberFormat("en-NG").format(listing.price);
-  const suffix = listing.type === "rent" ? "/yr" : "";
+  // A shared listing's price is the rent for ONE room, so the card has to say
+  // so: "₦700,000/yr" beside a four-bedroom flat reads as the whole flat, and
+  // that is the one misreading this feature must not cause. The annual basis
+  // is stated in full on the detail page, where the number is acted on.
+  const suffix = listing.type === "rent" ? (isShared(listing) ? "/room" : "/yr") : "";
   return `${listing.currency === "NGN" ? "₦" : "$"}${amount}${suffix}`;
+}
+
+/** The card's one tag slot, in priority order.
+    §11's "one tag maximum" is kept — Shared simply outranks the others,
+    because it changes what is being let rather than describing it. */
+function cardTag(listing: PropertyListing): string | null {
+  if (isShared(listing)) return "Shared Property";
+  if (listing.rentDuration) return listing.rentDuration === "short-term" ? "Short-Term" : "Long-Term";
+  if (listing.verified) return "Verified";
+  return null;
 }
 
 // DESIGN_SYSTEM.md §11: same card anatomy (status → facts → action) in both
@@ -59,7 +74,17 @@ export function PropertyCard({
       <div className="flex items-center gap-4 rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] px-4 py-3.5 shadow-[var(--elevation-xs)] transition-shadow duration-[var(--motion-duration-standard)] hover:shadow-[var(--elevation-sm)]">
         <StatusBadge kind={listing.status === "live" ? "live" : listing.status === "rejected" ? "rejected" : "pending"} dense />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-bold text-[var(--color-text-primary)]">{listing.title}</p>
+          <p className="flex items-center gap-2 truncate font-bold text-[var(--color-text-primary)]">
+            <span className="truncate">{listing.title}</span>
+            {/* The landlord's own row says it too — which listings are let
+                room by room is the first thing they need to tell apart here,
+                since only those have rooms to manage. */}
+            {isShared(listing) && (
+              <span className="u-label shrink-0 rounded-full bg-[var(--color-surface-dense)] px-2 py-1 text-[var(--color-text-secondary)]">
+                Shared
+              </span>
+            )}
+          </p>
           <p className="text-sm text-[var(--color-text-secondary)]">
             <span className="font-bold text-[var(--color-text-primary)]">{formatPrice(listing)}</span> · {formatLocation(listing.state, listing.lga)} · {listing.bedrooms} bd
           </p>
@@ -97,7 +122,12 @@ export function PropertyCard({
         />
         <div className="pointer-events-none absolute left-0 right-0 top-0 flex items-center gap-2 p-5 sm:p-7">
           {listing.verified && <StatusBadge kind="verified" />}
-          {listing.rentDuration && (
+          {isShared(listing) && (
+            <span className="u-label rounded-full bg-white/15 px-3 py-1.5 text-white backdrop-blur-sm">
+              Shared Property
+            </span>
+          )}
+          {listing.rentDuration && !isShared(listing) && (
             <span className="u-label rounded-full bg-white/15 px-3 py-1.5 text-white backdrop-blur-sm">
               {listing.rentDuration === "short-term" ? "Short-Term" : "Long-Term"}
             </span>
@@ -149,15 +179,10 @@ export function PropertyCard({
           />
 
           {/* One tag maximum, top-left — derived from real listing facts,
-              never a marketing claim. Duration wins when present because
-              it is the fact a renter filters on first. */}
-          {(listing.rentDuration || listing.verified) && (
+              never a marketing claim. See cardTag() for the priority order. */}
+          {cardTag(listing) && (
             <span className="u-label absolute left-3 top-3 rounded-full bg-[var(--color-surface-raised)]/92 px-3 py-1.5 text-[var(--color-text-primary)] shadow-[var(--elevation-xs)] backdrop-blur-sm">
-              {listing.rentDuration
-                ? listing.rentDuration === "short-term"
-                  ? "Short-Term"
-                  : "Long-Term"
-                : "Verified"}
+              {cardTag(listing)}
             </span>
           )}
 
