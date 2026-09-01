@@ -1,0 +1,380 @@
+// NextHome — Prisma schema
+//
+// This mirrors the domain already modeled in the frontend
+// (src/lib/types.ts, auth-context.tsx, mock-data.ts) so the backend speaks
+// the same vocabulary the UI already expects: RoleName, RoleState,
+// SubscriptionState, ContentItemState, ListingType, OccupancyType, etc.
+//
+// Design choices worth knowing:
+// - User.roles is NOT a column here — role membership is the UserRole join
+//   table (one row per role a user holds), because each held role carries
+//   its own state/subscription/context, exactly like HeldRole in
+//   auth-context.tsx. "Which roles does this user have" = the permanent
+//   access-control fact; nothing about it changes based on activeRole.
+// - Listing carries embedded shared-room data via a separate SharedRoomInfo
+//   1:1 relation + Room 1:many, matching SharedDetails/SharedRoom in
+//   types.ts, so a rental can optionally be let room-by-room.
+// - Every content item (Listing, ServiceListing, Advertisement) has its own
+//   `status: ContentItemState` — pending-review / live / rejected — so admin
+//   moderation is one shape across all three, per DESIGN_SYSTEM.md §7.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums — names kept identical to the frontend's TypeScript union types
+// ---------------------------------------------------------------------------
+
+enum RoleName {
+  landlord
+  tenant_buyer
+  service_provider
+  advertiser
+}
+
+enum RoleState {
+  role_added
+  pending_admin_document_review
+  role_verified
+}
+
+enum SubscriptionState {
+  inactive
+  pending_confirmation
+  active
+}
+
+enum ContentItemState {
+  pending_review
+  live
+  rejected
+}
+
+enum ListingType {
+  rent
+  sale
+}
+
+enum RentDuration {
+  short_term
+  long_term
+}
+
+enum OccupancyType {
+  entire
+  shared
+}
+
+enum BathroomType {
+  private_bath
+  shared_bath
+}
+
+enum RoomStatus {
+  available
+  occupied
+}
+
+enum PropertyType {
+  apartment
+  duplex
+  bungalow
+  terrace
+  studio
+  detached
+}
+
+enum FurnishingStatus {
+  furnished
+  semi_furnished
+  unfurnished
+}
+
+enum Amenity {
+  borehole
+  power_backup
+  gated_security
+  parking
+  air_conditioning
+  fitted_kitchen
+  swimming_pool
+  balcony
+}
+
+enum PaymentMethod {
+  stripe
+  paystack
+  bank_transfer
+}
+
+enum PaymentStatus {
+  pending
+  confirmed
+  failed
+}
+
+enum ComplaintStatus {
+  open
+  in_review
+  resolved
+}
+
+// ---------------------------------------------------------------------------
+// Users & roles
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String?  @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  roles         UserRole[]
+  listings      Listing[]         @relation("LandlordListings")
+  serviceListings ServiceListing[] @relation("ProviderServices")
+  advertisements  Advertisement[] @relation("AdvertiserAds")
+
+  sentMessages     Message[]      @relation("SentMessages")
+  conversationsAsA Conversation[] @relation("ConversationParticipantA")
+  conversationsAsB Conversation[] @relation("ConversationParticipantB")
+
+  ratingsGiven  Rating[]        @relation("RatingsGiven")
+  ratingsReceived Rating[]      @relation("RatingsReceived")
+  complaints    ComplaintTicket[]
+  payments      Payment[]
+
+  @@map("users")
+}
+
+/// One row per role a user holds. Mirrors HeldRole in auth-context.tsx:
+/// `role` is permanent (drives every access check); `state` and
+/// `subscriptionState` track that specific role's verification/subscription
+/// lifecycle; `context` is only meaningful for tenant_buyer (rent vs sale).
+model UserRole {
+  id                String             @id @default(cuid())
+  userId            String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role              RoleName
+  state             RoleState          @default(role_added)
+  subscriptionState SubscriptionState? // landlord only
+  context           ListingType?       // tenant_buyer only: "rent" | "sale"
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+// ---------------------------------------------------------------------------
+// Listings (rent & sale property)
+// ---------------------------------------------------------------------------
+
+model Listing {
+  id          String            @id @default(cuid())
+  landlordId  String
+  landlord    User              @relation("LandlordListings", fields: [landlordId], references: [id])
+
+  type        ListingType
+  title       String
+  description String
+  price       Int
+  currency    String            @default("NGN") // "USD" | "NGN"
+  state       String
+  lga         String?
+  bedrooms    Int
+  bathrooms   Int?
+  rentDuration RentDuration?
+  propertyType PropertyType?
+  furnishing   FurnishingStatus?
+  amenities    Amenity[]
+
+  photoUrl    String
+  galleryUrls String[]          @default([])
+
+  verified    Boolean           @default(false)
+  status      ContentItemState  @default(pending_review)
+  viewCount   Int               @default(0)
+
+  occupancyType OccupancyType?  // absent/null = "entire"
+  shared        SharedDetails?
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  conversations Conversation[]
+
+  @@index([state, type, status])
+  @@map("listings")
+}
+
+/// 1:1 with Listing — only present when Listing.occupancyType == shared.
+model SharedDetails {
+  id                 String   @id @default(cuid())
+  listingId          String   @unique
+  listing            Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  totalRooms         Int
+  bathroomType       BathroomType // private_bath | shared_bath
+  kitchenShared      Boolean
+  maxOccupantsPerRoom Int
+  rentPerRoom        Int
+
+  rooms              SharedRoom[]
+
+  @@map("shared_details")
+}
+
+model SharedRoom {
+  id              String        @id @default(cuid())
+  sharedDetailsId String
+  sharedDetails   SharedDetails @relation(fields: [sharedDetailsId], references: [id], onDelete: Cascade)
+  label           String
+  status          RoomStatus    @default(available)
+
+  @@map("shared_rooms")
+}
+
+// ---------------------------------------------------------------------------
+// Service provider listings
+// ---------------------------------------------------------------------------
+
+model ServiceListing {
+  id           String           @id @default(cuid())
+  providerId   String
+  provider     User             @relation("ProviderServices", fields: [providerId], references: [id])
+
+  category     String
+  description  String
+  state        String
+  lgas         String[]         @default([]) // empty = covers whole state
+  photoUrl     String?
+
+  verified     Boolean          @default(false)
+  status       ContentItemState @default(pending_review)
+
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  conversations Conversation[]
+
+  @@index([state, status])
+  @@map("service_listings")
+}
+
+// ---------------------------------------------------------------------------
+// Advertisements
+// ---------------------------------------------------------------------------
+
+model Advertisement {
+  id           String           @id @default(cuid())
+  advertiserId String
+  advertiser   User             @relation("AdvertiserAds", fields: [advertiserId], references: [id])
+
+  imageUrl     String
+  headline     String
+  linkUrl      String
+  placement    String?          // admin-assigned slot
+  status       ContentItemState @default(pending_review)
+
+  startsAt     DateTime?
+  endsAt       DateTime?
+
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@map("advertisements")
+}
+
+// ---------------------------------------------------------------------------
+// Messaging — one conversation per (listing OR service) x participant pair
+// ---------------------------------------------------------------------------
+
+model Conversation {
+  id               String          @id @default(cuid())
+
+  listingId        String?
+  listing          Listing?        @relation(fields: [listingId], references: [id])
+  serviceListingId String?
+  serviceListing   ServiceListing? @relation(fields: [serviceListingId], references: [id])
+
+  participantAId   String
+  participantA     User            @relation("ConversationParticipantA", fields: [participantAId], references: [id])
+  participantBId   String
+  participantB     User            @relation("ConversationParticipantB", fields: [participantBId], references: [id])
+
+  messages         Message[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([participantAId])
+  @@index([participantBId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id])
+  body           String
+  createdAt      DateTime     @default(now())
+  readAt         DateTime?
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+// ---------------------------------------------------------------------------
+// Ratings, complaints, payments
+// ---------------------------------------------------------------------------
+
+model Rating {
+  id         String   @id @default(cuid())
+  raterId    String
+  rater      User     @relation("RatingsGiven", fields: [raterId], references: [id])
+  rateeId    String
+  ratee      User     @relation("RatingsReceived", fields: [rateeId], references: [id])
+  score      Int      // 1-5
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  @@map("ratings")
+}
+
+model ComplaintTicket {
+  id        String          @id @default(cuid())
+  userId    String?         // nullable: complaints form is open/unauthenticated per IMPLEMENTATION_NOTES.md #3
+  user      User?           @relation(fields: [userId], references: [id])
+  subject   String
+  body      String
+  status    ComplaintStatus @default(open)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@map("complaint_tickets")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  method        PaymentMethod
+  amount        Int
+  currency      String
+  status        PaymentStatus @default(pending)
+  purpose       String        // e.g. "landlord_subscription", "advertisement"
+  externalRef   String?       // Stripe/Paystack payment intent or charge id
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("payments")
+}
