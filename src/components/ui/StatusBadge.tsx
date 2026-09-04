@@ -25,6 +25,13 @@ const config: Record<StatusKind, { label: string; color: string; icon: ReactNode
   },
 };
 
+/** The color a given kind's badge renders in — exported so a caller that
+    wants to echo a status color elsewhere (e.g. tinting a related number)
+    reads it from here rather than re-declaring its own copy of this table. */
+export function statusBadgeColor(kind: StatusKind): string {
+  return config[kind].color;
+}
+
 export interface StatusBadgeProps {
   kind: StatusKind;
   /** Override the default label — always keep it specific (DESIGN_SYSTEM.md §14) */
