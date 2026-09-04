@@ -66,8 +66,17 @@ export function RoleSwitcher({ variant = "header" }: { variant?: "header" | "dra
     };
   }, [open]);
 
+  // Rule 0: admin is not part of the role system at all (lib/auth-context.tsx
+  // AuthUser.isAdmin) — there is nothing to switch between, so the control
+  // must never appear for an admin session. Checked explicitly rather than
+  // left to Rule 1 below: an admin user's `roles` happens to be empty today,
+  // which would already suppress this incidentally, but that stops being true
+  // the moment `roles` is ever populated for any reason, and this control has
+  // no business existing for admin regardless.
+  if (!user || user.isAdmin) return null;
+
   // Rule 1: one role is not a choice, so there is no control.
-  if (!user || user.roles.length < 2 || !activeRole) return null;
+  if (user.roles.length < 2 || !activeRole) return null;
 
   const activeHeld = roles.find((r) => r.role === activeRole);
 

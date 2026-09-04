@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { IconArrowRight, IconCheck } from "@/components/ui/icons";
+import { isAdminEmail } from "@/lib/admin";
 import { useAuth } from "@/lib/auth-context";
 import { DEMO_ACCOUNTS, DEMO_LANDLORD_RENTER, DemoAccount } from "@/lib/demo-accounts";
 import { ROLE_LABELS, roleLandingHref } from "@/lib/roles";
@@ -31,10 +32,11 @@ import { ROLE_LABELS, roleLandingHref } from "@/lib/roles";
 const REASSURANCE_POINTS = ["Verified listings only", "In-app messaging, on record", "No spam, ever"];
 
 function LoginForm() {
-  const { login, isAuthenticated, activeRole, needsRoleChoice, clearRolePreference } = useAuth();
+  const { user, login, loginAsAdmin, isAuthenticated, activeRole, needsRoleChoice, clearRolePreference } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [submitting, setSubmitting] = useState(false);
+  const [email, setEmail] = useState("");
 
   // GUEST-ACCESS PASS: this route used to always land on /dashboard,
   // discarding wherever the user came from. It honors a `?next=` path so the
@@ -54,13 +56,38 @@ function LoginForm() {
   //   resolved     → go to ?next= if we were sent here from somewhere, else to
   //                  that role's landing page.
   useEffect(() => {
-    if (!isAuthenticated || needsRoleChoice || !activeRole) return;
+    if (!isAuthenticated) return;
+
+    // ADMIN, checked first and unconditionally: an admin session has no
+    // activeRole (it never will — admin is orthogonal to the role system),
+    // so the role-based branch below can never redirect it away on its own.
+    // Without this, an already-authenticated admin who lands back on /login
+    // (back button, typing the URL) sees the live demo-account picker with
+    // nothing stopping them from clicking a row and silently overwriting
+    // their admin session with a regular demo login. `next` is deliberately
+    // ignored here — admin has its own section, not a resumable destination.
+    if (user?.isAdmin) {
+      router.replace("/admin");
+      return;
+    }
+
+    if (needsRoleChoice || !activeRole) return;
     router.replace(destination ?? roleLandingHref(activeRole));
-  }, [isAuthenticated, needsRoleChoice, activeRole, destination, router]);
+  }, [isAuthenticated, user, needsRoleChoice, activeRole, destination, router]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+
+    // ADMIN PLACEHOLDER: one hardcoded email (lib/admin.ts) routes straight
+    // to /admin, bypassing the demo-account/role flow entirely — admin is
+    // not a RoleName. Everything else below is unchanged.
+    if (isAdminEmail(email)) {
+      loginAsAdmin();
+      router.replace("/admin");
+      return;
+    }
+
     // No credential validation exists (IMPLEMENTATION_NOTES.md #9). The form
     // signs in as the two-role account so the flow a reviewer reaches by
     // typing anything into the fields is the interesting one; the picker below
@@ -109,7 +136,14 @@ function LoginForm() {
           <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
             <div>
               <Label htmlFor="email">Email or phone</Label>
-              <Input id="email" type="text" required placeholder="you@example.com" />
+              <Input
+                id="email"
+                type="text"
+                required
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="password">Password</Label>

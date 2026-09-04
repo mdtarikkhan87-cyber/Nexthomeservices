@@ -84,8 +84,16 @@ const ACCOUNT_LINKS = [
   { href: "/account", label: "Account & roles" },
 ];
 
+// Admin has none of the above: no role-dashboard (dashboard/layout.tsx
+// renders nothing without an activeRole, which admin never has), no
+// role-scoped notification feed (notification-context.tsx returns [] with
+// no activeRole), and no roles to manage on /account. Pointing an admin at
+// any of those is a dead, blank page — so it gets its own single-item list
+// instead of reusing ACCOUNT_LINKS.
+const ADMIN_ACCOUNT_LINKS = [{ href: "/admin", label: "Admin overview" }];
+
 export function Header() {
-  const { isAuthenticated, roles, activeRole, logout, login } = useAuth();
+  const { user, isAuthenticated, roles, activeRole, logout, login } = useAuth();
   const { unreadCount } = useNotifications();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -114,6 +122,7 @@ export function Header() {
   // auth-intercept it used to need is gone: there is no anonymous visitor left
   // to intercept. It is a plain link to a plain destination.
   const canListProperty = isAuthenticated && activeRole === "landlord";
+  const accountLinks = user?.isAdmin ? ADMIN_ACCOUNT_LINKS : ACCOUNT_LINKS;
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)]/95 backdrop-blur">
@@ -215,7 +224,11 @@ export function Header() {
             </Link>
           )}
 
-          {isAuthenticated && (
+          {/* Admin has no /dashboard — dashboard/layout.tsx renders nothing
+              without an activeRole, which admin never has. The account
+              dropdown's "Admin overview" link (ADMIN_ACCOUNT_LINKS above) is
+              its equivalent quick link. */}
+          {isAuthenticated && !user?.isAdmin && (
             <Link
               href="/dashboard"
               aria-current={pathname === "/dashboard" ? "page" : undefined}
@@ -229,7 +242,10 @@ export function Header() {
             </Link>
           )}
 
-          {isAuthenticated && (
+          {/* Same reason: admin has no role-scoped notification feed
+              (notification-context.tsx returns [] without an activeRole), so
+              unreadCount is always 0 and the link's destination is blank. */}
+          {isAuthenticated && !user?.isAdmin && (
             <Link
               href="/dashboard/notifications"
               aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
@@ -334,17 +350,24 @@ export function Header() {
                         here is a read-only statement of who you currently are,
                         so the menu still answers it without offering a second,
                         competing way to change it. */}
-                    {activeRole && (
+                    {/* Admin has no active role at all (it is orthogonal to the
+                        role system — see AuthUser.isAdmin), so this reads
+                        "Admin" instead of a role name rather than disappearing:
+                        it is a passive statement of who is signed in, not a
+                        control, so there is nothing to hide it for. */}
+                    {(user?.isAdmin || activeRole) && (
                       <p className="border-b border-[var(--color-border-hairline)] px-2 pb-2 pt-1 text-xs text-[var(--color-text-secondary)]">
                         Viewing as{" "}
                         <span className="font-bold text-[var(--color-text-primary)]">
-                          {roleDisplay(activeRole, roles.find((r) => r.role === activeRole)?.context)}
+                          {user?.isAdmin
+                            ? "Admin"
+                            : roleDisplay(activeRole!, roles.find((r) => r.role === activeRole)?.context)}
                         </span>
                       </p>
                     )}
 
                     <div className="pt-1.5">
-                      {ACCOUNT_LINKS.map((item) => (
+                      {accountLinks.map((item) => (
                         <Link
                           key={item.href}
                           href={item.href}
@@ -432,7 +455,7 @@ export function Header() {
                     </Link>
                   )}
 
-                  {ACCOUNT_LINKS.map((item) => (
+                  {accountLinks.map((item) => (
                     <Link
                       key={item.href}
                       href={item.href}

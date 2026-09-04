@@ -68,6 +68,10 @@ export interface AuthUser {
   id: string;
   name: string;
   roles: RoleName[];
+  /** Orthogonal to `roles` — set only for the hardcoded admin placeholder
+      (lib/admin.ts). Never combined with the tenant/landlord/etc. role
+      system; admin routes gate on this flag directly. */
+  isAdmin?: boolean;
 }
 
 interface AuthState {
@@ -83,6 +87,9 @@ interface AuthState {
 interface AuthContextValue extends AuthState {
   /** Demo sign-in as a specific account (lib/demo-accounts.ts). */
   login: (account: DemoAccount) => void;
+  /** Placeholder admin sign-in (lib/admin.ts) — bypasses the roles/activeRole
+      system entirely rather than modeling admin as a RoleName. */
+  loginAsAdmin: () => void;
   logout: () => void;
   /** Changes the view context. Persists. Does NOT navigate — the caller
       decides that, so a deep-link auto-switch can stay where it is while the
@@ -196,6 +203,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ isAuthenticated: true, user, roles, ...resolveRoleSelection(user) });
   }, []);
 
+  const loginAsAdmin = useCallback(() => {
+    const user: AuthUser = { id: "admin", name: "Admin", roles: [], isAdmin: true };
+    setState({ isAuthenticated: true, user, roles: [], activeRole: null, needsRoleChoice: false });
+  }, []);
+
   const logout = useCallback(() => {
     // The saved role preference deliberately SURVIVES logout — see the header
     // comment. Signing back in restores it rather than re-asking.
@@ -284,6 +296,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       login,
+      loginAsAdmin,
       logout,
       setActiveRole,
       chooseSessionRole,
@@ -295,6 +308,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [
       state,
       login,
+      loginAsAdmin,
       logout,
       setActiveRole,
       chooseSessionRole,
