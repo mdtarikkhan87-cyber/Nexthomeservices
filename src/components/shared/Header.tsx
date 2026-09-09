@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { IconBell, IconChevronDown, IconClose, IconMenu } from "@/components/ui/icons";
+import { IconArrowLeft, IconBell, IconChevronDown, IconClose, IconMenu } from "@/components/ui/icons";
 import { RoleSwitcher } from "@/components/shared/RoleSwitcher";
 import { useAuth } from "@/lib/auth-context";
 import { DEMO_LANDLORD_RENTER } from "@/lib/demo-accounts";
@@ -124,10 +124,30 @@ export function Header() {
   const canListProperty = isAuthenticated && activeRole === "landlord";
   const accountLinks = user?.isAdmin ? ADMIN_ACCOUNT_LINKS : ACCOUNT_LINKS;
 
+  // BACK-TO-HOME ARROW. The logo has been the only route home since the nav
+  // reduction above, and an unlabelled logo is an *implicit* affordance — it
+  // works once you know it, which is not the same as being discoverable. This
+  // adds the explicit one, on every route except the homepage itself (where
+  // it would point at the page you are already on).
+  //
+  // It is a Link to "/", not router.back(): "back" in browser history is
+  // wherever the user happened to come from, which is frequently not this
+  // site's homepage at all. A fixed destination is the one that can be
+  // labelled honestly.
+  //
+  // Deliberately icon-only. A labelled "Home" control would re-introduce the
+  // exact top-level item spec §3A removed; the accessible name and tooltip
+  // carry the meaning instead.
+  const isHome = pathname === "/";
+
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)]/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2.5 sm:gap-6 sm:px-6">
-        <div className="flex min-w-0 items-center gap-6 md:gap-8">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:gap-6 sm:px-6">
+        {/* Tight gap here (was 6/8) because this cluster is now up to three
+            controls deep on a phone — menu, back, logo. The nav's breathing
+            room moved onto the nav itself as an explicit margin, so it does
+            not have to be paid for by the icons too. */}
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
             type="button"
             className="-ml-1.5 flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-control)] text-[var(--color-deep-blue)] md:hidden"
@@ -138,6 +158,20 @@ export function Header() {
           >
             {mobileMenuOpen ? <IconClose className="h-5 w-5" /> : <IconMenu className="h-5 w-5" />}
           </button>
+
+          {!isHome && (
+            <Link
+              href="/"
+              aria-label="Back to homepage"
+              title="Back to homepage"
+              // Bordered rather than bare: it sits directly beside the logo,
+              // which is also a link to "/", so it has to read as a control in
+              // its own right instead of as part of the mark.
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-default)] text-[var(--color-text-secondary)] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-brand-primary)] hover:bg-[var(--color-surface-dense)] hover:text-[var(--color-brand-primary)] sm:h-11 sm:w-11"
+            >
+              <IconArrowLeft className="h-[18px] w-[18px]" />
+            </Link>
+          )}
 
           {/* THE HOME LINK (spec §3A: "The site logo / name in the header
               becomes the click target that returns the user to the homepage,
@@ -150,17 +184,41 @@ export function Header() {
               Official NextHome Primary Logo, extracted pixel-for-pixel from
               the approved Brand Guidelines PDF (p.3). Intrinsic width/height
               keep the aspect ratio locked; only display height is set. Brand
-              identity is untouched. */}
+              identity is untouched.
+
+              SIZE, 9 Sep 2026: h-9 -> h-12, and h-14 from sm up. Asset and
+              position are untouched; the bar keeps its original py-2.5.
+
+              A pass earlier that day swapped this for the landscape secondary
+              lockup, reasoning that a portrait mark cannot show a readable
+              wordmark in a header row. The client looked at it and asked for
+              the primary lockup back, in its original placement, only bigger.
+              That is what this is, and the swap is recorded in REVISION_LOG.md
+              §16a rather than deleted, because the constraint behind it is
+              still live:
+
+              THE WORDMARK IN THIS MARK IS NOT LEGIBLE AND CANNOT BE. Height
+              buys width on a portrait lockup — even at h-14 this renders only
+              ~43px wide, which puts the "NEXT HOME" lettering inside the house
+              at ~5px. That is inherent to the artwork at header scale, not a
+              defect introduced here, and the client has accepted it. Do not
+              "fix" it by scaling further; it would grow the bar without ever
+              making the words readable.
+
+              WHY THE PHONE STEPS DOWN to h-12 (48px, ~37px wide). Not taste:
+              at 375px this bar carries menu + back + logo + Log in + Register,
+              which measures 331px of the 375. h-14 there would cut that slack
+              to ~36px, inside the range where a longer label tips it into
+              overflow. Measured, not estimated. */}
           <Link
             href="/"
             aria-label="NextHome — go to homepage"
-            aria-current={pathname === "/" ? "page" : undefined}
-            // min-h-11 (44px) is the touch-target floor. The logo is now the
-            // ONLY route home, so it has to be comfortably tappable, not just
-            // clickable — it measured 28x36 before this.
-            // -mx-2/px-2 widens the tap area to the 44px floor without moving
-            // the logo optically — the mark itself is only 28px wide at this
-            // display height.
+            aria-current={isHome ? "page" : undefined}
+            // min-h-11 (44px) is the touch-target floor. The logo is the ONLY
+            // implicit route home, so it has to be comfortably tappable, not
+            // just clickable. At h-11 the artwork is 44px tall and meets that
+            // floor on its own; -mx-2/px-2 widens the narrow (~34px) mark to
+            // the floor horizontally too, without moving it optically.
             className="-mx-2 flex min-h-11 shrink-0 items-center rounded-[var(--radius-control)] px-2"
           >
             <Image
@@ -169,13 +227,16 @@ export function Header() {
               width={2267}
               height={2958}
               priority
-              className="h-9 w-auto"
+              className="h-12 w-auto sm:h-14"
             />
           </Link>
 
           <nav
             aria-label="Primary"
-            className="u-ui hidden items-center gap-8 text-[13px] font-medium text-[var(--color-text-secondary)] md:flex"
+            // Resting weight is Bold, not Medium (client request, 9 Sep). Both
+            // are brand weights — Quicksand 500/700 are the only two loaded, so
+            // "bolder" has exactly one available meaning and this is it.
+            className="u-ui hidden items-center gap-8 text-[13px] font-bold text-[var(--color-text-secondary)] md:ml-5 md:flex lg:ml-8"
           >
             {PRIMARY_LINKS.map((link) => {
               const isActive = isListingsSection(pathname);
@@ -185,18 +246,24 @@ export function Header() {
                   href={link.href}
                   aria-current={isActive ? "page" : undefined}
                   className={`relative py-2 transition-colors duration-[var(--motion-duration-short)] hover:text-[var(--color-text-primary)] ${
-                    isActive ? "font-bold text-[var(--color-text-primary)]" : ""
+                    isActive ? "text-[var(--color-text-primary)]" : ""
                   }`}
                 >
                   {link.label}
-                  {/* BRAND HEX AUDIT consequence, handled on purpose: brand
-                      text colour is now Deep Blue, which is also the resting
-                      nav colour, so hue can no longer carry the active state.
-                      It is carried by weight + this rule instead — two cues
-                      that both survive greyscale and colour-blindness, where
-                      the previous colour-shift did not. The rule uses brand
-                      Blue, which is a fill here, not text, and clears the 3:1
-                      non-text contrast minimum. */}
+                  {/* ACTIVE STATE, re-derived after the weight change above.
+                      It used to be carried by weight (Medium -> Bold) plus this
+                      rule. Now that the resting weight IS Bold, weight can no
+                      longer differentiate anything, so `font-bold` has been
+                      dropped from the active branch rather than left in place
+                      pretending to do work.
+
+                      What carries it instead: Deep Blue -> Dark Blue on the
+                      label, and this rule. The rule is the load-bearing one —
+                      it is the cue that survives greyscale and colour-blindness,
+                      which a hue shift between two dark blues does not. It uses
+                      brand Blue as a fill, not as text, and clears the 3:1
+                      non-text contrast minimum. `aria-current="page"` above
+                      states it outright for assistive tech either way. */}
                   {isActive && (
                     <motion.span
                       aria-hidden
