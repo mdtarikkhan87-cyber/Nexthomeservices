@@ -16,9 +16,11 @@ function initialSubscriptionState(role) {
 }
 
 // Builds and signs both tokens for a user. `roles` is a plain array of role
-// name strings, e.g. ["landlord", "tenant_buyer"].
-function issueTokensFor({ userId, email, roles }) {
-  const payload = { sub: userId, email, roles };
+// name strings, e.g. ["landlord", "tenant_buyer"]. `isAdmin` is embedded the
+// same way `roles` is — trusted from the token, same as requireRole checks
+// req.user.roles directly rather than re-querying the DB per request.
+function issueTokensFor({ userId, email, roles, isAdmin }) {
+  const payload = { sub: userId, email, roles, isAdmin: Boolean(isAdmin) };
 
   const accessToken = jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
     expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",

@@ -330,6 +330,55 @@ The two new number inputs were first given `min`/`max` attributes. Continue is a
 
 ---
 
+## 16. NEW — Header brand presence, and an explicit way back to the homepage
+
+Client request, 9 Sep 2026: *"the next home logo to be a little big and placed at such place that it would make the website look like its next home services"*, and *"when i would go another page after this page there should be a arrow that would be clickable and would take you back to this page."*
+
+### 16a. Logo — investigated, swapped, then reverted at the client's instruction
+
+`public/brand/` holds two approved lockups, and the first attempt at this changed which one the header uses. **That was reverted the same day. What shipped is the primary lockup, in its original position, one size larger.** The investigation is kept because it explains a constraint that is still live.
+
+**What was found.** The header and footer use **`nexthome-logo-primary.png`**, the **portrait** lockup (2267×2958) with "NEXT HOME" set *inside* the house outline. At a 36px header height that renders **28px wide**, which puts the wordmark at roughly **4px tall** — present in the DOM, unreadable by eye.
+
+**What was tried.** Swapping both to **`nexthome-logo-secondary.png`**, the landscape lockup (3310×2279) with the wordmark below the mark. At h-14 that is ~81px wide and the wordmark reads.
+
+**What the client said.** Keep the primary lockup, placed as before. So:
+
+| | Original | Shipped |
+|---|---|---|
+| Header asset | primary | **primary** (unchanged) |
+| Header render | 28 × 36 px | **37 × 48** (phone) → **43 × 56** (`h-9` → `h-12 sm:h-14`) |
+| Header bar height | 56px | **69px** (phone) / **77px** (`py-2.5` unchanged) |
+| Footer | primary, 30 × 40 | **byte-identical to original** |
+
+The only surviving change is the header height — the "a little bigger" from the first request, which was never withdrawn, then raised once more on a second look. It landed at `h-9` → `h-11` → `h-12 sm:h-14`.
+
+The phone step-down is not taste. This is a *portrait* mark, so height buys width: at 56px it is ~43px wide, and the 375px bar already carries menu + back + logo + Log in + Register. At `h-12` the guest phone header measures 331px of content in 375px — 45px of slack. At `h-14` that slack would be ~36px, which is inside the margin where a longer role label or a wider button could tip it. The bar's own padding is untouched at `py-2.5`.
+
+**Constraint still live, stated rather than buried:** the wordmark inside the header logo is not legible and cannot be at this aspect ratio and scale. That is inherent to a portrait lockup in a horizontal bar, not a defect in the implementation. If it should read, the options are the landscape lockup (rejected once), a horizontal mark-plus-wordmark lockup that the Brand Guidelines do not currently contain, or accepting it. **Client's call, currently: accept it.**
+
+### 16c. "Listings" set in Bold
+
+Client request. Resting nav weight `font-medium` (500) → `font-bold` (700). Quicksand loads exactly two weights (Brand Guidelines p.9, enforced in `app/layout.tsx`), so "bolder" has one available meaning and this is it. No new weight was loaded and no third typeface introduced.
+
+**Knock-on, handled rather than ignored:** §9 recorded that the active nav state was carried by *weight plus the underline rule*, because the brand hex audit left resting text and brand text the same Deep Blue. With the resting weight now Bold, weight differentiates nothing, so `font-bold` was **removed from the active branch** instead of being left there pretending to work. The active state is now Deep Blue → Dark Blue plus the rule. The rule is the load-bearing cue — it is what survives greyscale and colour-blindness, which a shift between two dark blues does not — and `aria-current="page"` states it outright for assistive tech regardless.
+
+### 16b. The back-to-home arrow
+
+A circular, bordered icon control at the far left of the header, on **every route except `/`**. Because `<Header />` is mounted once in `app/providers.tsx`, this covers public pages, listing detail, login/register and the whole dashboard from one place.
+
+Three decisions worth stating, because each had a plausible alternative:
+
+- **`<Link href="/">`, not `router.back()`.** The client asked to get back to *this page* — the homepage — not to wherever they happened to come from. Browser history is frequently not this site's homepage at all, so only a fixed destination can be labelled honestly.
+- **Icon-only.** A labelled "Home" control would re-introduce the exact top-level nav item §6 deliberately removed. The `aria-label` and `title` carry the meaning instead.
+- **Bordered, not bare.** It sits directly beside the logo, which is *also* a link to `/`. The border is what makes it read as a control in its own right rather than as part of the mark.
+
+Redundant with the logo by design: the logo is the *implicit* home affordance, which works only once you already know it. This is the discoverable one.
+
+### Verified
+
+Lint clean, `next build` green across all 29 routes, re-run after the revert. Checked signed-out and signed-in as the two-role demo account (the fullest the bar ever gets: back arrow · logo · Listings · role switcher · List Your Property · Dashboard · bell · avatar) — **no horizontal overflow at 375px or 1200px**. Arrow confirmed navigating `/dashboard/landlord` → `/`, and correctly absent on `/`. Post-revert DOM state confirmed: header logo `primary` at 34 × 44, bar 64.7px, nav `font-weight: 700`, `Footer.tsx` diff empty against its original.
+
 ## Open items — still need client confirmation
 
 Carried forward from Spec §4 and the revision request. **None of these were guessed at**; each has a documented interim and a single place to change it.
@@ -342,7 +391,7 @@ Carried forward from Spec §4 and the revision request. **None of these were gue
 | 4 | First-visit default for the Buy/Rent toggle | `rent` — a continuation of the old `/search` default, not a new guess | `DEFAULT_MODE` in `lib/listings-mode.ts` |
 | 5 | Are Service Provider and Advertiser still in scope? | Still offered, visually secondary | `SECONDARY_ROLES` in `app/register/page.tsx` |
 | 6 | Brand-owner decision on an error/rejected colour | Flagged proposal, unchanged | `--color-status-rejected` |
-| 7 | Logo-as-home vs. an explicit label | Logo (the spec's own recommended default) | `Header.tsx` |
+| 7 | Logo-as-home vs. an explicit label | **Both, as of §16b** — the logo stays the home link, plus an explicit icon control beside it. Still no text label, so the §6 nav reduction is intact. | `Header.tsx` |
 | 8 | Can a service provider cover **more than one state**? (Multi-LGA coverage within a state is implemented — §11a.) | Coverage is a list of LGAs inside one state; an empty list means statewide | `ServiceListing.lgas` in `lib/types.ts` (§11a) |
 
 Also unchanged and still open: everything in [IMPLEMENTATION_NOTES.md](./IMPLEMENTATION_NOTES.md). None of those nine items were silently resolved by this pass.

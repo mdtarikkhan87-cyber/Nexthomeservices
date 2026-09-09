@@ -1,28 +1,75 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { notFound } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
-import { mockListings } from "@/lib/mock-data";
-import { useListings } from "@/lib/listings-context";
-import { isShared, roomAvailabilityLabel } from "@/lib/shared-property";
+import { apiFetchListingById, apiSetRoomStatus } from "@/lib/listings-client";
+import { PropertyListing, SharedRoom } from "@/lib/types";
+import { isShared, roomAvailabilityLabel, roomsOf } from "@/lib/shared-property";
 import { formatLocation } from "@/lib/nigeria-locations";
 
 export default function ListingManagementDetail({ params }: PageProps<"/dashboard/listings/[id]">) {
   const { id } = use(params);
-  const listing = mockListings.find((l) => l.id === id);
+  const [listing, setListing] = useState<PropertyListing | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFoundState, setNotFoundState] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [unpublished, setUnpublished] = useState(false);
-  // Room availability is managed from this page — the same page that already
-  // owns listing status — rather than from a screen of its own.
-  const { resolveRooms, setRoomOccupied, setRoomAvailable } = useListings();
+  // Which room is mid-request, so its own button shows a busy state without
+  // disabling every other room on the list.
+  const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
+  const [roomError, setRoomError] = useState<string | null>(null);
 
-  if (!listing) notFound();
+  useEffect(() => {
+    let cancelled = false;
+    apiFetchListingById(id, { countView: false })
+      .then((l) => {
+        if (!cancelled) setListing(l);
+      })
+      .catch(() => {
+        if (!cancelled) setNotFoundState(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (notFoundState) notFound();
+  if (loading || !listing) return null;
 
   const shared = isShared(listing) ? listing.shared : undefined;
-  const rooms = resolveRooms(listing);
+  const rooms = roomsOf(listing);
+
+  // Toggling a room calls the real backend, then updates this page's own
+  // copy of the listing so the UI reflects it immediately — no shared
+  // context needed, since this is the only page that manages room status.
+  const toggleRoom = async (room: SharedRoom) => {
+    const nextStatus = room.status === "available" ? "occupied" : "available";
+    setRoomError(null);
+    setPendingRoomId(room.id);
+    try {
+      const updated = await apiSetRoomStatus(listing.id, room.id, nextStatus);
+      setListing((prev) => {
+        if (!prev || !prev.shared) return prev;
+        return {
+          ...prev,
+          shared: {
+            ...prev.shared,
+            rooms: prev.shared.rooms.map((r) => (r.id === updated.id ? { ...r, status: updated.status } : r)),
+          },
+        };
+      });
+    } catch (err) {
+      setRoomError(err instanceof Error ? err.message : "Couldn't update that room. Try again.");
+    } finally {
+      setPendingRoomId(null);
+    }
+  };
 
   return (
     <div className="max-w-xl">
@@ -76,6 +123,7 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
             Renters enquire about one room at a time. Marking a room occupied removes it from new
             enquiries — the listing itself stays visible either way.
           </p>
+          {roomError && <p className="mt-2 text-sm font-bold text-red-600">{roomError}</p>}
 
           <ul className="mt-4 flex flex-col gap-2.5">
             {rooms.map((room) => {
@@ -94,7 +142,8 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
                   <Button
                     variant="secondary"
                     size="dense"
-                    onClick={() => (free ? setRoomOccupied(room) : setRoomAvailable(room))}
+                    loading={pendingRoomId === room.id}
+                    onClick={() => toggleRoom(room)}
                   >
                     {free ? "Mark occupied" : "Mark available"}
                   </Button>

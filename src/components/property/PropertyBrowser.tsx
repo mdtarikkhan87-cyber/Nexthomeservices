@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { IconClose } from "@/components/ui/icons";
 import { PRICE_RANGES } from "@/components/shared/SearchBar";
 import { ListingModeToggle } from "@/components/property/ListingModeToggle";
-import { mockListings } from "@/lib/mock-data";
+import { apiSearchListings } from "@/lib/listings-client";
 import {
   DEFAULT_MODE,
   MODE_COPY,
@@ -21,7 +21,7 @@ import {
   subscribeStoredMode,
   writeStoredMode,
 } from "@/lib/listings-mode";
-import { Amenity, ListingType } from "@/lib/types";
+import { Amenity, ListingType, PropertyListing } from "@/lib/types";
 import {
   ActiveChip,
   EMPTY_FILTERS,
@@ -68,6 +68,32 @@ import {
 export function PropertyBrowser() {
 
   const searchParams = useSearchParams();
+
+  // Fetched once on mount — filtering/sorting stays entirely client-side
+  // (see lib/listing-filters.ts), since it already supports dimensions
+  // (lga, verifiedOnly) the backend's search endpoint doesn't filter on
+  // server-side. limit: 50 is the backend's current max; broad-fetch-then-
+  // filter-client is the right tradeoff at today's catalog size — revisit
+  // with real server-side pagination once listing volume grows.
+  const [allListings, setAllListings] = useState<PropertyListing[]>([]);
+  const [loadingListings, setLoadingListings] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiSearchListings({ limit: 50 })
+      .then((result) => {
+        if (!cancelled) setAllListings(result.listings);
+      })
+      .catch(() => {
+        /* leave allListings empty — results below will just show none */
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingListings(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Initialised from the URL so a filtered view is shareable and survives a
   // reload, and so links from the homepage SearchBar and facet tiles land
@@ -174,9 +200,9 @@ export function PropertyBrowser() {
   }, []);
 
   const results = useMemo(() => {
-    const matched = mockListings.filter((l) => matchesFilters(l, mode, filters));
+    const matched = allListings.filter((l) => matchesFilters(l, mode, filters));
     return sortListings(matched, filters.sort);
-  }, [mode, filters]);
+  }, [allListings, mode, filters]);
 
   // Prefer the bucket's own wording; fall back to formatting the raw range
   // so an off-bucket value from a shared URL still reads as a price, not as
@@ -347,7 +373,9 @@ export function PropertyBrowser() {
             </div>
           )}
 
-          {results.length === 0 ? (
+          {loadingListings ? (
+            <p className="py-10 text-center text-sm text-[var(--color-text-secondary)]">Loading listings…</p>
+          ) : results.length === 0 ? (
             <EmptyState
               title="No listings match your filters"
               description="Try widening your price range, removing an amenity, or clearing a filter."

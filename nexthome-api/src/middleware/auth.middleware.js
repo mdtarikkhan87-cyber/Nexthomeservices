@@ -42,4 +42,20 @@ function requireRole(...allowedRoles) {
   };
 }
 
-module.exports = { authenticate, requireRole };
+// "Is this account the admin?"
+//
+// Usage: router.get("/something", authenticate, requireAdmin, handler)
+// MUST be used AFTER `authenticate`. isAdmin is orthogonal to the
+// RoleName/requireRole system — never combined with it — same as the
+// frontend's AuthUser.isAdmin (lib/auth-context.tsx).
+function requireAdmin(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Not authenticated." });
+  }
+  if (!req.user.isAdmin) {
+    return res.status(403).json({ message: "This action requires an admin account." });
+  }
+  next();
+}
+
+module.exports = { authenticate, requireRole, requireAdmin };

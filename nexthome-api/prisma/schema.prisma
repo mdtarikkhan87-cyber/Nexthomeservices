@@ -130,13 +130,21 @@ enum ComplaintStatus {
 // ---------------------------------------------------------------------------
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  phone        String?  @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String    @id @default(cuid())
+  name             String
+  email            String    @unique
+  phone            String?   @unique
+  passwordHash     String
+  motherMaidenName String?   // Basic Trust Layer — PRD §6.1, account recovery/fraud checks
+  emailVerifiedAt  DateTime?
+  phoneVerifiedAt  DateTime?
+  // Orthogonal to `roles` (UserRole) — never combined with the
+  // landlord/tenant-buyer/service-provider/advertiser role system, exactly
+  // like the frontend's AuthUser.isAdmin. No self-serve path sets this; an
+  // admin account is provisioned directly (e.g. via Prisma Studio/script).
+  isAdmin          Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   roles         UserRole[]
   listings      Listing[]         @relation("LandlordListings")
@@ -150,7 +158,10 @@ model User {
   ratingsGiven  Rating[]        @relation("RatingsGiven")
   ratingsReceived Rating[]      @relation("RatingsReceived")
   complaints    ComplaintTicket[]
+  feedback      Feedback[]
   payments      Payment[]
+  otpCodes      OtpCode[]
+  emailVerificationTokens EmailVerificationToken[]
 
   @@map("users")
 }
@@ -167,11 +178,45 @@ model UserRole {
   state             RoleState          @default(role_added)
   subscriptionState SubscriptionState? // landlord only
   context           ListingType?       // tenant_buyer only: "rent" | "sale"
+  documentUrl         String?    // Basic Trust Layer — ID/utility bill, submitted by landlord/service-provider
+  documentSubmittedAt DateTime?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
   @@unique([userId, role])
   @@map("user_roles")
+}
+
+/// A one-time code sent by SMS, used to verify a phone number belongs to
+/// the account holder. Codes are hashed at rest — never stored plain.
+model OtpCode {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash   String
+  purpose    String    @default("phone_verification")
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("otp_codes")
+}
+
+/// A one-time link token emailed to the account holder to confirm they
+/// control that email address. Tokens are hashed at rest.
+model EmailVerificationToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("email_verification_tokens")
 }
 
 // ---------------------------------------------------------------------------
@@ -361,6 +406,20 @@ model ComplaintTicket {
   updatedAt DateTime        @updatedAt
 
   @@map("complaint_tickets")
+}
+
+/// General product feedback, unlike ComplaintTicket: PRD §8.2 scopes this
+/// to "any logged-in user" — userId is required, no anonymous submission.
+/// No status/workflow — this is read-only signal for the team, not a
+/// ticket queue that gets worked through states.
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+
+  @@map("feedback")
 }
 
 model Payment {

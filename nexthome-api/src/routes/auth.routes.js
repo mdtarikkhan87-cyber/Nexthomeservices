@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -5,6 +6,7 @@ const { body, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
 const { authenticate } = require("../middleware/auth.middleware");
+const { sendEmail } = require("../lib/email");
 const {
   initialRoleState,
   initialSubscriptionState,
@@ -38,17 +40,35 @@ router.post(
     body("email").isEmail(),
     body("phone").optional().isString(),
     body("password").isString().isLength({ min: 8 }),
+    body("motherMaidenName").optional().isString(),
     body("roles").isArray({ min: 1 }),
     body("roles.*").isIn(VALID_ROLES),
   ],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
 
-    const { name, email, phone, password, roles } = req.body;
+    const { name, email, phone, password, motherMaidenName, roles } = req.body;
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
+    // Basic Trust Layer (PRD §6.1): mother's maiden name is required for
+    // any role that goes through document review — not for tenant-buyer
+    // or advertiser, who reach "verified" instantly.
+    const needsTrustLayer = roles.some((r) => ["landlord", "service_provider"].includes(r));
+    if (needsTrustLayer && !motherMaidenName) {
+      return res.status(400).json({
+        message: "Mother's maiden name is required when registering as a landlord or service provider.",
+      });
+    }
+
+        const existingEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingEmail) {
       return res.status(409).json({ message: "An account with this email already exists." });
+    }
+
+    if (phone) {
+      const existingPhone = await prisma.user.findUnique({ where: { phone } });
+      if (existingPhone) {
+        return res.status(409).json({ message: "An account with this phone number already exists." });
+      }
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -60,6 +80,7 @@ router.post(
         email,
         phone,
         passwordHash,
+        motherMaidenName,
         roles: {
           create: uniqueRoles.map((role) => ({
             role,
@@ -71,7 +92,29 @@ router.post(
       include: { roles: true },
     });
 
-    const tokens = issueTokensFor({ userId: user.id, email: user.email, roles: uniqueRoles });
+    // Fire the email verification link immediately on registration — don't
+    // block the response on it (verification isn't required to use the
+    // account, per PRD; it's tracked separately via emailVerifiedAt).
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    prisma.emailVerificationToken
+      .create({
+        data: {
+          userId: user.id,
+          tokenHash: crypto.createHash("sha256").update(rawToken).digest("hex"),
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      })
+      .then(() => {
+        const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${rawToken}`;
+        return sendEmail({
+          to: user.email,
+          subject: "Verify your NextHome email address",
+          html: `<p>Hi ${user.name},</p><p>Click below to verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+        });
+      })
+      .catch((err) => console.error("Failed to send verification email:", err));
+
+    const tokens = issueTokensFor({ userId: user.id, email: user.email, roles: uniqueRoles, isAdmin: user.isAdmin });
     res.status(201).json(tokens);
   },
 );
@@ -106,7 +149,7 @@ router.post(
     }
 
     const roleNames = user.roles.map((r) => r.role);
-    const tokens = issueTokensFor({ userId: user.id, email: user.email, roles: roleNames });
+    const tokens = issueTokensFor({ userId: user.id, email: user.email, roles: roleNames, isAdmin: user.isAdmin });
     res.json(tokens);
   },
 );
@@ -138,7 +181,7 @@ router.post("/refresh", [body("refreshToken").isString()], async (req, res) => {
   }
 
   const roleNames = user.roles.map((r) => r.role);
-  const tokens = issueTokensFor({ userId: user.id, email: user.email, roles: roleNames });
+  const tokens = issueTokensFor({ userId: user.id, email: user.email, roles: roleNames, isAdmin: user.isAdmin });
   res.json(tokens);
 });
 

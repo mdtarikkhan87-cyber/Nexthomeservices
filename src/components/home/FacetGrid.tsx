@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { IconClock, IconHome, IconShield } from "@/components/ui/icons";
-import { mockListings } from "@/lib/mock-data";
+import { PropertyListing } from "@/lib/types";
 
 // EDITORIAL REDESIGN — the page's one deliberately DENSE band.
 //
@@ -16,8 +16,13 @@ import { mockListings } from "@/lib/mock-data";
 // rent duration — and links to a real pre-filtered result set on /rent.
 // Counts are computed from the live catalog, so no tile can advertise
 // inventory that isn't there.
-export function FacetGrid() {
-  const liveRentals = mockListings.filter((l) => l.status === "live" && l.type === "rent");
+//
+// `listings` is passed in from the homepage's single server-side fetch
+// (see app/(public)/page.tsx) rather than imported from mock-data.ts
+// directly — every entry is already "live" (the backend only ever returns
+// that status), so no status filter is needed here either.
+export function FacetGrid({ listings }: { listings: PropertyListing[] }) {
+  const liveRentals = listings.filter((l) => l.type === "rent");
 
   const states = Array.from(new Set(liveRentals.map((l) => l.state)))
     .map((state) => ({

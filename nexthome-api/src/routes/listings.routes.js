@@ -188,18 +188,33 @@ router.get("/mine", authenticate, requireRole("landlord"), async (req, res) => {
 });
 
 // -----------------------------------------------------------------------
-// GET /listings/:id — a single listing's full detail. Increments viewCount
-// on every fetch (simple MVP approach; refine later to avoid inflating
-// counts from the owner's own repeated visits, if that matters to you).
+// GET /listings/:id?count=false — full listing detail. Increments viewCount
+// by default. Pass ?count=false to read without counting a view — used by
+// ListingFullDetail.tsx's client-side fetch, since the server-rendered
+// teaser page (app/(public)/listing/[id]/page.tsx) already counted this
+// same visit once; without this, a signed-in visitor's page view would be
+// double-counted (teaser fetch + full-detail fetch) while an anonymous
+// visitor's (teaser only) counted once.
 // -----------------------------------------------------------------------
-router.get("/:id", [param("id").isString()], async (req, res) => {
+router.get("/:id", [param("id").isString(), query("count").optional().isBoolean()], async (req, res) => {
   if (!checkValidation(req, res)) return;
 
-  const listing = await prisma.listing.update({
-    where: { id: req.params.id },
-    data: { viewCount: { increment: 1 } },
-    include: { shared: { include: { rooms: true } } },
-  }).catch(() => null);
+  const shouldCount = req.query.count !== "false";
+
+  const listing = shouldCount
+    ? await prisma.listing
+        .update({
+          where: { id: req.params.id },
+          data: { viewCount: { increment: 1 } },
+          include: { shared: { include: { rooms: true } } },
+        })
+        .catch(() => null)
+    : await prisma.listing
+        .findUnique({
+          where: { id: req.params.id },
+          include: { shared: { include: { rooms: true } } },
+        })
+        .catch(() => null);
 
   if (!listing) {
     return res.status(404).json({ message: "Listing not found." });
@@ -268,6 +283,66 @@ router.delete(
 
     await prisma.listing.delete({ where: { id: req.params.id } });
     res.status(204).send();
+  },
+);
+
+// -----------------------------------------------------------------------
+// PATCH /listings/:id/rooms/:roomId — mark a shared-listing room occupied
+// or available. Landlord-only, and only the listing's own landlord.
+//
+// "occupied" is an atomic conditional update (WHERE status = 'available'),
+// not a read-then-write — mirrors exactly what
+// src/lib/listings-context.tsx on the frontend already documents as the
+// eventual real-database behavior for this action.
+// -----------------------------------------------------------------------
+router.patch(
+  "/:id/rooms/:roomId",
+  authenticate,
+  requireRole("landlord"),
+  [
+    param("id").isString(),
+    param("roomId").isString(),
+    body("status").isIn(["available", "occupied"]),
+  ],
+  async (req, res) => {
+    if (!checkValidation(req, res)) return;
+
+    const listing = await prisma.listing.findUnique({
+      where: { id: req.params.id },
+      include: { shared: true },
+    });
+    if (!listing) return res.status(404).json({ message: "Listing not found." });
+    if (listing.landlordId !== req.user.sub) {
+      return res.status(403).json({ message: "You don't own this listing." });
+    }
+    if (!listing.shared) {
+      return res.status(400).json({ message: "This listing has no shared rooms." });
+    }
+
+    const room = await prisma.sharedRoom.findUnique({ where: { id: req.params.roomId } });
+    if (!room || room.sharedDetailsId !== listing.shared.id) {
+      return res.status(404).json({ message: "Room not found on this listing." });
+    }
+
+    const { status } = req.body;
+
+    if (status === "occupied") {
+      // Conditional update: only succeeds if the room is still "available"
+      // at the moment of the write, closing the same race a naive
+      // read-then-write would leave open.
+      const result = await prisma.sharedRoom.updateMany({
+        where: { id: room.id, status: "available" },
+        data: { status: "occupied" },
+      });
+      if (result.count === 0) {
+        return res.status(409).json({ message: "Room was already occupied." });
+      }
+    } else {
+      await prisma.sharedRoom.update({ where: { id: room.id }, data: { status: "available" } });
+    }
+
+    const updatedRoom = await prisma.sharedRoom.findUnique({ where: { id: room.id } });
+    res.json(updatedRoom);
   },
 );
 

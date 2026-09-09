@@ -7,7 +7,7 @@ import { FacetGrid } from "@/components/home/FacetGrid";
 import { CuratedListings } from "@/components/home/CuratedListings";
 import { TrustEditorial } from "@/components/home/TrustEditorial";
 import { ServicesBand } from "@/components/home/ServicesBand";
-import { mockListings } from "@/lib/mock-data";
+import { apiSearchListings } from "@/lib/listings-client";
 
 // ============================================================================
 // EDITORIAL REDESIGN — homepage composition
@@ -37,16 +37,25 @@ import { mockListings } from "@/lib/mock-data";
 // black tiles played. (An earlier pass had added Inter as a second UI face;
 // that has been removed — Quicksand Bold/Medium is the whole type system
 // again, per the Brand Guidelines and Website Revision Spec §3E.)
-export default function HomePage() {
-  const live = mockListings.filter((l) => l.status === "live");
+//
+// REAL BACKEND (6 Sept 2026): fetched ONCE here, server-side, and passed
+// down to FacetGrid and CuratedListings as props — both used to import
+// mock-data.ts directly and separately. A single fetch avoids duplicating
+// the request, and keeps this the one place that decides what a visitor's
+// first view of the catalog contains.
+export default async function HomePage() {
+  const { listings: allListings } = await apiSearchListings({ limit: 50 });
+  // Every listing returned is already "live" — the backend's search
+  // endpoint only ever returns that status (see listings.routes.js) — so
+  // no further status filtering is needed here, unlike the old mock catalog.
+  const live = allListings;
   // A verified home with gallery depth makes the strongest hero plate; fall
   // back through progressively looser criteria rather than hard-coding an id.
-  const heroListing =
-    live.find((l) => l.verified && (l.galleryUrls?.length ?? 0) > 2) ?? live[0] ?? mockListings[0];
+  const heroListing = live.find((l) => l.verified && (l.galleryUrls?.length ?? 0) > 2) ?? live[0];
 
   return (
     <div>
-      <Hero listing={heroListing} />
+      {heroListing && <Hero listing={heroListing} />}
 
       {/* ---- TASK 2: Rent / Buy / Services search — its own section, pulled
            up so it STRADDLES the hero's bottom edge: roughly half the card
@@ -67,7 +76,7 @@ export default function HomePage() {
       {/* TASK 4 — dark feature bar, directly below the search section. */}
       <FeatureBar />
 
-      <Reveal><FacetGrid /></Reveal>
+      <Reveal><FacetGrid listings={allListings} /></Reveal>
 
       {/* Hairline instead of a filled divider — the section change is
           carried by scale and density, so the rule only needs to whisper. */}
@@ -75,7 +84,7 @@ export default function HomePage() {
         <div className="border-t border-[var(--color-border-hairline)]" />
       </div>
 
-      <Reveal><CuratedListings /></Reveal>
+      <Reveal><CuratedListings listings={allListings} /></Reveal>
 
       <Reveal><TrustEditorial /></Reveal>
 

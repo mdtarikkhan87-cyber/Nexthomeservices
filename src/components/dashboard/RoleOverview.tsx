@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { Button } from "@/components/ui/Button";
 import { PropertyCard } from "@/components/property/PropertyCard";
 import { IconArrowRight } from "@/components/ui/icons";
-import { demoSavedListingIds, mockListings } from "@/lib/mock-data";
-import { RoleName } from "@/lib/types";
+import { useListings } from "@/lib/listings-context";
+import { apiSearchListings } from "@/lib/listings-client";
+import { demoSavedListingIds } from "@/lib/mock-data";
+import { PropertyListing, RoleName } from "@/lib/types";
 
 // COMPONENT_ARCHITECTURE.md §4: one shared dashboard frame across all four
 // roles; content and sub-nav are role-specific, structure is not.
@@ -36,9 +39,32 @@ const contextCopy = {
 // any summary content — this holds regardless of which role is shown.
 export function RoleOverview({ role }: { role: RoleName }) {
   const { roles, setTenantBuyerContext } = useAuth();
+  const { myListings } = useListings();
 
   const current = roles.find((r) => r.role === role);
   const context = current?.context ?? "rent";
+
+  // Real listings for the tenant/buyer's current context — fetched here
+  // rather than via listings-context.tsx, since that context only tracks a
+  // signed-in LANDLORD's own listings; a tenant/buyer browsing the catalog
+  // is a different, public read (see PropertyBrowser.tsx for the same
+  // pattern on the full /listings page).
+  const [contextListings, setContextListings] = useState<PropertyListing[]>([]);
+
+  useEffect(() => {
+    if (role !== "tenant-buyer") return;
+    let cancelled = false;
+    apiSearchListings({ type: context, limit: 50 })
+      .then((result) => {
+        if (!cancelled) setContextListings(result.listings);
+      })
+      .catch(() => {
+        /* leave contextListings empty on failure */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [role, context]);
 
   return (
     <div>
@@ -106,7 +132,7 @@ export function RoleOverview({ role }: { role: RoleName }) {
               </Link>
             </div>
             <div className="flex flex-col gap-3">
-              {mockListings.slice(0, 2).map((l) => (
+              {myListings.slice(0, 2).map((l) => (
                 <PropertyCard key={l.id} listing={l} variant="dashboard" />
               ))}
             </div>
@@ -135,7 +161,6 @@ export function RoleOverview({ role }: { role: RoleName }) {
             // real, approved data (Saved Homes, live listings). No
             // lease/escrow tracking, offers, financing, or JV pipeline was
             // carried over — none of that exists in the approved PRD.
-            const contextListings = mockListings.filter((l) => l.type === context && l.status === "live");
             const savedCount = contextListings.filter((l) => demoSavedListingIds.includes(l.id)).length;
             const recommended = contextListings.filter((l) => !demoSavedListingIds.includes(l.id)).slice(0, 3);
 
@@ -212,4 +237,4 @@ export function RoleOverview({ role }: { role: RoleName }) {
       </div>
     </div>
   );
-}
+} 

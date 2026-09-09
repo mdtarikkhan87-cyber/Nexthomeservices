@@ -9,33 +9,17 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { IconCheck } from "@/components/ui/icons";
 import { consumeAuthReturnTo } from "@/components/shared/AuthGate";
 import { useAuth } from "@/lib/auth-context";
+import {
+  apiSendPhoneOtp,
+  apiVerifyPhoneOtp,
+  apiGetPresignedUpload,
+  apiSubmitTrustDocument,
+} from "@/lib/backend-client";
 import { ROLE_BLURBS, ROLE_LABELS, roleLandingHref } from "@/lib/roles";
 import { RoleName } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-// ===========================================================================
-// MULTI-ROLE REGISTRATION (Website Revision Spec §3B)
-// ===========================================================================
-// Spec, verbatim: "At registration, a user can select multiple roles at once —
-// Renter and/or Landlord — via multi-select, not a single either/or choice."
-//
-// The account model already supported holding several roles at once
-// (PRODUCT_DECISIONS.md §1/§8) and the account page could already add them one
-// at a time — but this screen forced a single choice, so the model's central
-// promise was unreachable at the only moment most people would use it. That
-// is the gap this closes: the *registration form*, not the data model.
-//
-// SCOPE NOTE: the client discussed Renter and Landlord only. Service Provider
-// and Advertiser are approved roles in PRODUCT_DECISIONS.md §1 and are still
-// offered here, because removing them would delete approved product surface
-// on the strength of them not being mentioned in one meeting. They are visually
-// secondary to the two the client named. Confirming whether they stay in scope
-// is Open Item 7 in the revision request.
-// ===========================================================================
-
-/** The two roles the client named, first and given the most weight. */
 const PRIMARY_ROLES: RoleName[] = ["tenant-buyer", "landlord"];
-/** Approved, still offered, deliberately quieter — see SCOPE NOTE above. */
 const SECONDARY_ROLES: RoleName[] = ["service-provider", "advertiser"];
 
 const NEEDS_TRUST_LAYER: RoleName[] = ["landlord", "service-provider"];
@@ -44,7 +28,7 @@ type Step = "role" | "basic-info" | "trust-layer" | "pending";
 
 const STEP_ORDER: { key: Step; label: string }[] = [
   { key: "role", label: "Choose your roles" },
-  { key: "basic-info", label: "Confirm phone & email" },
+  { key: "basic-info", label: "Your details" },
   { key: "trust-layer", label: "Identity verification" },
   { key: "pending", label: "Under review" },
 ];
@@ -61,10 +45,6 @@ function RoleOption({
   emphasis: "primary" | "secondary";
 }) {
   return (
-    // A real checkbox semantically (role="checkbox" + aria-checked) rather
-    // than a styled div, so assistive tech announces this as a multi-select —
-    // which is the entire point of the change. A visually-only "selected"
-    // state would look like multi-select and behave like a mystery.
     <button
       type="button"
       role="checkbox"
@@ -77,9 +57,6 @@ function RoleOption({
           : "border-[var(--color-border-hairline)] hover:border-[var(--color-brand-accent)] hover:shadow-[var(--elevation-xs)]"
       )}
     >
-      {/* The tick box carries the multi-select affordance visually. Square,
-          not round — a round control reads as "pick one" to most people, and
-          this is explicitly not that. */}
       <span
         aria-hidden
         className={cn(
@@ -121,19 +98,36 @@ function RoleOption({
 function RegisterFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { addRoles } = useAuth();
+  const { register } = useAuth();
 
-  // A suggested role arrives from a gated action ("Log in to list your
-  // property" → ?role=landlord). It PRE-SELECTS rather than decides, so the
-  // user can add a second role in the same pass.
   const suggested = searchParams.get("role") as RoleName | null;
-  // The registration wall on a gated listing passes where to come back to.
   const nextParam = searchParams.get("next");
 
   const [step, setStep] = useState<Step>("role");
   const [selected, setSelected] = useState<RoleName[]>(() => (suggested ? [suggested] : []));
-  const [otpSent, setOtpSent] = useState(false);
   const [returnContext] = useState(() => consumeAuthReturnTo());
+
+  // Basic info — collected BEFORE register() is called, since the backend
+  // needs all of this (including motherMaidenName) at registration time.
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [motherMaidenName, setMotherMaidenName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Trust-layer step state — the account already exists by the time we're
+  // here, so these call real, authenticated endpoints.
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpSubmitting, setOtpSubmitting] = useState(false);
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [documentSubmitting, setDocumentSubmitting] = useState(false);
+  const [documentError, setDocumentError] = useState<string | null>(null);
 
   const returnTo = nextParam || returnContext?.returnTo || null;
 
@@ -141,35 +135,99 @@ function RegisterFlow() {
     setSelected((prev) => (prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]));
 
   const needsTrustLayer = selected.some((r) => NEEDS_TRUST_LAYER.includes(r));
-  // Roles that clear immediately vs. roles that enter document review — a
-  // multi-role registration can be both at once, which the final step says
-  // out loud rather than reporting one outcome for a mixed result.
   const instantRoles = selected.filter((r) => !NEEDS_TRUST_LAYER.includes(r));
   const reviewRoles = selected.filter((r) => NEEDS_TRUST_LAYER.includes(r));
 
   const goToBasicInfo = () => selected.length > 0 && setStep("basic-info");
 
-  const completeBasicInfo = () => {
+  // Creates the REAL account — name/email/password/roles/motherMaidenName
+  // all go to the backend here, in one call, since that's what
+  // POST /auth/register actually requires.
+  const completeBasicInfo = async () => {
     if (selected.length === 0) return;
-    if (needsTrustLayer) {
-      setStep("trust-layer");
-      return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await register({
+        name,
+        email,
+        phone: phone || undefined,
+        password,
+        motherMaidenName: needsTrustLayer ? motherMaidenName : undefined,
+        roles: selected,
+      } as Parameters<typeof register>[0] & { motherMaidenName?: string });
+      if (needsTrustLayer) {
+        setStep("trust-layer");
+      } else {
+        router.push(returnTo || roleLandingHref(selected[0]));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong creating your account.");
+    } finally {
+      setSubmitting(false);
     }
-    // PRODUCT_DECISIONS.md §5: Tenant/Buyer and Advertiser reach
-    // "role verified" immediately — account-level email+phone is enough.
-    addRoles(selected);
-    router.push(returnTo || roleLandingHref(selected[0]));
   };
 
-  const completeTrustLayer = () => {
-    if (selected.length === 0) return;
-    // Granted as one set: the instant roles are usable straight away and the
-    // reviewed ones enter pending-admin-document-review. Registering as both
-    // Renter and Landlord must not leave the Renter half waiting on the
-    // Landlord half's paperwork (PRODUCT_DECISIONS.md §8.1 — adding a role
-    // never restricts an existing one).
-    addRoles(selected);
-    setStep("pending");
+  // --- Trust-layer step: real phone OTP ---
+  const sendOtp = async () => {
+    setOtpError(null);
+    setOtpSubmitting(true);
+    try {
+      await apiSendPhoneOtp();
+      setOtpSent(true);
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Couldn't send a code. Try again.");
+    } finally {
+      setOtpSubmitting(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    setOtpError(null);
+    setOtpSubmitting(true);
+    try {
+      await apiVerifyPhoneOtp(otpCode);
+      setPhoneVerified(true);
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Incorrect code.");
+    } finally {
+      setOtpSubmitting(false);
+    }
+  };
+
+  // --- Trust-layer step: real document upload ---
+  // Uploads the file directly to storage (S3, or the dev-mode fake
+  // endpoint), then tells the backend where it landed for EACH role that
+  // needs review — a user can hold both Landlord and Service Provider at
+  // once, and both need this same document on file.
+  const submitDocument = async () => {
+    if (!selectedFile) return;
+    setDocumentError(null);
+    setDocumentSubmitting(true);
+    try {
+      const presigned = await apiGetPresignedUpload({
+        purpose: "trust-document",
+        fileName: selectedFile.name,
+        fileType: selectedFile.type,
+      });
+
+      await fetch(presigned.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": selectedFile.type },
+        body: selectedFile,
+      });
+
+      const documentReference = presigned.publicUrl || presigned.key;
+      for (const role of reviewRoles) {
+        await apiSubmitTrustDocument(role, documentReference);
+      }
+
+      setStep("pending");
+    } catch (err) {
+      setDocumentError(err instanceof Error ? err.message : "Upload failed. Try again.");
+    } finally {
+      setDocumentSubmitting(false);
+    }
   };
 
   const visibleSteps = needsTrustLayer ? STEP_ORDER : STEP_ORDER.slice(0, 2);
@@ -185,33 +243,29 @@ function RegisterFlow() {
         <ol className="mt-10 flex flex-col gap-6">
           {visibleSteps.map((s, i) => {
             const done = i < currentStepIndex || (step === "pending" && s.key !== "pending");
-            const active = i === currentStepIndex;
+            const active = s.key === step;
             return (
-              <li key={s.key} className="flex items-start gap-3">
+              <li key={s.key} className="flex items-center gap-3">
                 <span
                   className={cn(
                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
                     done
                       ? "bg-[var(--color-light-blue)] text-[var(--color-dark-blue)]"
                       : active
-                        ? "border-2 border-[var(--color-light-blue)] text-white"
-                        : "border border-[var(--color-border-inverted)] text-white/50"
+                      ? "border-2 border-[var(--color-light-blue)] text-[var(--color-light-blue)]"
+                      : "border-2 border-white/25 text-white/50"
                   )}
                 >
                   {done ? <IconCheck className="h-3.5 w-3.5" /> : i + 1}
                 </span>
-                <p className={cn("pt-0.5 text-sm font-bold", active || done ? "text-white" : "text-white/50")}>
+                <span className={cn("u-ui text-sm", active || done ? "font-bold text-white" : "text-white/50")}>
                   {s.label}
-                </p>
+                </span>
               </li>
             );
           })}
         </ol>
 
-        {/* The roles chosen so far, echoed here. On a multi-select the user
-            has made several decisions across a flow with several steps, and
-            this is the only place they can confirm what they actually picked
-            without going back. */}
         {selected.length > 0 && (
           <div className="mt-10 border-t border-[var(--color-border-inverted)] pt-6">
             <p className="u-label text-[var(--color-text-inverted-secondary)]">Registering as</p>
@@ -293,34 +347,73 @@ function RegisterFlow() {
 
         {step === "basic-info" && (
           <>
-            <h1 className="u-heading text-2xl text-[var(--color-text-primary)]">
-              Confirm your phone &amp; email
-            </h1>
+            <h1 className="u-heading text-2xl text-[var(--color-text-primary)]">Your details</h1>
             <p className="mt-1 text-[var(--color-text-secondary)]">
               This information is shared across every role on your account — you&apos;ll never re-enter it
               if you add another role later.
             </p>
             <div className="mt-6 flex flex-col gap-4">
               <div>
-                <Label htmlFor="phone">Phone number</Label>
-                <Input id="phone" type="tel" placeholder="+234 800 000 0000" />
+                <Label htmlFor="reg-name">Full name</Label>
+                <Input
+                  id="reg-name"
+                  type="text"
+                  placeholder="Jane Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
               </div>
-              {!otpSent ? (
-                <Button variant="secondary" size="dense" className="self-start" onClick={() => setOtpSent(true)}>
-                  Send verification code
-                </Button>
-              ) : (
-                <div>
-                  <Label htmlFor="otp">Enter code</Label>
-                  <Input id="otp" inputMode="numeric" maxLength={6} placeholder="123456" />
-                </div>
-              )}
+              <div>
+                <Label htmlFor="phone">Phone number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+234 800 000 0000"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+                <p className="u-ui mt-1 text-xs text-[var(--color-text-secondary)]">
+                  We&apos;ll verify this on the next step.
+                </p>
+              </div>
               <div>
                 <Label htmlFor="reg-email">Email</Label>
-                <Input id="reg-email" type="email" placeholder="you@example.com" />
+                <Input
+                  id="reg-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </div>
+              <div>
+                <Label htmlFor="reg-password">Password</Label>
+                <Input
+                  id="reg-password"
+                  type="password"
+                  placeholder="At least 8 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              {needsTrustLayer && (
+                <div>
+                  <Label htmlFor="mmn">Mother&apos;s maiden name</Label>
+                  <Input
+                    id="mmn"
+                    placeholder="Used for account recovery and fraud checks"
+                    value={motherMaidenName}
+                    onChange={(e) => setMotherMaidenName(e.target.value)}
+                  />
+                  <p className="u-ui mt-1 text-xs text-[var(--color-text-secondary)]">
+                    Required because {reviewRoles.map((r) => ROLE_LABELS[r]).join(" and ")} accounts go
+                    through identity verification.
+                  </p>
+                </div>
+              )}
             </div>
-            <Button className="mt-6" onClick={completeBasicInfo}>
+            {error && <p className="mt-3 text-sm font-bold text-red-600">{error}</p>}
+            <Button className="mt-6" loading={submitting} onClick={completeBasicInfo}>
               Continue
             </Button>
           </>
@@ -332,29 +425,63 @@ function RegisterFlow() {
             <p className="mt-1 text-[var(--color-text-secondary)]">
               Because {reviewRoles.map((r) => ROLE_LABELS[r]).join(" and ")}
               {reviewRoles.length > 1 ? " roles" : "s"} list things others pay for and contact, we ask for
-              one more identity check before you can publish. This is reviewed by our team, not automatic.
+              phone verification and one identity document before you can publish. Document review is done
+              by our team, not automatic.
             </p>
             {instantRoles.length > 0 && (
               <p className="u-ui mt-3 text-sm text-[var(--color-text-secondary)]">
                 Your {instantRoles.map((r) => ROLE_LABELS[r]).join(" and ")} access is not affected and
-                works as soon as you finish.
+                works already.
               </p>
             )}
-            <div className="mt-6 flex flex-col gap-4">
-              <div>
-                <Label htmlFor="mmn">Mother&apos;s maiden name</Label>
-                <Input id="mmn" placeholder="Used for account recovery and fraud checks" />
-              </div>
-              <div>
-                <Label htmlFor="doc">Upload ID or utility bill</Label>
-                <input
-                  id="doc"
-                  type="file"
-                  className="block w-full rounded-[var(--radius-control)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-3 text-sm"
-                />
-              </div>
+
+            <div className="mt-6 rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] p-4">
+              <p className="font-bold text-[var(--color-text-primary)]">Phone verification</p>
+              {phoneVerified ? (
+                <p className="mt-2 flex items-center gap-2 text-sm font-bold text-[var(--color-brand-primary-text)]">
+                  <IconCheck className="h-4 w-4" /> Verified
+                </p>
+              ) : !otpSent ? (
+                <Button variant="secondary" size="dense" className="mt-3" loading={otpSubmitting} onClick={sendOtp}>
+                  Send verification code
+                </Button>
+              ) : (
+                <div className="mt-3 flex flex-col gap-2.5">
+                  <Input
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                  />
+                  <Button variant="secondary" size="dense" loading={otpSubmitting} onClick={verifyOtp}>
+                    Verify code
+                  </Button>
+                </div>
+              )}
+              {otpError && <p className="mt-2 text-sm font-bold text-red-600">{otpError}</p>}
             </div>
-            <Button className="mt-6" onClick={completeTrustLayer}>
+
+            <div className="mt-4 rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] p-4">
+              <p className="font-bold text-[var(--color-text-primary)]">Identity document</p>
+              <Label htmlFor="doc" className="mt-3 block">
+                Upload ID or utility bill
+              </Label>
+              <input
+                id="doc"
+                type="file"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                className="block w-full rounded-[var(--radius-control)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-3 text-sm"
+              />
+              {documentError && <p className="mt-2 text-sm font-bold text-red-600">{documentError}</p>}
+            </div>
+
+            <Button
+              className="mt-6"
+              disabled={!selectedFile}
+              loading={documentSubmitting}
+              onClick={submitDocument}
+            >
               Submit for review
             </Button>
           </>

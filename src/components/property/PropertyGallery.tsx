@@ -9,7 +9,24 @@ import { AnimatePresence, motion } from "motion/react";
 // a real state change (orientation/feedback), not decoration.
 export function PropertyGallery({ images, alt }: { images: string[]; alt: string }) {
   const [active, setActive] = useState(0);
-  const photos = images.length > 0 ? images : [];
+  // Filters out empty strings too, not just relying on the array being
+  // non-empty — a caller could pass [""] as easily as []. Either way,
+  // next/image must never receive an empty/undefined src (it warns loudly
+  // and renders nothing useful), so a missing photo gets a real fallback
+  // state instead.
+  const photos = images.filter((src) => Boolean(src));
+
+  if (photos.length === 0) {
+    return (
+      <div
+        className="flex aspect-[16/10] w-full items-center justify-center rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-dense)] text-sm font-semibold text-[var(--color-text-secondary)] shadow-[var(--elevation-sm)]"
+        role="img"
+        aria-label={`No photo available for ${alt}`}
+      >
+        No photo available
+      </div>
+    );
+  }
 
   return (
     <div>

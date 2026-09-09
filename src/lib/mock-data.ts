@@ -10,6 +10,7 @@ export const demoSavedListingIds = ["1", "3", "6", "5"];
 export const mockListings: PropertyListing[] = [
   {
     id: "1",
+    landlordId: "mock-landlord-1",
     type: "rent",
     title: "2-Bedroom Flat, Lekki Phase 1",
     price: 1800000,
@@ -36,6 +37,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "2",
+    landlordId: "mock-landlord-2",
     type: "rent",
     title: "Studio Apartment, Yaba",
     price: 650000,
@@ -61,6 +63,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "3",
+    landlordId: "mock-landlord-3",
     type: "sale",
     title: "4-Bedroom Duplex, Abuja",
     price: 95000000,
@@ -85,6 +88,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "4",
+    landlordId: "mock-landlord-4",
     type: "rent",
     title: "3-Bedroom Bungalow, Port Harcourt",
     price: 1200000,
@@ -107,6 +111,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "5",
+    landlordId: "mock-landlord-5",
     type: "sale",
     title: "3-Bedroom Terrace, Ikeja GRA",
     price: 68000000,
@@ -130,6 +135,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "6",
+    landlordId: "mock-landlord-6",
     type: "rent",
     title: "1-Bedroom Serviced Apartment, Victoria Island",
     price: 2400000,
@@ -155,6 +161,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "7",
+    landlordId: "mock-landlord-7",
     type: "sale",
     title: "5-Bedroom Detached House, Asokoro",
     price: 180000000,
@@ -178,6 +185,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "8",
+    landlordId: "mock-landlord-8",
     type: "rent",
     title: "2-Bedroom Terrace, Bodija",
     price: 900000,
@@ -200,6 +208,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "9",
+    landlordId: "mock-landlord-9",
     type: "sale",
     title: "4-Bedroom Semi-Detached, Independence Layout",
     price: 42000000,
@@ -220,6 +229,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "10",
+    landlordId: "mock-landlord-10",
     type: "rent",
     title: "2-Bedroom Apartment, Ikoyi",
     price: 3500000,
@@ -245,6 +255,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "11",
+    landlordId: "mock-landlord-11",
     type: "rent",
     title: "Self-Contain, GRA Phase 2",
     price: 380000,
@@ -267,6 +278,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "12",
+    landlordId: "mock-landlord-12",
     type: "sale",
     title: "3-Bedroom Bungalow, Nasarawa GRA",
     price: 35000000,
@@ -287,6 +299,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "13",
+    landlordId: "mock-landlord-13",
     type: "sale",
     title: "5-Bedroom Waterfront Villa, Banana Island",
     price: 420000000,
@@ -310,6 +323,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "14",
+    landlordId: "mock-landlord-14",
     type: "rent",
     title: "3-Bedroom Smart Apartment, Wuse 2",
     price: 4200000,
@@ -332,6 +346,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "15",
+    landlordId: "mock-landlord-15",
     type: "rent",
     title: "Studio Loft, Yaba Tech Hub",
     price: 950000,
@@ -353,6 +368,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "16",
+    landlordId: "mock-landlord-16",
     type: "sale",
     title: "4-Bedroom Courtyard House, Old GRA",
     price: 58000000,
@@ -388,6 +404,7 @@ export const mockListings: PropertyListing[] = [
   // -------------------------------------------------------------------------
   {
     id: "17",
+    landlordId: "mock-landlord-17",
     type: "rent",
     title: "Room in Shared 4-Bedroom Flat, Yaba",
     price: 700000,
@@ -428,6 +445,7 @@ export const mockListings: PropertyListing[] = [
   },
   {
     id: "18",
+    landlordId: "mock-landlord-18",
     type: "rent",
     title: "Room in Shared 3-Bedroom Duplex, Wuse II",
     price: 950000,
@@ -471,6 +489,7 @@ export const mockListings: PropertyListing[] = [
 export const mockServices: ServiceListing[] = [
   {
     id: "s1",
+    providerId: "mock-provider-s1",
     category: "Electrician",
     providerName: "Bright Spark Electrical",
     description: "Residential wiring, fault-finding, and generator installation across Lagos mainland.",
@@ -481,6 +500,7 @@ export const mockServices: ServiceListing[] = [
   },
   {
     id: "s2",
+    providerId: "mock-provider-s2",
     category: "Plumber",
     providerName: "FlowFix Plumbing Services",
     description: "Leak repair, pipe installation, and bathroom fittings — same-day callouts.",
@@ -491,6 +511,7 @@ export const mockServices: ServiceListing[] = [
   },
   {
     id: "s3",
+    providerId: "mock-provider-s3",
     category: "Mechanic",
     providerName: "TorqueWorks Auto Care",
     description: "Mobile diagnostics, brake and engine repair for cars and light commercial vehicles.",
@@ -501,6 +522,7 @@ export const mockServices: ServiceListing[] = [
   },
   {
     id: "s4",
+    providerId: "mock-provider-s4",
     category: "Carpenter",
     providerName: "Solidwood Furniture & Fittings",
     description: "Custom cabinetry, wardrobes, and door installation — free on-site measurement.",
@@ -511,6 +533,7 @@ export const mockServices: ServiceListing[] = [
   },
   {
     id: "s5",
+    providerId: "mock-provider-s5",
     category: "Painter",
     providerName: "ColourCraft Decorators",
     description: "Interior and exterior painting for homes and offices, with a 12-month workmanship guarantee.",

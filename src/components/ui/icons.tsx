@@ -48,6 +48,18 @@ export function IconArrowRight(props: IconProps) {
   );
 }
 
+// Mirror of IconArrowRight. Used by the header's back-to-homepage control —
+// the one place in the app that moves the user *backwards*, so it gets the
+// same arrow, reversed, rather than a chevron (which reads as "expand" here,
+// IconChevronDown's job).
+export function IconArrowLeft(props: IconProps) {
+  return (
+    <svg {...strokeProps} aria-hidden="true" {...props}>
+      <path d="M19 12H5M11 6l-6 6 6 6" />
+    </svg>
+  );
+}
+
 export function IconCheck(props: IconProps) {
   return (
     <svg {...strokeProps} aria-hidden="true" {...props}>

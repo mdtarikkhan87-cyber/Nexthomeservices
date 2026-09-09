@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ListingActions } from "@/components/property/ListingActions";
 import { PropertyGallery } from "@/components/property/PropertyGallery";
 import { IconCheck } from "@/components/ui/icons";
-import { mockListings } from "@/lib/mock-data";
-import { useListings } from "@/lib/listings-context";
-import { AMENITY_LABELS, BATHROOM_TYPE_LABELS, FURNISHING_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/types";
-import { isShared, roomAvailabilityLabel } from "@/lib/shared-property";
+import { UserRatings } from "@/components/shared/UserRatings";
+import { apiFetchListingById } from "@/lib/listings-client";
+import { AMENITY_LABELS, BATHROOM_TYPE_LABELS, FURNISHING_LABELS, PROPERTY_TYPE_LABELS, PropertyListing } from "@/lib/types";
+import { isShared, roomAvailabilityLabel, roomsOf } from "@/lib/shared-property";
 import { formatLocation } from "@/lib/nigeria-locations";
 
 function formatPrice(price: number, currency: string, type: string) {
@@ -24,20 +25,35 @@ function formatPrice(price: number, currency: string, type: string) {
 // component with conditional sections, none of the gated content below is ever
 // serialised into the markup an anonymous visitor receives.
 export function ListingFullDetail({ id }: { id: string }) {
-  // Rooms carry this session's landlord changes applied over the catalog —
-  // marking a room occupied on the dashboard has to be visible here, or the
-  // two surfaces disagree about the same room.
-  const { resolveRooms } = useListings();
-
   // Looked up here rather than passed in as a prop: a prop would be serialised
   // into the RSC payload of every request, including the anonymous ones this
-  // component is not rendered for (see ListingDetailGate). Resolving by id on
-  // the client means the gated fields are only ever read after the auth check.
-  const listing = mockListings.find((l) => l.id === id);
+  // component is not rendered for (see ListingDetailGate). Fetching by id on
+  // the client means the gated fields are only ever requested after the auth
+  // check in ListingDetailGate has already passed.
+  const [listing, setListing] = useState<PropertyListing | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetchListingById(id, { countView: false })
+      .then((l) => {
+        if (!cancelled) setListing(l);
+      })
+      .catch(() => {
+        /* leave listing null — renders nothing, same as "not found" below */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
   if (!listing) return null;
 
   const shared = isShared(listing) ? listing.shared : undefined;
-  const rooms = resolveRooms(listing);
+  // Rooms are read straight off the freshly-fetched listing — no local
+  // override map needed, since (unlike the old mock catalog) this data is
+  // never stale: a landlord's room-status change is fetched fresh on the
+  // next visit here rather than being merged from session state.
+  const rooms = roomsOf(listing);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
@@ -57,7 +73,16 @@ export function ListingFullDetail({ id }: { id: string }) {
 
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px]">
         <div>
-          <PropertyGallery images={listing.galleryUrls ?? [listing.photoUrl]} alt={listing.title} />
+          {/* `??` alone isn't enough here: the backend defaults galleryUrls
+              to [] (not null) for a listing with no extra gallery photos —
+              e.g. one created directly via the API rather than through the
+              wizard, which always seeds galleryUrls with photoUrl. An empty
+              array is not nullish, so `??` would never fall back, leaving
+              PropertyGallery with no image at all. */}
+          <PropertyGallery
+            images={listing.galleryUrls && listing.galleryUrls.length > 0 ? listing.galleryUrls : [listing.photoUrl]}
+            alt={listing.title}
+          />
 
           {/* Status + price co-located, immediately after the image — never buried (DESIGN_SYSTEM.md §11) */}
           <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -229,13 +254,15 @@ export function ListingFullDetail({ id }: { id: string }) {
               </ul>
             </div>
           )}
+
+          <UserRatings userId={listing.landlordId} label="landlord" />
         </div>
 
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-6 shadow-[var(--elevation-sm)]">
             {/* `rooms` is passed only for a shared listing — an entire-property
                 listing gets exactly the component it had before. */}
-            <ListingActions listingTitle={listing.title} rooms={shared ? rooms : undefined} />
+            <ListingActions listingId={listing.id} listingTitle={listing.title} rooms={shared ? rooms : undefined} />
           </div>
         </aside>
       </div>

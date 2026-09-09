@@ -211,6 +211,10 @@ export type TenantBuyerContext = ListingType;
 
 export interface PropertyListing {
   id: string;
+  /** The landlord who owns this listing — who a Ratings block on the
+      detail page rates, and who a Message action starts a conversation
+      with. */
+  landlordId: string;
   type: ListingType;
   title: string;
   price: number;
@@ -245,6 +249,9 @@ export interface PropertyListing {
 
 export interface ServiceListing {
   id: string;
+  /** Who a Ratings block on the detail page rates, and who a Message
+      action starts a conversation with. */
+  providerId: string;
   category: string;
   providerName: string;
   description: string;
@@ -268,5 +275,16 @@ export interface ServiceListing {
   lgas: string[];
   photoUrl?: string;
   verified: boolean;
+  status: ContentItemState;
+}
+
+export interface Advertisement {
+  id: string;
+  imageUrl: string;
+  headline: string;
+  linkUrl: string;
+  /** Admin-assigned; null until an admin sets one (PRD §9 — Admin phase,
+      not yet built). An advertiser only ever submits the creative. */
+  placement?: string;
   status: ContentItemState;
 }

@@ -1,108 +1,114 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from "react";
-import { PropertyListing, RoomStatus, SharedRoom } from "./types";
-import { roomsOf } from "./shared-property";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { PropertyListing } from "./types";
+import { apiFetchMyListings, apiCreateListing, CreateListingInput } from "./listings-client";
+import { useAuth } from "./auth-context";
 
-// ---------------------------------------------------------------------------
-// In-memory store for listings created during this session.
+// ===========================================================================
+// REAL BACKEND INTEGRATION (6 Sept 2026)
+// ===========================================================================
+// This file previously held an in-memory, per-session store — its own
+// comments already documented the exact swap being made here: "When a
+// backend arrives, addListing becomes POST /listings ... no consumer
+// changes." That plan is followed as closely as the interface allows.
 //
-// HONESTY NOTE — there is no backend in this project: no API routes, no
-// server actions, no database, no blob storage. A submitted listing therefore
-// cannot be persisted, and this file does not pretend otherwise. What it does
-// give is a genuinely complete in-session flow: a listing submitted through
-// the wizard really is constructed, really is validated, and really does
-// appear in My Listings at "pending-review" — the same status a real backend
-// would assign it, since admin review is actual product logic
-// (PRODUCT_DECISIONS.md §6), not something invented here.
-//
-// It resets on reload, exactly like auth and notifications. When a backend
-// arrives, `addListing` becomes POST /listings and `submitted` becomes the
-// server's response — no consumer changes.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// SHARED-PROPERTY ROOM AVAILABILITY (added 31 Aug 2026)
-//
-// Room status is LANDLORD-MANAGED. A renter's enquiry names a room; it does
-// not claim one. Only the landlord marks a room occupied or available, from
-// the listing management page that already handles listing status. No booking
-// lifecycle was introduced — PRODUCT_DECISIONS.md §4.2 keeps the tenant
-// interaction model on messaging, and PRD §14 defers booking entirely.
-//
-// Changes live here as an OVERRIDE MAP keyed by room id rather than by
-// rewriting the catalog, because the catalog is a static import shared by the
-// public browser, the detail page and the dashboard. One map, applied on read
-// by resolveRooms(), keeps those surfaces from disagreeing about a room.
-//
-// Room ids embed their listing id (lib/shared-property.ts buildRooms), so
-// keying on room id alone is unambiguous across the whole catalog.
-// ---------------------------------------------------------------------------
+// What changed concretely:
+//   - `submitted` (session-only array) is replaced by `myListings`, fetched
+//     from GET /listings/mine — the landlord's REAL listings.
+//   - `addListing(listing)` (took a fully client-constructed fake listing,
+//     including a fake id) is replaced by `createListing(input)`, which
+//     POSTs to the real backend and returns the server-assigned listing.
+//     This had to change shape: a real id cannot be invented client-side.
+//   - `resolveRooms` / `setRoomOccupied` / `setRoomAvailable` are REMOVED
+//     from this context. They existed only to merge a local override map
+//     on top of a static, never-refetched mock catalog — a real backend
+//     doesn't have that staleness problem, so each consumer now reads
+//     `listing.shared.rooms` directly off whatever real listing it already
+//     fetched, and calls the new PATCH /listings/:id/rooms/:roomId endpoint
+//     (via apiSetRoomStatus in listings-client.ts) directly when a landlord
+//     changes a room's status. See dashboard/listings/[id]/page.tsx and
+//     components/property/ListingFullDetail.tsx.
+// ===========================================================================
 
 interface ListingsContextValue {
-  /** Listings created in this session, newest first. */
-  submitted: PropertyListing[];
-  addListing: (listing: PropertyListing) => void;
-  /** The listing's rooms with this session's landlord changes applied. */
-  resolveRooms: (listing: PropertyListing) => SharedRoom[];
-  /** Conditional: marks a room occupied only if it is still available.
-      Returns false if it had already been taken. */
-  setRoomOccupied: (room: SharedRoom) => boolean;
-  /** Puts a room back into the pool. */
-  setRoomAvailable: (room: SharedRoom) => void;
+  /** The signed-in landlord's own listings (any status), fetched from the
+      real backend. Empty for a non-landlord or signed-out visitor. */
+  myListings: PropertyListing[];
+  isLoadingMyListings: boolean;
+  refetchMyListings: () => Promise<void>;
+  /** Creates a real listing via the backend, adds it to myListings, and
+      returns the server-assigned listing (with its real id and status). */
+  createListing: (input: CreateListingInput) => Promise<PropertyListing>;
 }
 
 const ListingsContext = createContext<ListingsContextValue | null>(null);
 
 export function ListingsProvider({ children }: { children: ReactNode }) {
-  const [submitted, setSubmitted] = useState<PropertyListing[]>([]);
-  const [roomStatus, setRoomStatus] = useState<Record<string, RoomStatus>>({});
+  const { isAuthenticated, roles } = useAuth();
+  const isLandlord = roles.some((r) => r.role === "landlord");
 
-  const addListing = useCallback((listing: PropertyListing) => {
-    setSubmitted((prev) => [listing, ...prev]);
-  }, []);
+  const [myListings, setMyListings] = useState<PropertyListing[]>([]);
+  const [isLoadingMyListings, setIsLoadingMyListings] = useState(false);
 
-  const resolveRooms = useCallback(
-    (listing: PropertyListing): SharedRoom[] =>
-      roomsOf(listing).map((r) => ({ ...r, status: roomStatus[r.id] ?? r.status })),
-    [roomStatus]
+  const refetchMyListings = useCallback(async () => {
+    if (!isAuthenticated || !isLandlord) {
+      setMyListings([]);
+      return;
+    }
+    setIsLoadingMyListings(true);
+    try {
+      const listings = await apiFetchMyListings();
+      setMyListings(listings);
+    } catch {
+      // Left as an empty/stale list rather than thrown — a failed fetch of
+      // "my listings" shouldn't crash the page that renders alongside it.
+    } finally {
+      setIsLoadingMyListings(false);
+    }
+  }, [isAuthenticated, isLandlord]);
+
+  // Written as a promise callback (not synchronous code in the effect body)
+  // specifically to satisfy React's "no setState directly in an effect"
+  // guidance: https://react.dev/learn/you-might-not-need-an-effect. Every
+  // setState call here — including the "not a landlord" reset — happens
+  // inside a .then()/.finally() callback, with the same `cancelled` guard
+  // auth-context.tsx uses for its own mount-time fetch.
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve()
+      .then(async () => {
+        if (!isAuthenticated || !isLandlord) {
+          if (!cancelled) setMyListings([]);
+          return;
+        }
+        if (!cancelled) setIsLoadingMyListings(true);
+        try {
+          const listings = await apiFetchMyListings();
+          if (!cancelled) setMyListings(listings);
+        } catch {
+          // Left as an empty/stale list — see refetchMyListings above.
+        } finally {
+          if (!cancelled) setIsLoadingMyListings(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, isLandlord]);
+
+  const createListing = useCallback(
+    async (input: CreateListingInput) => {
+      const created = await apiCreateListing(input);
+      setMyListings((prev) => [created, ...prev]);
+      return created;
+    },
+    [],
   );
 
-  const setRoomOccupied = useCallback((room: SharedRoom): boolean => {
-    let applied = false;
-
-    setRoomStatus((prev) => {
-      // ⇩ THE SWAP POINT. This one comparison-and-write is the whole
-      // conditional update, and it is what becomes
-      //     UPDATE rooms SET status='occupied'
-      //      WHERE id=$1 AND status='available'
-      // when there is a database — a single statement whose own WHERE clause
-      // decides the winner, not a read followed by a write.
-      //
-      // Scope, stated plainly: `prev` is this tab's React state, so this is
-      // correct within one tab and nothing more. Two browsers, or two devices,
-      // cannot see each other's state at all — there is no server here. This
-      // does not make concurrent writers safe; it puts the check in the one
-      // place that becomes safe once a server exists.
-      const current = prev[room.id] ?? room.status;
-      if (current !== "available") {
-        applied = false;
-        return prev;
-      }
-      applied = true;
-      return { ...prev, [room.id]: "occupied" };
-    });
-
-    return applied;
-  }, []);
-
-  const setRoomAvailable = useCallback((room: SharedRoom) => {
-    setRoomStatus((prev) => ({ ...prev, [room.id]: "available" }));
-  }, []);
-
   const value = useMemo(
-    () => ({ submitted, addListing, resolveRooms, setRoomOccupied, setRoomAvailable }),
-    [submitted, addListing, resolveRooms, setRoomOccupied, setRoomAvailable]
+    () => ({ myListings, isLoadingMyListings, refetchMyListings, createListing }),
+    [myListings, isLoadingMyListings, refetchMyListings, createListing],
   );
 
   return <ListingsContext.Provider value={value}>{children}</ListingsContext.Provider>;

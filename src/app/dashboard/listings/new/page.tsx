@@ -9,6 +9,7 @@ import { IconCheck, IconClose } from "@/components/ui/icons";
 import { useAuth } from "@/lib/auth-context";
 import { useNotifications } from "@/lib/notification-context";
 import { useListings } from "@/lib/listings-context";
+import { objectUrlToDataUrl, CreateListingInput } from "@/lib/listings-client";
 import {
   AMENITY_LABELS,
   Amenity,
@@ -18,7 +19,6 @@ import {
   FurnishingStatus,
   OccupancyType,
   PROPERTY_TYPE_LABELS,
-  PropertyListing,
   PropertyType,
 } from "@/lib/types";
 import {
@@ -37,7 +37,6 @@ import {
   validateAll,
   validateStep,
 } from "@/lib/listing-draft";
-import { buildRooms } from "@/lib/shared-property";
 import { lgasForState } from "@/lib/nigeria-locations";
 
 type Outcome = "blocked" | "subscription" | "submitted" | null;
@@ -61,7 +60,7 @@ export default function PostPropertyPage() {
   const router = useRouter();
   const { roles } = useAuth();
   const { notify } = useNotifications();
-  const { addListing } = useListings();
+  const { createListing } = useListings();
 
   const landlordRole = roles.find((r) => r.role === "landlord");
   const isSubscribed = landlordRole?.subscriptionState === "active";
@@ -71,6 +70,8 @@ export default function PostPropertyPage() {
   const [errors, setErrors] = useState<DraftErrors>({});
   const [imageError, setImageError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const step = STEPS[stepIndex].id;
@@ -145,7 +146,7 @@ export default function PostPropertyPage() {
     setStepIndex((i) => Math.max(i - 1, 0));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Re-validate everything, not just the current step — a user can reach
     // Review and then go back and empty a field.
     const all = validateAll(draft);
@@ -169,69 +170,76 @@ export default function PostPropertyPage() {
     }
 
     const shared = isSharedDraft(draft);
-    const listingId = `draft-${Date.now()}`;
     const roomCount = Number(draft.totalRooms);
 
-    const listing: PropertyListing = {
-      id: listingId,
-      type: draft.type,
-      title: draft.title.trim(),
-      // On a shared listing this is the per-room rent — the number the renter
-      // actually pays, and therefore the honest one to filter and sort on.
-      // It is mirrored into `shared.rentPerRoom` below.
-      price: Number(draft.price),
-      currency: "NGN",
-      state: draft.state,
-      lga: draft.lga,
-      // A shared listing derives its bedroom count from its rooms rather than
-      // asking twice — one number, so the two can never disagree, and the
-      // existing bedrooms filter keeps working untouched.
-      bedrooms: shared ? roomCount : Number(draft.bedrooms),
-      bathrooms: Number(draft.bathrooms),
-      propertyType: draft.propertyType as PropertyType,
-      amenities: draft.amenities,
-      // Written only when shared. An entire-property listing carries neither
-      // field, exactly like every listing created before this feature — which
-      // is what "absent means entire" is protecting.
-      ...(shared
-        ? {
-            occupancyType: "shared" as const,
-            shared: {
-              totalRooms: roomCount,
-              bathroomType: draft.bathroomType as BathroomType,
-              kitchenShared: draft.kitchenShared,
-              maxOccupantsPerRoom: Number(draft.maxOccupantsPerRoom),
-              rentPerRoom: Number(draft.price),
-              rooms: buildRooms(listingId, roomCount),
-            },
-          }
-        : {}),
-      ...(draft.type === "rent"
-        ? {
-            rentDuration: draft.rentDuration,
-            ...(draft.furnishing ? { furnishing: draft.furnishing as FurnishingStatus } : {}),
-          }
-        : {}),
-      photoUrl: draft.images[0].url,
-      galleryUrls: draft.images.map((i) => i.url),
-      // A new listing is never verified or live on creation — it enters
-      // pending-review, which is the real product rule, not a placeholder.
-      verified: false,
-      status: "pending-review",
-      viewCount: 0,
-      description: draft.description.trim(),
-    };
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      // Photos are still object URLs (local file picker previews) at this
+      // point. There's no S3 upload path live yet (no AWS account set up),
+      // so — exactly as this file previously documented — they're converted
+      // to base64 data URLs and sent as plain strings. This is explicitly
+      // NOT how this should work long-term; swap for real presigned-upload
+      // URLs (see uploads.routes.js on the backend) once AWS is configured.
+      const photoUrls = await Promise.all(draft.images.map((img) => objectUrlToDataUrl(img.url)));
 
-    addListing(listing);
-    notify({
-      role: "landlord",
-      kind: "content-status",
-      title: "Listing submitted for review",
-      body: `“${listing.title}” is with our team. You'll be notified when it goes live.`,
-      href: "/dashboard/listings",
-      status: "pending",
-    });
-    setOutcome("submitted");
+      const input: CreateListingInput = {
+        type: draft.type,
+        title: draft.title.trim(),
+        description: draft.description.trim(),
+        // On a shared listing this is the per-room rent — the number the
+        // renter actually pays, and therefore the honest one to filter and
+        // sort on. It is mirrored into `shared.rentPerRoom` below.
+        price: Number(draft.price),
+        state: draft.state,
+        lga: draft.lga,
+        // A shared listing derives its bedroom count from its rooms rather
+        // than asking twice — one number, so the two can never disagree.
+        bedrooms: shared ? roomCount : Number(draft.bedrooms),
+        bathrooms: Number(draft.bathrooms),
+        propertyType: draft.propertyType as PropertyType,
+        amenities: draft.amenities,
+        photoUrl: photoUrls[0],
+        galleryUrls: photoUrls,
+        ...(shared
+          ? {
+              occupancyType: "shared" as const,
+              shared: {
+                totalRooms: roomCount,
+                bathroomType: draft.bathroomType as BathroomType,
+                kitchenShared: draft.kitchenShared,
+                maxOccupantsPerRoom: Number(draft.maxOccupantsPerRoom),
+                rentPerRoom: Number(draft.price),
+                // Labels only — the backend assigns each room its own real
+                // id when it creates the SharedRoom rows.
+                rooms: Array.from({ length: roomCount }, (_, i) => `Room ${i + 1}`),
+              },
+            }
+          : {}),
+        ...(draft.type === "rent"
+          ? {
+              rentDuration: draft.rentDuration,
+              ...(draft.furnishing ? { furnishing: draft.furnishing as FurnishingStatus } : {}),
+            }
+          : {}),
+      };
+
+      const created = await createListing(input);
+
+      notify({
+        role: "landlord",
+        kind: "content-status",
+        title: "Listing submitted for review",
+        body: `"${created.title}" is with our team. You'll be notified when it goes live.`,
+        href: "/dashboard/listings",
+        status: "pending",
+      });
+      setOutcome("submitted");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong submitting your listing.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // ---------------------------------------------------------------- outcomes
@@ -279,14 +287,7 @@ export default function PostPropertyPage() {
         </span>
         <h1 className="u-heading mt-4 text-2xl text-[var(--color-text-primary)]">Listing submitted</h1>
         <p className="mt-2 text-[var(--color-text-secondary)]">
-          “{draft.title.trim()}” is pending admin review. We&apos;ll notify you once it&apos;s approved and live.
-        </p>
-        {/* Stated plainly rather than quietly implied: this build has no
-            backend, so the listing exists for this session only. Presenting
-            it as saved would be inventing persistence that isn't there. */}
-        <p className="u-ui mt-4 rounded-[var(--radius-control)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-dense)]/60 p-3 text-[13px] text-[var(--color-text-secondary)]">
-          Demo build: there is no server yet, so this listing lives in this browser session only and its
-          photos aren&apos;t uploaded anywhere. It will disappear if you reload.
+          &ldquo;{draft.title.trim()}&rdquo; is pending admin review. We&apos;ll notify you once it&apos;s approved and live.
         </p>
         <div className="mt-5 flex flex-wrap gap-2.5">
           <Button onClick={() => router.push("/dashboard/listings")}>Back to My Listings</Button>
@@ -401,7 +402,7 @@ export default function PostPropertyPage() {
               value={draft.title}
               onChange={(e) => set("title", e.target.value)}
               error={errors.title}
-              hint="What a renter sees first — e.g. “2-Bedroom Flat, Lekki Phase 1”."
+              hint='What a renter sees first — e.g. "2-Bedroom Flat, Lekki Phase 1".'
               placeholder="2-Bedroom Flat, Lekki Phase 1"
             />
           </div>
@@ -915,11 +916,15 @@ export default function PostPropertyPage() {
         className="mt-8 flex flex-col gap-5"
         onSubmit={(e) => {
           e.preventDefault();
-          if (step === "review") handleSubmit();
+          if (step === "review") void handleSubmit();
           else goNext();
         }}
       >
         {fieldsForStep}
+
+        {step === "review" && submitError && (
+          <p className="text-sm font-bold text-red-600">{submitError}</p>
+        )}
 
         <div className="mt-2 flex items-center justify-between gap-3 border-t border-[var(--color-border-hairline)] pt-5">
           <Button type="button" variant="text" size="dense" onClick={goBack} disabled={stepIndex === 0}>
@@ -929,7 +934,9 @@ export default function PostPropertyPage() {
             <span className="u-ui text-[13px] text-[var(--color-text-secondary)]">
               Step {stepIndex + 1} of {STEPS.length}
             </span>
-            <Button type="submit">{step === "review" ? "Submit for review" : "Continue"}</Button>
+            <Button type="submit" loading={step === "review" && submitting}>
+              {step === "review" ? "Submit for review" : "Continue"}
+            </Button>
           </div>
         </div>
       </form>

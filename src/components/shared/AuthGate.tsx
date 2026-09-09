@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Overlay } from "@/components/ui/Overlay";
 import { useAuth } from "@/lib/auth-context";
-import { demoAccountForRoles } from "@/lib/demo-accounts";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { RoleName } from "@/lib/types";
 
@@ -92,22 +91,31 @@ function AuthPrompt({
   const { login } = useAuth();
   const router = useRouter();
   const [loggingIn, setLoggingIn] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
-  const handleInlineLogin = (e: React.FormEvent) => {
+  const handleInlineLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Demo sign-in grants ONE role: the one this gate implies, or Renter for
-    // the gates that imply none (Message, Feedback, the dashboard itself).
-    //
-    // Single-role is the right default here specifically because of the role
-    // rules: one role means no "Act as" prompt, which means the gated action
-    // resumes instantly and exactly, as PRODUCT_DECISIONS.md §10 requires.
-    // Granting a multi-role account at this moment would interrupt the very
-    // action the user was in the middle of with a dialog about roles.
-    // Multi-role accounts are reachable from the demo picker on /login, and
-    // from Add a Role on /account. Real credentials remain out of scope
-    // (IMPLEMENTATION_NOTES.md #9).
-    login(demoAccountForRoles([suggestedRole ?? "tenant-buyer"]));
-    onAuthenticated?.(); // exact, in-place resume — no navigation occurred
+    // Real credentials now (this used to sign in as a one-click demo
+    // account — see git history if that context is ever needed again).
+    // Login stays inline (no navigation) specifically so a gated action
+    // resumes exactly where the user left off, per PRODUCT_DECISIONS.md
+    // §10 / USER_JOURNEYS.md §3. A guest who doesn't have an account yet
+    // uses "Create an account" instead, which already carries the
+    // suggested role and return path through the real multi-step Register
+    // flow (see handleRegisterInstead below).
+    setLoginError(null);
+    setSubmitting(true);
+    try {
+      await login(email, password);
+      onAuthenticated?.(); // exact, in-place resume — no navigation occurred
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : "Invalid email or password.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleRegisterInstead = () => {
@@ -140,9 +148,24 @@ function AuthPrompt({
         </>
       ) : (
         <form onSubmit={handleInlineLogin} className="mt-4 flex flex-col gap-3">
-          <Input type="text" required placeholder="Email or phone" aria-label="Email or phone" />
-          <Input type="password" required placeholder="Password" aria-label="Password" />
-          <Button type="submit" className="w-full">
+          <Input
+            type="email"
+            required
+            placeholder="Email"
+            aria-label="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Input
+            type="password"
+            required
+            placeholder="Password"
+            aria-label="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          {loginError && <p className="text-sm font-bold text-red-600">{loginError}</p>}
+          <Button type="submit" className="w-full" loading={submitting}>
             Log in and continue
           </Button>
           <Button type="button" variant="text" size="dense" onClick={() => setLoggingIn(false)}>
