@@ -9,6 +9,17 @@ import { TrustEditorial } from "@/components/home/TrustEditorial";
 import { ServicesBand } from "@/components/home/ServicesBand";
 import { apiSearchListings } from "@/lib/listings-client";
 
+// Forces this page to render per-request instead of being statically
+// prerendered at build time. Without this, Next tries to fetch live
+// listings from the backend WHILE BUILDING — which means every deploy
+// needs a reachable backend just to compile, and the homepage's listings
+// would be frozen at whatever they were at that build rather than actually
+// live. Every other page that reads live backend data (listing/[id],
+// search, rent, buy) is already dynamic for the same reason; this one
+// wasn't, because nothing about its route forces Next to infer that
+// automatically the way a dynamic route segment ([id]) does.
+export const dynamic = "force-dynamic";
+
 // ============================================================================
 // EDITORIAL REDESIGN — homepage composition
 // ============================================================================

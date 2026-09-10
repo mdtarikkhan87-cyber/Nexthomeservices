@@ -8,13 +8,8 @@ import { Input, Label } from "@/components/ui/Input";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { IconCheck } from "@/components/ui/icons";
 import { consumeAuthReturnTo } from "@/components/shared/AuthGate";
+import { TrustLayerVerification } from "@/components/shared/TrustLayerVerification";
 import { useAuth } from "@/lib/auth-context";
-import {
-  apiSendPhoneOtp,
-  apiVerifyPhoneOtp,
-  apiGetPresignedUpload,
-  apiSubmitTrustDocument,
-} from "@/lib/backend-client";
 import { ROLE_BLURBS, ROLE_LABELS, roleLandingHref } from "@/lib/roles";
 import { RoleName } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -22,7 +17,9 @@ import { cn } from "@/lib/utils";
 const PRIMARY_ROLES: RoleName[] = ["tenant-buyer", "landlord"];
 const SECONDARY_ROLES: RoleName[] = ["service-provider", "advertiser"];
 
-const NEEDS_TRUST_LAYER: RoleName[] = ["landlord", "service-provider"];
+// Every role now goes through phone + document review — extended from the
+// original landlord/service-provider-only scope (PRD §6.1) to all four.
+const NEEDS_TRUST_LAYER: RoleName[] = ["landlord", "tenant-buyer", "service-provider", "advertiser"];
 
 type Step = "role" | "basic-info" | "trust-layer" | "pending";
 
@@ -117,18 +114,6 @@ function RegisterFlow() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Trust-layer step state — the account already exists by the time we're
-  // here, so these call real, authenticated endpoints.
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [otpSubmitting, setOtpSubmitting] = useState(false);
-
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [documentSubmitting, setDocumentSubmitting] = useState(false);
-  const [documentError, setDocumentError] = useState<string | null>(null);
-
   const returnTo = nextParam || returnContext?.returnTo || null;
 
   const toggle = (role: RoleName) =>
@@ -145,6 +130,16 @@ function RegisterFlow() {
   // POST /auth/register actually requires.
   const completeBasicInfo = async () => {
     if (selected.length === 0) return;
+    // Phone verification is a required part of the next step for these
+    // roles (see the "Submit for review" gate below) — without a phone
+    // number on file, POST /trust/phone/send-otp has nothing to text and
+    // always fails, which would strand the user on trust-layer with no way
+    // to complete it. Caught here, before an account with no phone even
+    // gets created.
+    if (needsTrustLayer && !phone.trim()) {
+      setError("A phone number is required for identity verification.");
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
@@ -165,68 +160,6 @@ function RegisterFlow() {
       setError(err instanceof Error ? err.message : "Something went wrong creating your account.");
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  // --- Trust-layer step: real phone OTP ---
-  const sendOtp = async () => {
-    setOtpError(null);
-    setOtpSubmitting(true);
-    try {
-      await apiSendPhoneOtp();
-      setOtpSent(true);
-    } catch (err) {
-      setOtpError(err instanceof Error ? err.message : "Couldn't send a code. Try again.");
-    } finally {
-      setOtpSubmitting(false);
-    }
-  };
-
-  const verifyOtp = async () => {
-    setOtpError(null);
-    setOtpSubmitting(true);
-    try {
-      await apiVerifyPhoneOtp(otpCode);
-      setPhoneVerified(true);
-    } catch (err) {
-      setOtpError(err instanceof Error ? err.message : "Incorrect code.");
-    } finally {
-      setOtpSubmitting(false);
-    }
-  };
-
-  // --- Trust-layer step: real document upload ---
-  // Uploads the file directly to storage (S3, or the dev-mode fake
-  // endpoint), then tells the backend where it landed for EACH role that
-  // needs review — a user can hold both Landlord and Service Provider at
-  // once, and both need this same document on file.
-  const submitDocument = async () => {
-    if (!selectedFile) return;
-    setDocumentError(null);
-    setDocumentSubmitting(true);
-    try {
-      const presigned = await apiGetPresignedUpload({
-        purpose: "trust-document",
-        fileName: selectedFile.name,
-        fileType: selectedFile.type,
-      });
-
-      await fetch(presigned.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": selectedFile.type },
-        body: selectedFile,
-      });
-
-      const documentReference = presigned.publicUrl || presigned.key;
-      for (const role of reviewRoles) {
-        await apiSubmitTrustDocument(role, documentReference);
-      }
-
-      setStep("pending");
-    } catch (err) {
-      setDocumentError(err instanceof Error ? err.message : "Upload failed. Try again.");
-    } finally {
-      setDocumentSubmitting(false);
     }
   };
 
@@ -364,7 +297,7 @@ function RegisterFlow() {
                 />
               </div>
               <div>
-                <Label htmlFor="phone">Phone number</Label>
+                <Label htmlFor="phone">Phone number{needsTrustLayer ? "" : " (optional)"}</Label>
                 <Input
                   id="phone"
                   type="tel"
@@ -373,7 +306,9 @@ function RegisterFlow() {
                   onChange={(e) => setPhone(e.target.value)}
                 />
                 <p className="u-ui mt-1 text-xs text-[var(--color-text-secondary)]">
-                  We&apos;ll verify this on the next step.
+                  {needsTrustLayer
+                    ? "Required — we'll verify this on the next step."
+                    : "Not required for your selected role(s)."}
                 </p>
               </div>
               <div>
@@ -420,71 +355,11 @@ function RegisterFlow() {
         )}
 
         {step === "trust-layer" && (
-          <>
-            <h1 className="u-heading text-2xl text-[var(--color-text-primary)]">A bit more verification</h1>
-            <p className="mt-1 text-[var(--color-text-secondary)]">
-              Because {reviewRoles.map((r) => ROLE_LABELS[r]).join(" and ")}
-              {reviewRoles.length > 1 ? " roles" : "s"} list things others pay for and contact, we ask for
-              phone verification and one identity document before you can publish. Document review is done
-              by our team, not automatic.
-            </p>
-            {instantRoles.length > 0 && (
-              <p className="u-ui mt-3 text-sm text-[var(--color-text-secondary)]">
-                Your {instantRoles.map((r) => ROLE_LABELS[r]).join(" and ")} access is not affected and
-                works already.
-              </p>
-            )}
-
-            <div className="mt-6 rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] p-4">
-              <p className="font-bold text-[var(--color-text-primary)]">Phone verification</p>
-              {phoneVerified ? (
-                <p className="mt-2 flex items-center gap-2 text-sm font-bold text-[var(--color-brand-primary-text)]">
-                  <IconCheck className="h-4 w-4" /> Verified
-                </p>
-              ) : !otpSent ? (
-                <Button variant="secondary" size="dense" className="mt-3" loading={otpSubmitting} onClick={sendOtp}>
-                  Send verification code
-                </Button>
-              ) : (
-                <div className="mt-3 flex flex-col gap-2.5">
-                  <Input
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="123456"
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
-                  />
-                  <Button variant="secondary" size="dense" loading={otpSubmitting} onClick={verifyOtp}>
-                    Verify code
-                  </Button>
-                </div>
-              )}
-              {otpError && <p className="mt-2 text-sm font-bold text-red-600">{otpError}</p>}
-            </div>
-
-            <div className="mt-4 rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] p-4">
-              <p className="font-bold text-[var(--color-text-primary)]">Identity document</p>
-              <Label htmlFor="doc" className="mt-3 block">
-                Upload ID or utility bill
-              </Label>
-              <input
-                id="doc"
-                type="file"
-                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-                className="block w-full rounded-[var(--radius-control)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-3 text-sm"
-              />
-              {documentError && <p className="mt-2 text-sm font-bold text-red-600">{documentError}</p>}
-            </div>
-
-            <Button
-              className="mt-6"
-              disabled={!selectedFile}
-              loading={documentSubmitting}
-              onClick={submitDocument}
-            >
-              Submit for review
-            </Button>
-          </>
+          <TrustLayerVerification
+            reviewRoles={reviewRoles}
+            instantRoles={instantRoles}
+            onComplete={() => setStep("pending")}
+          />
         )}
 
         {step === "pending" && (

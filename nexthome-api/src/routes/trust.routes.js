@@ -12,7 +12,7 @@ const router = express.Router();
 const OTP_TTL_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 5;
 const EMAIL_TOKEN_TTL_HOURS = 24;
-const ROLES_NEEDING_TRUST_LAYER = ["landlord", "service_provider"];
+const ROLES_NEEDING_TRUST_LAYER = ["landlord", "tenant_buyer", "service_provider", "advertiser"];
 
 function checkValidation(req, res) {
   const errors = validationResult(req);

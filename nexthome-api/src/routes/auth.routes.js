@@ -49,13 +49,18 @@ router.post(
 
     const { name, email, phone, password, motherMaidenName, roles } = req.body;
 
-    // Basic Trust Layer (PRD §6.1): mother's maiden name is required for
-    // any role that goes through document review — not for tenant-buyer
-    // or advertiser, who reach "verified" instantly.
-    const needsTrustLayer = roles.some((r) => ["landlord", "service_provider"].includes(r));
-    if (needsTrustLayer && !motherMaidenName) {
+    // Basic Trust Layer: every role now goes through phone + document
+    // review (extended from the original landlord/service-provider-only
+    // scope — see auth-helpers.js initialRoleState), so mother's maiden
+    // name and a phone number are required for any registration.
+    if (!motherMaidenName) {
       return res.status(400).json({
-        message: "Mother's maiden name is required when registering as a landlord or service provider.",
+        message: "Mother's maiden name is required.",
+      });
+    }
+    if (!phone) {
+      return res.status(400).json({
+        message: "A phone number is required for identity verification.",
       });
     }
 
@@ -229,6 +234,75 @@ router.post(
     });
 
     res.json(result);
+  },
+);
+
+// -----------------------------------------------------------------------
+// POST /auth/forgot-password
+// Body: { email }
+// Always responds the same way regardless of whether the email is
+// registered — unlike /auth/register's 409, a password-reset endpoint is
+// exactly the kind of place account enumeration matters, so this never
+// reveals which emails exist.
+// -----------------------------------------------------------------------
+router.post(
+  "/forgot-password",
+  [body("email").isEmail()],
+  async (req, res) => {
+    if (!checkValidation(req, res)) return;
+
+    const { email } = req.body;
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (user) {
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      await prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: crypto.createHash("sha256").update(rawToken).digest("hex"),
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+        },
+      });
+
+      const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${rawToken}`;
+      sendEmail({
+        to: user.email,
+        subject: "Reset your NextHome password",
+        html: `<p>Hi ${user.name},</p><p>Click below to set a new password. This link expires in 1 hour.</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>If you didn't request this, you can ignore this email.</p>`,
+      }).catch((err) => console.error("Failed to send password reset email:", err));
+    }
+
+    res.json({ message: "If an account exists for that email, a reset link has been sent." });
+  },
+);
+
+// -----------------------------------------------------------------------
+// POST /auth/reset-password
+// Body: { token, password }
+// -----------------------------------------------------------------------
+router.post(
+  "/reset-password",
+  [body("token").isString().notEmpty(), body("password").isString().isLength({ min: 8 })],
+  async (req, res) => {
+    if (!checkValidation(req, res)) return;
+
+    const { token, password } = req.body;
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const record = await prisma.passwordResetToken.findFirst({
+      where: { tokenHash, consumedAt: null, expiresAt: { gt: new Date() } },
+    });
+    if (!record) {
+      return res.status(400).json({ message: "This reset link is invalid or has expired." });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+      prisma.passwordResetToken.update({ where: { id: record.id }, data: { consumedAt: new Date() } }),
+    ]);
+
+    res.json({ message: "Password reset. You can now log in with your new password." });
   },
 );
 

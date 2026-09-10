@@ -1,13 +1,11 @@
 const jwt = require("jsonwebtoken");
 
-// Which state a newly-added role starts in, mirroring the frontend's
-// PRODUCT_DECISIONS.md §6 model: landlord & service-provider need admin
-// document review before they're trusted; tenant-buyer & advertiser don't.
-function initialRoleState(role) {
-  if (role === "landlord" || role === "service_provider") {
-    return "role_added"; // -> pending_admin_document_review later, set by admin
-  }
-  return "role_verified";
+// Which state a newly-added role starts in. Every role now goes through
+// phone + document review before it's trusted — a later product decision
+// than PRODUCT_DECISIONS.md §6's original landlord/service-provider-only
+// scope, extended to all roles (register page trust-layer step).
+function initialRoleState() {
+  return "role_added"; // -> pending_admin_document_review later, set by admin
 }
 
 // Only landlords have a subscription; everyone else gets null/undefined.

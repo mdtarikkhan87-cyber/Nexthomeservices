@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { AuthRequired } from "@/components/shared/AuthGate";
+import { TrustLayerVerification } from "@/components/shared/TrustLayerVerification";
 import { useNotifications } from "@/lib/notification-context";
 import { ROLE_LABELS as roleLabels, roleLandingHref } from "@/lib/roles";
 import { RoleName } from "@/lib/types";
@@ -37,32 +39,45 @@ function AccountContent() {
   const { notify } = useNotifications();
   const router = useRouter();
 
-  // Landlord and Service Provider enter document review; Tenant/Buyer and
-  // Advertiser reach role-verified immediately (PRODUCT_DECISIONS.md §5), so
-  // the two paths report genuinely different outcomes rather than one
-  // generic "role added" message.
-  //
+  // Every role now goes through phone + document review (extended from the
+  // original landlord/service-provider-only scope — see auth-helpers.js
+  // initialRoleState on the backend). Adding a role here now goes through
+  // the SAME real verification as registration (TrustLayerVerification,
+  // shared with register/page.tsx) rather than just adding the role and
+  // claiming it's "under review" with nothing actually submitted.
+  const [pendingTrustRole, setPendingTrustRole] = useState<RoleName | null>(null);
+
   // ROLE-SELECTION REVISION — role added later (1 → 2 roles): the new role
-  // becomes active immediately (auth-context addRoles) and the user LANDS on
-  // its dashboard. Adding a role is an act of intent; leaving someone on the
-  // account page afterwards makes them go and find the thing they just asked
-  // for. A pending document review does not change this — the dashboard is
-  // reachable in every role state, and it is where the pending banner is.
+  // becomes active immediately (auth-context addRoles). Adding a role is an
+  // act of intent, so once verification completes the user LANDS on its
+  // dashboard rather than being left on the account page to go find it.
   const handleAddRole = (r: RoleName) => {
     addRole(r);
-    const needsReview = r === "landlord" || r === "service-provider";
+    setPendingTrustRole(r);
+  };
+
+  const handleTrustLayerComplete = () => {
+    if (!pendingTrustRole) return;
+    const r = pendingTrustRole;
+    setPendingTrustRole(null);
     notify({
       role: r,
       kind: "account",
-      title: needsReview ? "Documents under review" : `${roleLabels[r]} role added`,
-      body: needsReview
-        ? `Our team is checking your ${roleLabels[r]} documents. We'll let you know either way.`
-        : `Your ${roleLabels[r]} role is verified and ready to use.`,
+      title: "Documents under review",
+      body: `Our team is checking your ${roleLabels[r]} verification. We'll let you know either way.`,
       href: "/account",
-      status: needsReview ? "pending" : "verified",
+      status: "pending",
     });
     router.push(roleLandingHref(r));
   };
+
+  if (pendingTrustRole) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-10 sm:px-6">
+        <TrustLayerVerification reviewRoles={[pendingTrustRole]} onComplete={handleTrustLayerComplete} />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">

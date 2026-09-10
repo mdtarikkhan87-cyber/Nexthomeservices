@@ -165,6 +165,23 @@ export function apiLogout() {
   clearTokens();
 }
 
+/** Always resolves the same way regardless of whether the email is
+    registered — the backend deliberately never reveals which emails exist
+    here (unlike /auth/register's 409). */
+export async function apiForgotPassword(email: string): Promise<void> {
+  await request("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function apiResetPassword(token: string, password: string): Promise<void> {
+  await request("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
+}
+
 /** Fetches the current user + roles, translated into frontend-shaped data.
     Returns null if there's no valid session (no token, or refresh failed). */
 export async function apiFetchCurrentUser(): Promise<{ id: string; name: string; email: string; isAdmin: boolean; roles: RoleName[]; heldRoles: HeldRole[] } | null> {
