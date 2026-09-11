@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AdminListingKindToggle, ListingKind } from "@/components/admin/AdminListingKindToggle";
+import { AdminListFilters, AdminStatusFilter, filterAdminRows } from "@/components/admin/AdminListFilters";
 import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -14,7 +15,7 @@ function ListingRows({
   onReject,
 }: {
   rows: AdminListingRow[];
-  onApprove: (id: string) => void;
+  onApprove: (row: AdminListingRow) => void;
   onReject: (row: AdminListingRow) => void;
 }) {
   return (
@@ -32,7 +33,7 @@ function ListingRows({
             {row.title}
           </p>
           {row.status !== "live" && (
-            <Button variant="secondary" size="dense" onClick={() => onApprove(row.id)}>
+            <Button variant="secondary" size="dense" onClick={() => onApprove(row)}>
               Approve
             </Button>
           )}
@@ -50,9 +51,14 @@ function ListingRows({
 export default function AdminListingsPage() {
   const { listings, approveListing, rejectListing } = useAdminListings();
   const [rejecting, setRejecting] = useState<AdminListingRow | null>(null);
+  const [approving, setApproving] = useState<AdminListingRow | null>(null);
   const [kind, setKind] = useState<ListingKind>("property");
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<AdminStatusFilter>("all");
 
-  const visible = listings.filter((row) => row.kind === kind);
+  const byKind = listings.filter((row) => row.kind === kind);
+  const visible = filterAdminRows(byKind, search, status);
+  const isFiltered = search.trim().length > 0 || status !== "all";
 
   return (
     <div>
@@ -61,18 +67,45 @@ export default function AdminListingsPage() {
         Every property and service listing — pending, live, or rejected.
       </p>
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <AdminListingKindToggle kind={kind} onChange={setKind} />
+        <AdminListFilters
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search listings by title"
+          status={status}
+          onStatusChange={setStatus}
+        />
       </div>
 
       {visible.length === 0 ? (
         <EmptyState
           className="mt-6"
-          title={kind === "property" ? "No property listings" : "No service listings"}
+          title={
+            isFiltered
+              ? "No matching listings"
+              : kind === "property"
+                ? "No property listings"
+                : "No service listings"
+          }
+          description={isFiltered ? "Try a different search or status filter." : undefined}
         />
       ) : (
-        <ListingRows rows={visible} onApprove={approveListing} onReject={setRejecting} />
+        <ListingRows rows={visible} onApprove={setApproving} onReject={setRejecting} />
       )}
+
+      <ConfirmationDialog
+        open={approving !== null}
+        title={approving ? `Approve "${approving.title}"?` : ""}
+        description="It becomes visible to the public immediately."
+        confirmLabel="Approve"
+        destructive={false}
+        onCancel={() => setApproving(null)}
+        onConfirm={() => {
+          if (approving) approveListing(approving.id);
+          setApproving(null);
+        }}
+      />
 
       <ConfirmationDialog
         open={rejecting !== null}

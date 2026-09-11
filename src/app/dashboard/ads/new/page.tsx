@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNotifications } from "@/lib/notification-context";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { StatusBanner } from "@/components/ui/StatusBanner";
+import { useAds } from "@/lib/ads-context";
 
 // IMPLEMENTATION NOTE: whether pricing is shown before or after admin sets
 // custom terms is unresolved (SCREEN_BLUEPRINTS.md Readiness Check item 7).
@@ -15,6 +16,10 @@ export default function SubmitAdvertisementPage() {
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
   const { notify } = useNotifications();
+  const { submitAd } = useAds();
+  const titleRef = useRef<HTMLInputElement>(null);
+  const copyRef = useRef<HTMLTextAreaElement>(null);
+  const linkRef = useRef<HTMLInputElement>(null);
 
   if (submitted) {
     return (
@@ -41,6 +46,14 @@ export default function SubmitAdvertisementPage() {
         className="mt-5 flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
+          submitAd({
+            title: titleRef.current?.value ?? "",
+            copy: copyRef.current?.value ?? "",
+            link: linkRef.current?.value ?? "",
+            // File input is a labeled placeholder — no upload handling exists
+            // yet, so no real image URL to persist. See ads-context.tsx.
+            imageUrl: "",
+          });
           setSubmitted(true);
           notify({
             role: "advertiser",
@@ -54,15 +67,15 @@ export default function SubmitAdvertisementPage() {
       >
         <div>
           <Label htmlFor="ad-title">Ad title</Label>
-          <Input id="ad-title" required placeholder="What is this ad promoting?" />
+          <Input id="ad-title" ref={titleRef} required placeholder="What is this ad promoting?" />
         </div>
         <div>
           <Label htmlFor="ad-copy">Ad text</Label>
-          <Textarea id="ad-copy" required rows={3} />
+          <Textarea id="ad-copy" ref={copyRef} required rows={3} />
         </div>
         <div>
           <Label htmlFor="ad-link">Link</Label>
-          <Input id="ad-link" type="url" required placeholder="https://" />
+          <Input id="ad-link" ref={linkRef} type="url" required placeholder="https://" />
         </div>
         <div>
           <Label htmlFor="ad-image">Image</Label>

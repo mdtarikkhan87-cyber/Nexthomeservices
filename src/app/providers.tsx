@@ -5,6 +5,7 @@ import { MotionConfig } from "motion/react";
 import { AuthProvider } from "@/lib/auth-context";
 import { NotificationProvider } from "@/lib/notification-context";
 import { ListingsProvider } from "@/lib/listings-context";
+import { AdsProvider } from "@/lib/ads-context";
 import { AuthGateProvider } from "@/components/shared/AuthGate";
 import { Header } from "@/components/shared/Header";
 import { RoleSessionPrompt } from "@/components/shared/RoleSessionPrompt";
@@ -25,22 +26,24 @@ export function Providers({ children }: { children: ReactNode }) {
             active role, so it needs auth state to exist above it. */}
         <NotificationProvider>
           <ListingsProvider>
-            {/* Above AuthGateProvider because the dashboard's role guard
-                (RoleScoped) announces automatic role switches through it,
-                and that guard renders inside the gated tree. */}
-            <RoleSwitchNoticeProvider>
-              <AuthGateProvider>
-                <Header />
-                {children}
-                {/* The conditional "how do you want to act today?" prompt.
-                    Mounted at the root, not per page, because a session starts
-                    wherever the user happens to be — and because mounting it
-                    once is what makes "only when there is a real choice"
-                    structurally true rather than a thing every page has to
-                    remember not to re-trigger. */}
-                <RoleSessionPrompt />
-              </AuthGateProvider>
-            </RoleSwitchNoticeProvider>
+            <AdsProvider>
+              {/* Above AuthGateProvider because the dashboard's role guard
+                  (RoleScoped) announces automatic role switches through it,
+                  and that guard renders inside the gated tree. */}
+              <RoleSwitchNoticeProvider>
+                <AuthGateProvider>
+                  <Header />
+                  {children}
+                  {/* The conditional "how do you want to act today?" prompt.
+                      Mounted at the root, not per page, because a session starts
+                      wherever the user happens to be — and because mounting it
+                      once is what makes "only when there is a real choice"
+                      structurally true rather than a thing every page has to
+                      remember not to re-trigger. */}
+                  <RoleSessionPrompt />
+                </AuthGateProvider>
+              </RoleSwitchNoticeProvider>
+            </AdsProvider>
           </ListingsProvider>
         </NotificationProvider>
       </AuthProvider>

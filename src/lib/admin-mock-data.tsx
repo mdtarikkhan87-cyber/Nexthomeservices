@@ -1,9 +1,11 @@
 "use client";
 
 import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import { useAds } from "./ads-context";
 import { DEMO_ACCOUNTS } from "./demo-accounts";
 import { useListings } from "./listings-context";
 import { mockListings, mockServices } from "./mock-data";
+import { ROLE_LABELS } from "./roles";
 import { ContentItemState, PropertyListing, RoleName, RoleState, ServiceListing } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -21,6 +23,52 @@ import { ContentItemState, PropertyListing, RoleName, RoleState, ServiceListing 
 // directly (not via React state) by several other pages, and a plain in-place
 // mutation there would not cause any of them to re-render.
 // ---------------------------------------------------------------------------
+
+// ---- Audit log --------------------------------------------------------------
+
+export interface AdminAuditLogEntry {
+  id: string;
+  action: string;
+  itemTitle: string;
+  timestamp: Date;
+}
+
+// HONEST SCOPE: this records WHAT happened and WHEN, not WHO — admin.ts
+// (ADMIN_EMAILS/isAdminEmail) checks one shared identity, not an individual
+// signed-in admin account, so there is no real "actor" to attribute an entry
+// to yet. Accurate once real backend auth exists with individual admin
+// accounts (IMPLEMENTATION_NOTES.md #2, #9).
+interface AdminAuditLogContextValue {
+  entries: AdminAuditLogEntry[];
+  logAction: (action: string, itemTitle: string) => void;
+}
+
+const AdminAuditLogContext = createContext<AdminAuditLogContextValue | null>(null);
+
+// A CONTEXT, same reasoning as AdminComplaintsProvider below: the Activity
+// tab is a separate route from the pages that produce entries (Users,
+// Listings, Ads, Complaints), so this has to survive navigation between
+// sibling /admin/* routes, not just live for one page's mount. Lives in
+// admin/layout.tsx, above AdminComplaintsProvider, so resolveComplaint can
+// log through it too.
+export function AdminAuditLogProvider({ children }: { children: ReactNode }) {
+  const [entries, setEntries] = useState<AdminAuditLogEntry[]>([]);
+
+  const logAction = useCallback((action: string, itemTitle: string) => {
+    setEntries((prev) => [{ id: `log-${Date.now()}-${prev.length}`, action, itemTitle, timestamp: new Date() }, ...prev]);
+  }, []);
+
+  const value = useMemo(() => ({ entries, logAction }), [entries, logAction]);
+
+  return <AdminAuditLogContext.Provider value={value}>{children}</AdminAuditLogContext.Provider>;
+}
+
+// Newest first by construction (logAction prepends) — no separate sort.
+export function useAdminAuditLog() {
+  const ctx = useContext(AdminAuditLogContext);
+  if (!ctx) throw new Error("useAdminAuditLog must be used within AdminAuditLogProvider");
+  return ctx;
+}
 
 // ---- Users ----------------------------------------------------------------
 
@@ -51,6 +99,7 @@ const INITIAL_ROLE_STATE: Record<string, AdminUserRoleRow[]> = {
 
 export function useAdminUsers() {
   const [roleState, setRoleState] = useState(INITIAL_ROLE_STATE);
+  const { logAction } = useAdminAuditLog();
 
   const users: AdminUser[] = useMemo(
     () =>
@@ -69,10 +118,21 @@ export function useAdminUsers() {
     }));
   }, []);
 
+  const logRole = (userId: string, role: RoleName, action: string) => {
+    const user = users.find((u) => u.id === userId);
+    logAction(action, user ? `${user.name} — ${ROLE_LABELS[role]}` : ROLE_LABELS[role]);
+  };
+
   return {
     users,
-    verifyUserRole: (userId: string, role: RoleName) => setRole(userId, role, "role-verified"),
-    rejectUserRole: (userId: string, role: RoleName) => setRole(userId, role, "role-added"),
+    verifyUserRole: (userId: string, role: RoleName) => {
+      logRole(userId, role, "Verified user role");
+      setRole(userId, role, "role-verified");
+    },
+    rejectUserRole: (userId: string, role: RoleName) => {
+      logRole(userId, role, "Rejected user role");
+      setRole(userId, role, "role-added");
+    },
   };
 }
 
@@ -98,6 +158,7 @@ export function useAdminListings() {
   // submits in this session is really approvable/rejectable by admin.
   const { submitted } = useListings();
   const [overrides, setOverrides] = useState<Record<string, ContentItemState>>({});
+  const { logAction } = useAdminAuditLog();
 
   const listings: AdminListingRow[] = useMemo(() => {
     const catalog: (PropertyListing | ServiceListing)[] = [...mockListings, ...submitted, ...mockServices];
@@ -112,11 +173,48 @@ export function useAdminListings() {
     setOverrides((prev) => ({ ...prev, [id]: status }));
   }, []);
 
+  const logStatus = (id: string, action: string) => {
+    logAction(action, listings.find((row) => row.id === id)?.title ?? id);
+  };
+
   return {
     listings,
     pending: listings.filter((row) => row.status === "pending-review"),
-    approveListing: (id: string) => setStatus(id, "live"),
-    rejectListing: (id: string) => setStatus(id, "rejected"),
+    approveListing: (id: string) => {
+      logStatus(id, "Approved listing");
+      setStatus(id, "live");
+    },
+    rejectListing: (id: string) => {
+      logStatus(id, "Rejected listing");
+      setStatus(id, "rejected");
+    },
+  };
+}
+
+// ---- Ads --------------------------------------------------------------------
+
+// Unlike useAdminListings(), Ads have a real shared Context (lib/ads-context.tsx)
+// as their one source of truth — no static catalog to merge and no override
+// map needed, so this is a thin pass-through rather than a second data layer.
+export function useAdminAds() {
+  const { ads, approveAd, rejectAd } = useAds();
+  const { logAction } = useAdminAuditLog();
+
+  const logStatus = (id: string, action: string) => {
+    logAction(action, ads.find((ad) => ad.id === id)?.title ?? id);
+  };
+
+  return {
+    ads,
+    pending: ads.filter((ad) => ad.status === "pending-review"),
+    approveAd: (id: string) => {
+      logStatus(id, "Approved ad");
+      approveAd(id);
+    },
+    rejectAd: (id: string) => {
+      logStatus(id, "Rejected ad");
+      rejectAd(id);
+    },
   };
 }
 
@@ -167,10 +265,16 @@ const AdminComplaintsContext = createContext<AdminComplaintsContextValue | null>
 // this is the one piece of admin state that actually needs to be here.
 export function AdminComplaintsProvider({ children }: { children: ReactNode }) {
   const [complaints, setComplaints] = useState<Complaint[]>(INITIAL_COMPLAINTS);
+  const { logAction } = useAdminAuditLog();
 
-  const resolveComplaint = useCallback((id: string) => {
-    setComplaints((prev) => prev.map((c) => (c.id === id ? { ...c, status: "resolved" } : c)));
-  }, []);
+  const resolveComplaint = useCallback(
+    (id: string) => {
+      const complaint = complaints.find((c) => c.id === id);
+      if (complaint) logAction("Resolved complaint", complaint.subject);
+      setComplaints((prev) => prev.map((c) => (c.id === id ? { ...c, status: "resolved" } : c)));
+    },
+    [complaints, logAction]
+  );
 
   const value = useMemo(() => ({ complaints, resolveComplaint }), [complaints, resolveComplaint]);
 

@@ -18,6 +18,7 @@ const ROLE_STATE_BADGE: Record<RoleState, { kind: StatusKind; label: string }> =
 export default function AdminUsersPage() {
   const { users, verifyUserRole, rejectUserRole } = useAdminUsers();
   const [rejecting, setRejecting] = useState<{ userId: string; userName: string; role: RoleName } | null>(null);
+  const [verifying, setVerifying] = useState<{ userId: string; userName: string; role: RoleName } | null>(null);
 
   return (
     <div>
@@ -50,7 +51,11 @@ export default function AdminUsersPage() {
                         {ROLE_LABELS[row.role]}
                       </p>
                       {row.state !== "role-verified" && (
-                        <Button variant="secondary" size="dense" onClick={() => verifyUserRole(user.id, row.role)}>
+                        <Button
+                          variant="secondary"
+                          size="dense"
+                          onClick={() => setVerifying({ userId: user.id, userName: user.name, role: row.role })}
+                        >
                           Verify
                         </Button>
                       )}
@@ -71,6 +76,19 @@ export default function AdminUsersPage() {
           ))}
         </ul>
       )}
+
+      <ConfirmationDialog
+        open={verifying !== null}
+        title={verifying ? `Verify ${ROLE_LABELS[verifying.role]} for ${verifying.userName}?` : ""}
+        description="Their document review passes and the role becomes verified."
+        confirmLabel="Verify"
+        destructive={false}
+        onCancel={() => setVerifying(null)}
+        onConfirm={() => {
+          if (verifying) verifyUserRole(verifying.userId, verifying.role);
+          setVerifying(null);
+        }}
+      />
 
       <ConfirmationDialog
         open={rejecting !== null}

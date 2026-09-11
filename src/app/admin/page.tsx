@@ -6,7 +6,15 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusBadge, statusBadgeColor, StatusKind } from "@/components/ui/StatusBadge";
-import { AdminListingRow, useAdminComplaints, useAdminListings, useAdminUsers } from "@/lib/admin-mock-data";
+import {
+  AdminListingRow,
+  useAdminAds,
+  useAdminAuditLog,
+  useAdminComplaints,
+  useAdminListings,
+  useAdminUsers,
+} from "@/lib/admin-mock-data";
+import { formatRelativeTime } from "@/lib/format-relative-time";
 import { ROLE_LABELS } from "@/lib/roles";
 import { RoleName } from "@/lib/types";
 
@@ -68,7 +76,7 @@ function StatTile({
 }
 
 function StatTileGrid({ children }: { children: ReactNode }) {
-  return <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">{children}</div>;
+  return <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">{children}</div>;
 }
 
 // One "needs attention" row — either a user's pending role or a pending
@@ -82,8 +90,11 @@ type AttentionItem =
 export default function AdminOverviewPage() {
   const { users, verifyUserRole, rejectUserRole } = useAdminUsers();
   const { listings, pending, approveListing, rejectListing } = useAdminListings();
+  const { pending: pendingAds } = useAdminAds();
   const { complaints } = useAdminComplaints();
+  const { entries } = useAdminAuditLog();
   const [rejecting, setRejecting] = useState<AttentionItem | null>(null);
+  const recentActivity = entries.slice(0, 5);
 
   const pendingUsers = users.filter((user) =>
     user.roles.some((role) => role.state === "pending-admin-document-review")
@@ -156,6 +167,13 @@ export default function AdminOverviewPage() {
           captions={[liveBreakdown, `${rejectedListings} rejected`]}
         />
         <StatTile
+          href="/admin/ads"
+          count={pendingAds.length}
+          label="Pending ads"
+          badgeKind="pending"
+          badgeLabel="Pending"
+        />
+        <StatTile
           href="/admin/complaints"
           count={openComplaints}
           label="Open complaints"
@@ -216,6 +234,39 @@ export default function AdminOverviewPage() {
                 </li>
               );
             })}
+          </ul>
+        )}
+      </div>
+
+      <div className="mt-8">
+        <div className="flex items-center justify-between">
+          <h2 className="u-label text-[var(--color-text-secondary)]">Recent activity</h2>
+          <Link
+            href="/admin/activity"
+            className="text-sm font-bold text-[var(--color-brand-accent)] underline"
+          >
+            View all
+          </Link>
+        </div>
+
+        {recentActivity.length === 0 ? (
+          <EmptyState className="mt-2.5" title="No activity yet" />
+        ) : (
+          <ul className="mt-2.5 flex flex-col gap-1">
+            {recentActivity.map((entry) => (
+              <li
+                key={entry.id}
+                className="flex flex-wrap items-center gap-2.5 rounded-[var(--radius-control)] border border-[var(--color-border-hairline)] px-3 py-1.5"
+              >
+                <p className="font-bold text-[var(--color-text-primary)]">{entry.action}</p>
+                <p className="min-w-0 flex-1 truncate text-sm text-[var(--color-text-secondary)]">
+                  {entry.itemTitle}
+                </p>
+                <p className="shrink-0 text-sm text-[var(--color-text-secondary)]">
+                  {formatRelativeTime(entry.timestamp)}
+                </p>
+              </li>
+            ))}
           </ul>
         )}
       </div>
