@@ -26,7 +26,7 @@ const app = express();
 // instead of leaving it wide open.
 app.use(
   cors({
-    origin: ["http://localhost:3000"],
+    origin: ["http://localhost:3000", "https://nexthomeservices.vercel.app"],
     credentials: true,
   }),
 );
