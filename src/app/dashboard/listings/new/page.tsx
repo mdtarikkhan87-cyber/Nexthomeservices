@@ -764,9 +764,9 @@ export default function PostPropertyPage() {
                       type="button"
                       onClick={() => removeImage(img.url)}
                       aria-label={`Remove ${img.name}`}
-                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-dark-blue)]/70 text-white transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-status-rejected)]"
+                      className="absolute right-1 top-1 flex min-h-11 min-w-11 items-center justify-center rounded-full bg-[var(--color-dark-blue)]/70 text-white transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-status-rejected)]"
                     >
-                      <IconClose className="h-3 w-3" />
+                      <IconClose className="h-3.5 w-3.5" />
                     </button>
                   </li>
                 ))}
