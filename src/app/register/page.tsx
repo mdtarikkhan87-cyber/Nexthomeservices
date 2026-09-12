@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
@@ -95,7 +95,7 @@ function RoleOption({
 function RegisterFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { register } = useAuth();
+  const { register, isAuthenticated, isHydrating, user, roles: heldRoles } = useAuth();
 
   const suggested = searchParams.get("role") as RoleName | null;
   const nextParam = searchParams.get("next");
@@ -103,6 +103,26 @@ function RegisterFlow() {
   const [step, setStep] = useState<Step>("role");
   const [selected, setSelected] = useState<RoleName[]>(() => (suggested ? [suggested] : []));
   const [returnContext] = useState(() => consumeAuthReturnTo());
+  const [resumed, setResumed] = useState(false);
+
+  // register() creates the real account at the "basic info" step, before
+  // phone OTP / document review happen — so a refresh (or closed tab)
+  // between then and "Submit for review" leaves a real, authenticated,
+  // partially-verified account behind. Without this, that account is
+  // stranded: its email/phone are now taken, but landing back on /register
+  // just shows role selection again, which fails immediately with "already
+  // in use". Detect that case once auth hydrates and jump straight to
+  // wherever the account actually is instead.
+  useEffect(() => {
+    if (isHydrating || resumed || !isAuthenticated || !user) return;
+    const incomplete = heldRoles.filter(
+      (h) => NEEDS_TRUST_LAYER.includes(h.role) && h.state !== "role-verified"
+    );
+    if (incomplete.length === 0) return; // nothing unfinished — leave the fresh-signup form alone
+    setSelected(user.roles);
+    setStep(incomplete.some((h) => h.state === "role-added") ? "trust-layer" : "pending");
+    setResumed(true);
+  }, [isHydrating, isAuthenticated, user, heldRoles, resumed]);
 
   // Basic info — collected BEFORE register() is called, since the backend
   // needs all of this (including motherMaidenName) at registration time.
