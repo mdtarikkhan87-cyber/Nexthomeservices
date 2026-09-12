@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { useAdminComplaints } from "@/lib/admin-client";
+import { Complaint, useAdminComplaints } from "@/lib/admin-client";
 
 export default function AdminComplaintsPage() {
   const { complaints, resolveComplaint } = useAdminComplaints();
+  const [resolving, setResolving] = useState<Complaint | null>(null);
 
   return (
     <div>
@@ -32,7 +35,7 @@ export default function AdminComplaintsPage() {
                 />
                 <p className="min-w-0 flex-1 font-bold text-[var(--color-text-primary)]">{complaint.subject}</p>
                 {complaint.status === "open" && (
-                  <Button variant="secondary" size="dense" onClick={() => resolveComplaint(complaint.id)}>
+                  <Button variant="secondary" size="dense" onClick={() => setResolving(complaint)}>
                     Resolve
                   </Button>
                 )}
@@ -42,6 +45,19 @@ export default function AdminComplaintsPage() {
           ))}
         </ul>
       )}
+
+      <ConfirmationDialog
+        open={resolving !== null}
+        title={resolving ? `Resolve "${resolving.subject}"?` : ""}
+        description="It will be marked resolved and removed from the open queue."
+        confirmLabel="Resolve"
+        destructive={false}
+        onCancel={() => setResolving(null)}
+        onConfirm={() => {
+          if (resolving) resolveComplaint(resolving.id);
+          setResolving(null);
+        }}
+      />
     </div>
   );
 }

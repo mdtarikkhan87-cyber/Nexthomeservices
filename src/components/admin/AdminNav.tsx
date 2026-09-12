@@ -11,6 +11,7 @@ const ADMIN_NAV_ITEMS = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/listings", label: "Listings" },
   { href: "/admin/complaints", label: "Complaints" },
+  { href: "/admin/activity", label: "Activity" },
 ];
 
 export function AdminNav() {
