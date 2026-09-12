@@ -2,6 +2,7 @@
 
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { authedRequest as apiAuthedRequest } from "./backend-client";
+import { ROLE_LABELS } from "./roles";
 import { ContentItemState, RoleName } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,54 @@ const STATUS_TO_FRONTEND: Record<BackendContentItemState, ContentItemState> = {
   rejected: "rejected",
 };
 
+// ---- Audit log --------------------------------------------------------------
+
+export interface AdminAuditLogEntry {
+  id: string;
+  action: string;
+  itemTitle: string;
+  timestamp: Date;
+}
+
+// HONEST SCOPE: this records WHAT happened and WHEN, not WHO — the backend's
+// User.isAdmin is one flag, not yet a per-admin identity distinguished from
+// other admins, so there is no real "actor" to attribute an entry to.
+// Accurate once individual admin accounts exist.
+interface AdminAuditLogContextValue {
+  entries: AdminAuditLogEntry[];
+  logAction: (action: string, itemTitle: string) => void;
+}
+
+const AdminAuditLogContext = createContext<AdminAuditLogContextValue | null>(null);
+
+// A CONTEXT, same reasoning as AdminComplaintsProvider below: the Activity
+// tab is a separate route from the pages that produce entries (Users,
+// Listings, Complaints), so this has to survive navigation between sibling
+// /admin/* routes. Lives in admin/layout.tsx, above AdminComplaintsProvider.
+//
+// Entries are logged from inside each action function below, AFTER its
+// PATCH resolves — a real request can fail (network, 404, validation), and
+// logging an action that never actually happened would make this an
+// inaccurate record rather than an honest one.
+export function AdminAuditLogProvider({ children }: { children: ReactNode }) {
+  const [entries, setEntries] = useState<AdminAuditLogEntry[]>([]);
+
+  const logAction = useCallback((action: string, itemTitle: string) => {
+    setEntries((prev) => [{ id: `log-${Date.now()}-${prev.length}`, action, itemTitle, timestamp: new Date() }, ...prev]);
+  }, []);
+
+  const value = useMemo(() => ({ entries, logAction }), [entries, logAction]);
+
+  return <AdminAuditLogContext.Provider value={value}>{children}</AdminAuditLogContext.Provider>;
+}
+
+// Newest first by construction (logAction prepends) — no separate sort.
+export function useAdminAuditLog() {
+  const ctx = useContext(AdminAuditLogContext);
+  if (!ctx) throw new Error("useAdminAuditLog must be used within AdminAuditLogProvider");
+  return ctx;
+}
+
 // ---- Users ----------------------------------------------------------------
 
 export interface AdminUserRoleRow {
@@ -63,6 +112,7 @@ interface BackendAdminUser {
 
 export function useAdminUsers() {
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const { logAction } = useAdminAuditLog();
 
   const refetch = useCallback(async () => {
     const result = await apiAuthedRequest<BackendAdminUser[]>("/admin/users");
@@ -97,9 +147,14 @@ export function useAdminUsers() {
       await apiAuthedRequest(`/admin/users/${userId}/roles/${ROLE_TO_BACKEND[role]}/${action}`, {
         method: "PATCH",
       });
+      const user = users.find((u) => u.id === userId);
+      logAction(
+        action === "verify" ? "Verified user role" : "Rejected user role",
+        user ? `${user.name} — ${ROLE_LABELS[role]}` : ROLE_LABELS[role],
+      );
       await refetch();
     },
-    [refetch],
+    [refetch, users, logAction],
   );
 
   return {
@@ -127,6 +182,7 @@ interface BackendAdminListingRow {
 
 export function useAdminListings() {
   const [listings, setListings] = useState<AdminListingRow[]>([]);
+  const { logAction } = useAdminAuditLog();
 
   const refetch = useCallback(async () => {
     const result = await apiAuthedRequest<BackendAdminListingRow[]>("/admin/listings");
@@ -156,9 +212,10 @@ export function useAdminListings() {
       const row = listings.find((r) => r.id === id);
       if (!row) return;
       await apiAuthedRequest(`/admin/listings/${row.kind}/${id}/${action}`, { method: "PATCH" });
+      logAction(action === "approve" ? "Approved listing" : "Rejected listing", row.title);
       await refetch();
     },
-    [listings, refetch],
+    [listings, refetch, logAction],
   );
 
   return {
@@ -213,6 +270,7 @@ const AdminComplaintsContext = createContext<AdminComplaintsContextValue | null>
 // is the one piece of admin state that actually needs to live there.
 export function AdminComplaintsProvider({ children }: { children: ReactNode }) {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const { logAction } = useAdminAuditLog();
 
   useEffect(() => {
     let cancelled = false;
@@ -229,13 +287,20 @@ export function AdminComplaintsProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const resolveComplaint = useCallback((id: string) => {
-    apiAuthedRequest(`/admin/complaints/${id}/resolve`, { method: "PATCH" })
-      .then(() => setComplaints((prev) => prev.map((c) => (c.id === id ? { ...c, status: "resolved" as const } : c))))
-      .catch(() => {
-        // leave stale on failure — same fail-quiet behavior as elsewhere
-      });
-  }, []);
+  const resolveComplaint = useCallback(
+    (id: string) => {
+      apiAuthedRequest(`/admin/complaints/${id}/resolve`, { method: "PATCH" })
+        .then(() => {
+          const complaint = complaints.find((c) => c.id === id);
+          if (complaint) logAction("Resolved complaint", complaint.subject);
+          setComplaints((prev) => prev.map((c) => (c.id === id ? { ...c, status: "resolved" as const } : c)));
+        })
+        .catch(() => {
+          // leave stale on failure — same fail-quiet behavior as elsewhere
+        });
+    },
+    [complaints, logAction],
+  );
 
   const value = useMemo(() => ({ complaints, resolveComplaint }), [complaints, resolveComplaint]);
 
