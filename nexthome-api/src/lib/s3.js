@@ -37,14 +37,22 @@ function getClient() {
 //   "ad-image"        -> public (anyone can view a live ad's creative)
 //   "trust-document"  -> private (only admins should ever see these)
 //
-// DEV MODE: if AWS isn't configured yet, returns a fake local placeholder
-// URL instead of failing — lets you build/test the upload flow's shape
-// (the request/response contract) before an AWS account exists. The
-// "upload" won't actually go anywhere in this mode.
+// DEV MODE: if AWS isn't configured yet, returns a fake placeholder URL
+// instead of failing — lets you build/test the upload flow's shape (the
+// request/response contract) before an AWS account exists. `baseUrl` is the
+// caller's own live origin (see uploads.routes.js), NOT a hardcoded
+// "localhost:4000" — that was reachable from a developer's own machine
+// running the backend locally, but was returned to EVERY caller including
+// real visitors on the live site, whose browsers have nothing listening on
+// their own localhost:4000. Pointing this at the actual backend host means
+// the URL at least resolves to a real server (see app.js's dev-fake-upload/
+// dev-fake-file handlers) — but it is still not durable storage: Railway's
+// filesystem is ephemeral, so anything saved this way is gone on the next
+// deploy or restart. Set up real AWS S3 credentials to replace this.
 const PUBLIC_PURPOSES = ["listing-photo", "ad-image"];
 const FOLDER_BY_PURPOSE = { "trust-document": "documents", "ad-image": "ads" };
 
-async function getPresignedUploadUrl({ purpose, fileName, fileType, userId }) {
+async function getPresignedUploadUrl({ purpose, fileName, fileType, userId, baseUrl }) {
   const folder = FOLDER_BY_PURPOSE[purpose] || "listings";
   const key = `${folder}/${userId}/${uuidv4()}-${fileName}`;
   const isPublic = PUBLIC_PURPOSES.includes(purpose);
@@ -52,9 +60,9 @@ async function getPresignedUploadUrl({ purpose, fileName, fileType, userId }) {
   if (!isConfigured()) {
     console.log(`[DEV S3 — AWS env vars not set] Would upload to key: ${key} (${fileType})`);
     return {
-      uploadUrl: `http://localhost:4000/dev-fake-upload/${key}`,
+      uploadUrl: `${baseUrl}/dev-fake-upload/${key}`,
       key,
-      publicUrl: isPublic ? `http://localhost:4000/dev-fake-file/${key}` : null,
+      publicUrl: isPublic ? `${baseUrl}/dev-fake-file/${key}` : null,
       dev: true,
     };
   }
@@ -75,4 +83,4 @@ async function getPresignedUploadUrl({ purpose, fileName, fileType, userId }) {
   return { uploadUrl, key, publicUrl };
 }
 
-module.exports = { getPresignedUploadUrl };
+module.exports = { getPresignedUploadUrl, isConfigured };

@@ -3,6 +3,9 @@
 /node_modules
 /build
 
+# Dev-only fake S3 storage (app.js) — ephemeral, never meant to be committed
+/uploads
+
 # Logs
 logs
 *.log

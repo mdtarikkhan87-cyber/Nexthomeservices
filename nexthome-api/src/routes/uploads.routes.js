@@ -29,11 +29,17 @@ router.post(
     if (!checkValidation(req, res)) return;
 
     const { purpose, fileName, fileType } = req.body;
+    // Railway terminates TLS at its edge and forwards over plain HTTP, so
+    // req.protocol alone would report "http" even though the site is served
+    // over https — x-forwarded-proto is what actually reflects that.
+    const proto = req.headers["x-forwarded-proto"] || req.protocol;
+    const baseUrl = `${proto}://${req.get("host")}`;
     const result = await getPresignedUploadUrl({
       purpose,
       fileName,
       fileType,
       userId: req.user.sub,
+      baseUrl,
     });
 
     res.json(result);

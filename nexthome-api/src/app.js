@@ -1,5 +1,9 @@
 const express = require("express");
 const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
+
+const { isConfigured: isS3Configured } = require("./lib/s3");
 
 const authRoutes = require("./routes/auth.routes");
 const listingsRoutes = require("./routes/listings.routes");
@@ -45,13 +49,48 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-// DEV-ONLY: accepts the fake presigned upload URLs s3.js returns when AWS
-// isn't configured yet, so the whole upload flow can be tested end-to-end
-// without a real AWS account. Just swallows the file and says "ok" — real
-// AWS handles the real upload once configured.
-app.put(/^\/dev-fake-upload\/.*/, (req, res) => {
-  res.sendStatus(200);
-});
+// DEV-ONLY: backs the fake presigned upload URLs s3.js returns when AWS
+// isn't configured (see lib/s3.js), so the upload flow works end-to-end —
+// actually saving and serving the file — without a real AWS account.
+//
+// NOT DURABLE: Railway's filesystem is ephemeral, so anything written here
+// is gone on the next deploy or restart. This used to just swallow the file
+// and say "ok" with no GET counterpart at all, which was silently broken
+// for every real visitor on the live site (their browser has nothing at
+// localhost:4000 — that was always the developer's own machine, never a
+// real server). This makes uploads at least actually work until the next
+// deploy; it is a stopgap, not a replacement for configuring real S3
+// credentials (isS3Configured() below gates it off entirely once you do).
+if (!isS3Configured()) {
+  const UPLOAD_ROOT = path.join(__dirname, "..", "uploads");
+
+  // Keys are server-generated (`${folder}/${userId}/${uuid}-${fileName}` in
+  // s3.js) but fileName itself is user-supplied, so this still guards
+  // against a crafted "../../etc/passwd"-style key escaping UPLOAD_ROOT.
+  function resolveUploadPath(key) {
+    const resolved = path.normalize(path.join(UPLOAD_ROOT, key));
+    if (resolved !== UPLOAD_ROOT && !resolved.startsWith(UPLOAD_ROOT + path.sep)) return null;
+    return resolved;
+  }
+
+  app.put(
+    /^\/dev-fake-upload\/(.*)/,
+    express.raw({ type: "*/*", limit: "10mb" }),
+    (req, res) => {
+      const filePath = resolveUploadPath(decodeURIComponent(req.params[0]));
+      if (!filePath) return res.status(400).json({ message: "Invalid upload path." });
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, req.body);
+      res.sendStatus(200);
+    },
+  );
+
+  app.get(/^\/dev-fake-file\/(.*)/, (req, res) => {
+    const filePath = resolveUploadPath(decodeURIComponent(req.params[0]));
+    if (!filePath || !fs.existsSync(filePath)) return res.status(404).json({ message: "Not found." });
+    res.sendFile(filePath);
+  });
+}
 
 app.use("/auth", authRoutes);
 app.use("/listings", listingsRoutes);
