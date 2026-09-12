@@ -58,12 +58,9 @@ type Outcome = "blocked" | "subscription" | "submitted" | null;
 // Landlord role to be `role-verified` and the subscription to be `active`.
 export default function PostPropertyPage() {
   const router = useRouter();
-  const { roles } = useAuth();
+  const { roles, refreshUser } = useAuth();
   const { notify } = useNotifications();
   const { createListing } = useListings();
-
-  const landlordRole = roles.find((r) => r.role === "landlord");
-  const isSubscribed = landlordRole?.subscriptionState === "active";
 
   const [draft, setDraft] = useState<ListingDraft>(EMPTY_DRAFT);
   const [stepIndex, setStepIndex] = useState(0);
@@ -160,11 +157,19 @@ export default function PostPropertyPage() {
     // Gate order is unchanged and deliberate: role verification is checked
     // before subscription (PRODUCT_DECISIONS.md §6) — being paid up doesn't
     // make an unverified landlord publishable.
-    if (landlordRole?.state !== "role-verified") {
+    //
+    // Re-fetch rather than trust `landlordRole` from render: an admin
+    // approving this account's documents is an out-of-band change the
+    // context has no way to hear about while this tab just sits open on a
+    // draft. Checking the stale value let a since-verified landlord get
+    // told they were still pending, with no way out short of a refresh.
+    const freshRoles = await refreshUser();
+    const freshLandlordRole = (freshRoles ?? roles).find((r) => r.role === "landlord");
+    if (freshLandlordRole?.state !== "role-verified") {
       setOutcome("blocked");
       return;
     }
-    if (!isSubscribed) {
+    if (freshLandlordRole?.subscriptionState !== "active") {
       setOutcome("subscription");
       return;
     }

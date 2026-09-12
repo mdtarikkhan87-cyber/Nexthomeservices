@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { AuthRequired } from "@/components/shared/AuthGate";
@@ -29,9 +30,18 @@ import { requiredRoleForPath } from "@/lib/roles";
 // (/dashboard, /dashboard/messages, /dashboard/notifications) are shared: any
 // signed-in user, in any role.
 export default function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
-  const { activeRole } = useAuth();
+  const { activeRole, refreshUser } = useAuth();
   const pathname = usePathname();
   const requiredRole = requiredRoleForPath(pathname);
+
+  // Role state (verified / pending / added) can change out-of-band — an
+  // admin reviewing documents in a different tab, say — and auth-context
+  // otherwise only fetches it once, at login. Re-checking on every dashboard
+  // navigation is what makes "an admin just verified me" show up without a
+  // full logout/login.
+  useEffect(() => {
+    refreshUser();
+  }, [pathname, refreshUser]);
 
   return (
     <AuthRequired

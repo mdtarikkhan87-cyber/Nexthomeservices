@@ -61,6 +61,15 @@ interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => void;
+  /** Re-fetches the current user's roles/state from the backend without
+      touching activeRole or needsRoleChoice — for surfaces (like the
+      dashboard) that need to notice something an admin changed
+      out-of-band, e.g. a role moving from pending review to verified.
+      Returns the freshly-fetched roles directly (not just via context
+      state) so a caller gating on role state right this instant — e.g. the
+      Submit button on a listing draft — doesn't have to wait a render
+      cycle for the context to catch up before checking it. */
+  refreshUser: () => Promise<HeldRole[] | null>;
   setActiveRole: (role: RoleName) => void;
   addRole: (role: RoleName) => Promise<void>;
   addRoles: (roles: RoleName[]) => Promise<void>;
@@ -243,6 +252,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const addRole = useCallback((role: RoleName) => addRoles([role]), [addRoles]);
 
+  const refreshUser = useCallback(async () => {
+    const result = await apiFetchCurrentUser();
+    if (!result) return null; // token expired/missing — leave existing state, apiFetchCurrentUser has its own handling
+    const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin };
+    setState((prev) => ({
+      ...prev,
+      isAuthenticated: true,
+      user,
+      roles: result.heldRoles,
+    }));
+    return result.heldRoles;
+  }, []);
+
   const setTenantBuyerContext = useCallback((context: TenantBuyerContext) => {
     // Client-side view state only for now — the backend does store a
     // per-role `context` field, but no endpoint updates it yet.
@@ -264,8 +286,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       addRole,
       addRoles,
       setTenantBuyerContext,
+      refreshUser,
     }),
-    [state, login, register, logout, setActiveRole, chooseSessionRole, clearRolePreference, addRole, addRoles, setTenantBuyerContext],
+    [state, login, register, logout, setActiveRole, chooseSessionRole, clearRolePreference, addRole, addRoles, setTenantBuyerContext, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
