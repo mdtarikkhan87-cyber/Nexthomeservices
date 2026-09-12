@@ -171,12 +171,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await apiFetchCurrentUser();
       if (!result) throw new Error("Registration succeeded but fetching the profile failed.");
       const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin };
+      // Deliberately NOT resolveRoleSelection() here, even for a multi-role
+      // signup. That helper sets needsRoleChoice: true, which pops the
+      // global "How do you want to act today?" prompt (RoleSessionPrompt) —
+      // and choosing a role there navigates straight to its dashboard,
+      // bypassing the trust-layer/OTP step the register page is about to
+      // show. There is no genuine choice to make immediately after
+      // registering: the roles were just picked, seconds ago, on this same
+      // form — so pick a sane default and persist it instead of re-asking.
+      const active = primaryRole(user.roles);
+      if (active) writeStoredRole(user.id, active);
       setState({
         isAuthenticated: true,
         isHydrating: false,
         user,
         roles: result.heldRoles,
-        ...resolveRoleSelection(user),
+        activeRole: active,
+        needsRoleChoice: false,
       });
     },
     [],
