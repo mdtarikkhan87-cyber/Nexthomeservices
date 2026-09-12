@@ -68,17 +68,10 @@ export default async function HomePage() {
     <div>
       {heroListing && <Hero listing={heroListing} />}
 
-      {/* ---- TASK 2: Rent / Buy / Services search — its own section, pulled
-           up so it STRADDLES the hero's bottom edge: roughly half the card
-           sits over the photograph, half below it.
-
-           The overlap is scaled per breakpoint rather than fixed. The card is
-           much taller on a phone (fields stack), so a single -6rem that reads
-           as a neat straddle on desktop would swallow the mobile image
-           whole. `z-20` keeps it above the hero's photograph.
-
-           The component itself is untouched — this is placement only. ---- */}
-      <div className="relative z-20 -mt-10 sm:-mt-14 lg:-mt-[8.5rem]">
+      {/* ---- Rent / Buy / Services search — its own section, in normal flow
+           directly below the hero (no straddle/overlap now that the hero's
+           photograph is a contained card rather than a bleeding one). ---- */}
+      <div className="relative z-20 mt-8 sm:mt-10 lg:mt-14">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <SearchBar />
         </div>
