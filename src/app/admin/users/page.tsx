@@ -15,10 +15,21 @@ const ROLE_STATE_BADGE: Record<RoleState, { kind: StatusKind; label: string }> =
   "role-added": { kind: "pending", label: "Role Added" },
 };
 
+const SUBSCRIPTION_BADGE: Record<"inactive" | "pending-confirmation" | "active", { kind: StatusKind; label: string }> = {
+  active: { kind: "verified", label: "Subscribed" },
+  "pending-confirmation": { kind: "pending", label: "Payment Pending" },
+  inactive: { kind: "rejected", label: "Not Subscribed" },
+};
+
 export default function AdminUsersPage() {
-  const { users, verifyUserRole, rejectUserRole } = useAdminUsers();
+  const { users, verifyUserRole, rejectUserRole, activateSubscription, deactivateSubscription } = useAdminUsers();
   const [rejecting, setRejecting] = useState<{ userId: string; userName: string; role: RoleName } | null>(null);
   const [verifying, setVerifying] = useState<{ userId: string; userName: string; role: RoleName } | null>(null);
+  const [subscriptionAction, setSubscriptionAction] = useState<{
+    userId: string;
+    userName: string;
+    activate: boolean;
+  } | null>(null);
 
   return (
     <div>
@@ -68,6 +79,35 @@ export default function AdminUsersPage() {
                           Reject
                         </Button>
                       )}
+                      {/* Subscription isn't wired to real payments yet — this is the
+                          manual stand-in until Stripe/Paystack exists. Landlord-only,
+                          matching the backend's scoping of subscriptionState. */}
+                      {row.role === "landlord" && (
+                        <>
+                          <StatusBadge
+                            kind={SUBSCRIPTION_BADGE[row.subscriptionState ?? "inactive"].kind}
+                            label={SUBSCRIPTION_BADGE[row.subscriptionState ?? "inactive"].label}
+                            dense
+                          />
+                          {row.subscriptionState === "active" ? (
+                            <Button
+                              variant="destructive"
+                              size="dense"
+                              onClick={() => setSubscriptionAction({ userId: user.id, userName: user.name, activate: false })}
+                            >
+                              Deactivate Subscription
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              size="dense"
+                              onClick={() => setSubscriptionAction({ userId: user.id, userName: user.name, activate: true })}
+                            >
+                              Activate Subscription
+                            </Button>
+                          )}
+                        </>
+                      )}
                     </li>
                   );
                 })}
@@ -99,6 +139,30 @@ export default function AdminUsersPage() {
         onConfirm={() => {
           if (rejecting) rejectUserRole(rejecting.userId, rejecting.role);
           setRejecting(null);
+        }}
+      />
+
+      <ConfirmationDialog
+        open={subscriptionAction !== null}
+        title={
+          subscriptionAction
+            ? `${subscriptionAction.activate ? "Activate" : "Deactivate"} subscription for ${subscriptionAction.userName}?`
+            : ""
+        }
+        description={
+          subscriptionAction?.activate
+            ? "Manually marks their Landlord subscription active — a stand-in until real payment processing exists. They'll be able to publish listings."
+            : "Marks their Landlord subscription inactive. Existing live listings are not affected, but they won't be able to publish new ones."
+        }
+        confirmLabel={subscriptionAction?.activate ? "Activate" : "Deactivate"}
+        destructive={!subscriptionAction?.activate}
+        onCancel={() => setSubscriptionAction(null)}
+        onConfirm={() => {
+          if (subscriptionAction) {
+            if (subscriptionAction.activate) activateSubscription(subscriptionAction.userId);
+            else deactivateSubscription(subscriptionAction.userId);
+          }
+          setSubscriptionAction(null);
         }}
       />
     </div>

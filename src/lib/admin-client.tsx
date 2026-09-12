@@ -19,6 +19,8 @@ import { ContentItemState, RoleName } from "./types";
 type BackendRoleName = "landlord" | "tenant_buyer" | "service_provider" | "advertiser";
 type BackendRoleState = "role_added" | "pending_admin_document_review" | "role_verified";
 type BackendContentItemState = "pending_review" | "live" | "rejected";
+type BackendSubscriptionState = "inactive" | "pending_confirmation" | "active";
+type FrontendSubscriptionState = "inactive" | "pending-confirmation" | "active";
 
 const ROLE_TO_FRONTEND: Record<BackendRoleName, RoleName> = {
   landlord: "landlord",
@@ -41,6 +43,11 @@ const STATUS_TO_FRONTEND: Record<BackendContentItemState, ContentItemState> = {
   pending_review: "pending-review",
   live: "live",
   rejected: "rejected",
+};
+const SUBSCRIPTION_STATE_TO_FRONTEND: Record<BackendSubscriptionState, FrontendSubscriptionState> = {
+  inactive: "inactive",
+  pending_confirmation: "pending-confirmation",
+  active: "active",
 };
 
 // ---- Audit log --------------------------------------------------------------
@@ -96,6 +103,8 @@ export function useAdminAuditLog() {
 export interface AdminUserRoleRow {
   role: RoleName;
   state: "role-added" | "pending-admin-document-review" | "role-verified";
+  /** landlord only — null/undefined for every other role. */
+  subscriptionState?: FrontendSubscriptionState;
 }
 
 export interface AdminUser {
@@ -107,7 +116,7 @@ export interface AdminUser {
 interface BackendAdminUser {
   id: string;
   name: string;
-  roles: { role: BackendRoleName; state: BackendRoleState }[];
+  roles: { role: BackendRoleName; state: BackendRoleState; subscriptionState: BackendSubscriptionState | null }[];
 }
 
 export function useAdminUsers() {
@@ -120,7 +129,11 @@ export function useAdminUsers() {
       result.map((u) => ({
         id: u.id,
         name: u.name,
-        roles: u.roles.map((r) => ({ role: ROLE_TO_FRONTEND[r.role], state: ROLE_STATE_TO_FRONTEND[r.state] })),
+        roles: u.roles.map((r) => ({
+          role: ROLE_TO_FRONTEND[r.role],
+          state: ROLE_STATE_TO_FRONTEND[r.state],
+          subscriptionState: r.subscriptionState ? SUBSCRIPTION_STATE_TO_FRONTEND[r.subscriptionState] : undefined,
+        })),
       })),
     );
   }, []);
@@ -157,10 +170,28 @@ export function useAdminUsers() {
     [refetch, users, logAction],
   );
 
+  // Stand-in for real payment processing (Stripe/Paystack), which isn't
+  // wired up yet — landlord-only, matching the backend's scoping of
+  // subscriptionState to that one role.
+  const setSubscription = useCallback(
+    async (userId: string, action: "activate-subscription" | "deactivate-subscription") => {
+      await apiAuthedRequest(`/admin/users/${userId}/roles/landlord/${action}`, { method: "PATCH" });
+      const user = users.find((u) => u.id === userId);
+      logAction(
+        action === "activate-subscription" ? "Activated subscription" : "Deactivated subscription",
+        user ? `${user.name} — Landlord` : "Landlord",
+      );
+      await refetch();
+    },
+    [refetch, users, logAction],
+  );
+
   return {
     users,
     verifyUserRole: (userId: string, role: RoleName) => setRole(userId, role, "verify"),
     rejectUserRole: (userId: string, role: RoleName) => setRole(userId, role, "reject"),
+    activateSubscription: (userId: string) => setSubscription(userId, "activate-subscription"),
+    deactivateSubscription: (userId: string) => setSubscription(userId, "deactivate-subscription"),
   };
 }
 

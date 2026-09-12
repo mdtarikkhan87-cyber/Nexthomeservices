@@ -31,7 +31,7 @@ router.get("/users", async (req, res) => {
     select: {
       id: true,
       name: true,
-      roles: { select: { role: true, state: true } },
+      roles: { select: { role: true, state: true, subscriptionState: true } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -67,6 +67,47 @@ async function setUserRoleState(req, res, state) {
     const updated = await prisma.userRole.update({
       where: { userId_role: { userId, role } },
       data: { state },
+    });
+    res.json(updated);
+  } catch {
+    res.status(404).json({ message: "That user doesn't hold this role." });
+  }
+}
+
+// -----------------------------------------------------------------------
+// PATCH /admin/users/:userId/roles/:role/activate-subscription
+// PATCH /admin/users/:userId/roles/:role/deactivate-subscription
+//
+// Stand-in for real payment processing (Stripe/Paystack), which isn't
+// wired up yet — see SubscriptionPage on the frontend, which currently
+// can't move a landlord's subscriptionState off "inactive" on its own.
+// subscriptionState only exists on the landlord role (schema.prisma), so
+// this is scoped to that role rather than accepting any of VALID_ROLES.
+// -----------------------------------------------------------------------
+router.patch(
+  "/users/:userId/roles/:role/activate-subscription",
+  [param("userId").isString(), param("role").equals("landlord")],
+  async (req, res) => {
+    if (!checkValidation(req, res)) return;
+    await setUserSubscriptionState(req, res, "active");
+  },
+);
+
+router.patch(
+  "/users/:userId/roles/:role/deactivate-subscription",
+  [param("userId").isString(), param("role").equals("landlord")],
+  async (req, res) => {
+    if (!checkValidation(req, res)) return;
+    await setUserSubscriptionState(req, res, "inactive");
+  },
+);
+
+async function setUserSubscriptionState(req, res, subscriptionState) {
+  const { userId, role } = req.params;
+  try {
+    const updated = await prisma.userRole.update({
+      where: { userId_role: { userId, role } },
+      data: { subscriptionState },
     });
     res.json(updated);
   } catch {
