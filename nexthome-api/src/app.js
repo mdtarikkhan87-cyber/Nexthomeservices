@@ -10,6 +10,7 @@ const listingsRoutes = require("./routes/listings.routes");
 const conversationsRoutes = require("./routes/conversations.routes");
 const trustRoutes = require("./routes/trust.routes");
 const uploadsRoutes = require("./routes/uploads.routes");
+const savedRoutes = require("./routes/saved.routes");
 
 const servicesRoutes = require("./routes/services.routes");
 const adsRoutes = require("./routes/ads.routes");
@@ -97,6 +98,7 @@ app.use("/listings", listingsRoutes);
 app.use("/conversations", conversationsRoutes);
 app.use("/trust", trustRoutes);
 app.use("/uploads", uploadsRoutes);
+app.use("/saved", savedRoutes);
 
 app.use("/services", servicesRoutes);
 app.use("/ads", adsRoutes);

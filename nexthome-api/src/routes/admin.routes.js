@@ -21,6 +21,44 @@ function checkValidation(req, res) {
 }
 
 const VALID_ROLES = ["landlord", "tenant_buyer", "service_provider", "advertiser"];
+const ROLE_LABELS = {
+  landlord: "Landlord",
+  tenant_buyer: "Renter / Buyer",
+  service_provider: "Service Provider",
+  advertiser: "Advertiser",
+};
+
+// Real, persisted audit trail — this used to be client-side React state only
+// (admin-client.tsx's AdminAuditLogProvider), which reset to empty on every
+// page reload and was never shared between admin sessions. Its own comment
+// said an entry couldn't name WHO acted ("no real actor") only because there
+// was nowhere durable to attribute it to; now that this is a real table,
+// every entry properly records the acting admin.
+async function logAudit(req, action, itemTitle) {
+  await prisma.auditLogEntry.create({
+    data: { actorId: req.user.sub, action, itemTitle },
+  });
+}
+
+// -----------------------------------------------------------------------
+// GET /admin/activity — the audit log, newest first.
+// -----------------------------------------------------------------------
+router.get("/activity", async (req, res) => {
+  const entries = await prisma.auditLogEntry.findMany({
+    include: { actor: { select: { name: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+  res.json(
+    entries.map((e) => ({
+      id: e.id,
+      action: e.action,
+      itemTitle: e.itemTitle,
+      actorName: e.actor.name,
+      timestamp: e.createdAt,
+    })),
+  );
+});
 
 // -----------------------------------------------------------------------
 // GET /admin/users — every non-admin account and the roles it holds.
@@ -67,7 +105,13 @@ async function setUserRoleState(req, res, state) {
     const updated = await prisma.userRole.update({
       where: { userId_role: { userId, role } },
       data: { state },
+      include: { user: { select: { name: true } } },
     });
+    await logAudit(
+      req,
+      state === "role_verified" ? "Verified user role" : "Rejected user role",
+      `${updated.user.name} — ${ROLE_LABELS[role]}`,
+    );
     res.json(updated);
   } catch {
     res.status(404).json({ message: "That user doesn't hold this role." });
@@ -108,7 +152,13 @@ async function setUserSubscriptionState(req, res, subscriptionState) {
     const updated = await prisma.userRole.update({
       where: { userId_role: { userId, role } },
       data: { subscriptionState },
+      include: { user: { select: { name: true } } },
     });
+    await logAudit(
+      req,
+      subscriptionState === "active" ? "Activated subscription" : "Deactivated subscription",
+      `${updated.user.name} — ${ROLE_LABELS[role]}`,
+    );
     res.json(updated);
   } catch {
     res.status(404).json({ message: "That user doesn't hold this role." });
@@ -116,13 +166,18 @@ async function setUserSubscriptionState(req, res, subscriptionState) {
 }
 
 // -----------------------------------------------------------------------
-// GET /admin/listings — every property AND service listing, any status.
-// Shaped as one combined list ({ id, kind, title, status }) since the
-// admin UI's toggle switches between them client-side, not via separate
-// requests.
+// GET /admin/listings — every property, service listing, AND
+// advertisement, any status. Shaped as one combined list
+// ({ id, kind, title, status }) since the admin UI's toggle switches
+// between them client-side, not via separate requests. Ads previously had
+// no admin surface at all — schema.prisma's own comment says every content
+// item shares "one shape [for] admin moderation... per DESIGN_SYSTEM.md
+// §7," but nothing ever implemented that shape for Advertisement, so every
+// ad submitted stayed in pending_review forever with no way to ever go
+// live.
 // -----------------------------------------------------------------------
 router.get("/listings", async (req, res) => {
-  const [properties, services] = await Promise.all([
+  const [properties, services, ads] = await Promise.all([
     prisma.listing.findMany({
       select: { id: true, title: true, status: true },
       orderBy: { createdAt: "desc" },
@@ -136,6 +191,15 @@ router.get("/listings", async (req, res) => {
       },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.advertisement.findMany({
+      select: {
+        id: true,
+        headline: true,
+        status: true,
+        advertiser: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   const rows = [
@@ -146,19 +210,31 @@ router.get("/listings", async (req, res) => {
       title: `${s.category} — ${s.provider.name}`,
       status: s.status,
     })),
+    ...ads.map((a) => ({
+      id: a.id,
+      kind: "advertisement",
+      title: `${a.headline} — ${a.advertiser.name}`,
+      status: a.status,
+    })),
   ];
 
   res.json(rows);
 });
 
 // -----------------------------------------------------------------------
-// PATCH /admin/listings/:kind/:id/:action — kind: property|service,
-// action: approve|reject.
+// PATCH /admin/listings/:kind/:id/:action —
+// kind: property|service|advertisement, action: approve|reject.
 // -----------------------------------------------------------------------
+const LISTING_MODEL_BY_KIND = {
+  property: () => prisma.listing,
+  service: () => prisma.serviceListing,
+  advertisement: () => prisma.advertisement,
+};
+
 router.patch(
   "/listings/:kind/:id/:action",
   [
-    param("kind").isIn(["property", "service"]),
+    param("kind").isIn(Object.keys(LISTING_MODEL_BY_KIND)),
     param("id").isString(),
     param("action").isIn(["approve", "reject"]),
   ],
@@ -167,10 +243,12 @@ router.patch(
 
     const { kind, id, action } = req.params;
     const status = action === "approve" ? "live" : "rejected";
-    const model = kind === "property" ? prisma.listing : prisma.serviceListing;
+    const model = LISTING_MODEL_BY_KIND[kind]();
 
     try {
       const updated = await model.update({ where: { id }, data: { status } });
+      const itemTitle = kind === "property" ? updated.title : kind === "service" ? updated.category : updated.headline;
+      await logAudit(req, action === "approve" ? "Approved listing" : "Rejected listing", itemTitle);
       res.json(updated);
     } catch {
       res.status(404).json({ message: "Listing not found." });
@@ -199,6 +277,7 @@ router.patch("/complaints/:id/resolve", [param("id").isString()], async (req, re
       where: { id: req.params.id },
       data: { status: "resolved" },
     });
+    await logAudit(req, "Resolved complaint", updated.subject);
     res.json(updated);
   } catch {
     res.status(404).json({ message: "Complaint not found." });

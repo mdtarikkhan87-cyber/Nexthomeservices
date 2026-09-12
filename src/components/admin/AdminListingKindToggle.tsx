@@ -2,12 +2,13 @@
 
 import { motion } from "motion/react";
 
-const KINDS = ["property", "service"] as const;
+const KINDS = ["property", "service", "advertisement"] as const;
 type ListingKind = (typeof KINDS)[number];
 
 const KIND_LABELS: Record<ListingKind, string> = {
   property: "Properties",
   service: "Services",
+  advertisement: "Ads",
 };
 
 /**
@@ -28,7 +29,7 @@ export function AdminListingKindToggle({
   return (
     <div
       role="group"
-      aria-label="Show property or service listings"
+      aria-label="Show property listings, service listings, or advertisements"
       className="relative inline-flex shrink-0 rounded-full border border-[var(--color-border-default)] bg-[var(--color-surface-dense)] p-1"
     >
       {KINDS.map((k) => {

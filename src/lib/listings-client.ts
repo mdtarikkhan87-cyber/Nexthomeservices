@@ -260,7 +260,18 @@ export async function apiSearchListings(
 
 export async function apiFetchListingById(id: string, options: { countView?: boolean } = {}): Promise<PropertyListing> {
   const countView = options.countView ?? true;
-  const result = await apiRequest<BackendListing>(`/listings/${id}${countView ? "" : "?count=false"}`);
+  // authedRequest, not the plain request() this used before: the backend now
+  // returns the full record only to a request that actually carries a valid
+  // token (see listings.routes.js's redactForAnonymous) — an anonymous
+  // request gets the public teaser fields regardless of what this app
+  // intends to render with them. ListingFullDetail.tsx is only ever mounted
+  // for a signed-in visitor (ListingDetailGate.tsx), so this needs to prove
+  // that to the backend, not just to the React tree. Safe to call
+  // unconditionally: with no stored token, this just sends a token the
+  // backend's optionalAuthenticate rejects and treats as anonymous — the
+  // server-rendered teaser page (app/(public)/listing/[id]/page.tsx) already
+  // has no token to send either way.
+  const result = await apiAuthedRequest<BackendListing>(`/listings/${id}${countView ? "" : "?count=false"}`);
   return toFrontendListing(result);
 }
 
@@ -293,4 +304,23 @@ export async function apiSetRoomStatus(
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Saved homes — real persistence for dashboard/saved/page.tsx, which
+// previously stood in with hardcoded demo data. Not role-restricted
+// server-side (see saved.routes.js) — any signed-in user can save.
+// ---------------------------------------------------------------------------
+
+export async function apiFetchSavedListings(): Promise<PropertyListing[]> {
+  const result = await apiAuthedRequest<BackendListing[]>("/saved");
+  return result.map(toFrontendListing);
+}
+
+export async function apiSaveListing(listingId: string): Promise<void> {
+  await apiAuthedRequest<void>(`/saved/${listingId}`, { method: "PUT" });
+}
+
+export async function apiUnsaveListing(listingId: string): Promise<void> {
+  await apiAuthedRequest<void>(`/saved/${listingId}`, { method: "DELETE" });
 }

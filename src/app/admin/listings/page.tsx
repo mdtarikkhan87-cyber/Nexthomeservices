@@ -118,7 +118,7 @@ export default function AdminListingsPage() {
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">Listings</h1>
       <p className="mt-1.5 text-[var(--color-text-secondary)]">
-        Every property and service listing — pending, live, or rejected.
+        Every property listing, service listing, and advertisement — pending, live, or rejected.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -142,7 +142,9 @@ export default function AdminListingsPage() {
               ? "No matching listings"
               : kind === "property"
                 ? "No property listings"
-                : "No service listings"
+                : kind === "service"
+                  ? "No service listings"
+                  : "No advertisements"
           }
           description={isFiltered ? "Try a different search or status filter." : undefined}
         />

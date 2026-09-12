@@ -2,11 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { IconArrowRight, IconStar } from "@/components/ui/icons";
 import { useAuthGate } from "@/components/shared/AuthGate";
+import { useListings } from "@/lib/listings-context";
 import { PropertyListing } from "@/lib/types";
 import { isShared } from "@/lib/shared-property";
 import { formatLocation } from "@/lib/nigeria-locations";
@@ -57,13 +57,21 @@ export function PropertyCard({
   featured?: boolean;
 }) {
   const { requireAuth } = useAuthGate();
-  const [saved, setSaved] = useState(false);
+  // Real persistence (see saved.routes.js) — this used to be local
+  // component state (`useState(false)`), which looked like a working save
+  // button but reset to unsaved on every render and never actually
+  // persisted anywhere, for anyone.
+  const { savedListingIds, saveListing, unsaveListing } = useListings();
+  const saved = savedListingIds.has(listing.id);
 
   const toggleSave = () => {
     requireAuth({
       actionLabel: `Log in to save "${listing.title}"`,
       suggestedRole: "tenant-buyer",
-      onResume: () => setSaved((v) => !v),
+      onResume: () => {
+        if (saved) unsaveListing(listing.id);
+        else saveListing(listing.id);
+      },
     });
   };
 

@@ -163,6 +163,8 @@ model User {
   otpCodes      OtpCode[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
+  savedListings SavedListing[]
+  auditLogEntries AuditLogEntry[]
 
   @@map("users")
 }
@@ -273,6 +275,7 @@ model Listing {
   updatedAt   DateTime          @updatedAt
 
   conversations Conversation[]
+  savedBy       SavedListing[]
 
   @@index([state, type, status])
   @@map("listings")
@@ -453,4 +456,43 @@ model Payment {
   updatedAt     DateTime      @updatedAt
 
   @@map("payments")
+}
+
+// ---------------------------------------------------------------------------
+// Saved homes — dashboard/saved previously stood in with hardcoded demo
+// data ("there is no persistence layer yet"); this is that layer. Any
+// authenticated user can save a listing, not just tenant-buyer, since the
+// UI surface (a save toggle on a property card) makes sense wherever a
+// signed-in visitor is browsing, regardless of their active role that day.
+// ---------------------------------------------------------------------------
+
+model SavedListing {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, listingId])
+  @@map("saved_listings")
+}
+
+// ---------------------------------------------------------------------------
+// Admin audit log — the Activity tab previously held this in-memory only
+// (React state, gone on every reload, never shared between admin sessions).
+// This is a real record, so it also lets an entry properly name WHO acted —
+// the client-only version's own comment said this couldn't be done ("no
+// real actor") only because there was nowhere durable to attribute it to.
+// ---------------------------------------------------------------------------
+
+model AuditLogEntry {
+  id        String   @id @default(cuid())
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  action    String
+  itemTitle String
+  createdAt DateTime @default(now())
+
+  @@map("audit_log_entries")
 }

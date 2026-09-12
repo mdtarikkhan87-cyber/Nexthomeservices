@@ -1,10 +1,53 @@
 const express = require("express");
+const jwt = require("jsonwebtoken");
 const { body, query, param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
 const { authenticate, requireRole } = require("../middleware/auth.middleware");
 
 const router = express.Router();
+
+// Unlike `authenticate`, this NEVER rejects the request — it just attaches
+// req.user if a valid token happens to be present, and silently continues
+// otherwise. GET /:id is public, but the owning landlord (or an admin)
+// checking a pending/rejected listing should still see it, and — see
+// redactForAnonymous below — a signed-in visitor unlocks full detail while
+// a truly anonymous one gets only the public teaser fields.
+function optionalAuthenticate(req, res, next) {
+  const header = req.headers.authorization;
+  if (header && header.startsWith("Bearer ")) {
+    const token = header.slice("Bearer ".length);
+    try {
+      req.user = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    } catch {
+      // Invalid/expired token on an optional-auth route — proceed as an
+      // anonymous request rather than rejecting it.
+    }
+  }
+  next();
+}
+
+// Website Revision Spec §3B: anonymous visitors can browse listing cards but
+// "cannot open a full property detail page" — description, the rest of the
+// gallery, amenities, bathrooms, furnishing and shared-room facility detail
+// all stay behind registration. This used to be enforced only by the
+// frontend choosing not to render those fields (ListingDetailGate.tsx) while
+// this endpoint always returned everything to every caller regardless of
+// auth — meaning a direct request to this URL (curl, devtools, anything
+// that isn't the React app) bypassed the wall entirely. galleryUrls keeps
+// its true LENGTH (blanking every entry past the first) so the "N more
+// photos" count the wall shows stays accurate without leaking the URLs.
+function redactForAnonymous(listing) {
+  return {
+    ...listing,
+    description: "",
+    amenities: [],
+    bathrooms: null,
+    furnishing: null,
+    shared: null,
+    galleryUrls: listing.galleryUrls.map((url, i) => (i === 0 ? url : "")),
+  };
+}
 
 const LISTING_TYPES = ["rent", "sale"];
 const RENT_DURATIONS = ["short_term", "long_term"];
@@ -196,31 +239,46 @@ router.get("/mine", authenticate, requireRole("landlord"), async (req, res) => {
 // double-counted (teaser fetch + full-detail fetch) while an anonymous
 // visitor's (teaser only) counted once.
 // -----------------------------------------------------------------------
-router.get("/:id", [param("id").isString(), query("count").optional().isBoolean()], async (req, res) => {
-  if (!checkValidation(req, res)) return;
+router.get(
+  "/:id",
+  optionalAuthenticate,
+  [param("id").isString(), query("count").optional().isBoolean()],
+  async (req, res) => {
+    if (!checkValidation(req, res)) return;
 
-  const shouldCount = req.query.count !== "false";
+    const shouldCount = req.query.count !== "false";
 
-  const listing = shouldCount
-    ? await prisma.listing
-        .update({
-          where: { id: req.params.id },
-          data: { viewCount: { increment: 1 } },
-          include: { shared: { include: { rooms: true } } },
-        })
-        .catch(() => null)
-    : await prisma.listing
-        .findUnique({
-          where: { id: req.params.id },
-          include: { shared: { include: { rooms: true } } },
-        })
-        .catch(() => null);
+    const listing = shouldCount
+      ? await prisma.listing
+          .update({
+            where: { id: req.params.id },
+            data: { viewCount: { increment: 1 } },
+            include: { shared: { include: { rooms: true } } },
+          })
+          .catch(() => null)
+      : await prisma.listing
+          .findUnique({
+            where: { id: req.params.id },
+            include: { shared: { include: { rooms: true } } },
+          })
+          .catch(() => null);
 
-  if (!listing) {
-    return res.status(404).json({ message: "Listing not found." });
-  }
-  res.json(listing);
-});
+    if (!listing) {
+      return res.status(404).json({ message: "Listing not found." });
+    }
+
+    const isOwner = req.user && listing.landlordId === req.user.sub;
+    const isAdmin = req.user && req.user.isAdmin;
+    if (listing.status !== "live" && !isOwner && !isAdmin) {
+      return res.status(404).json({ message: "Listing not found." });
+    }
+
+    if (listing.status === "live" && !req.user) {
+      return res.json(redactForAnonymous(listing));
+    }
+    res.json(listing);
+  },
+);
 
 // -----------------------------------------------------------------------
 // PATCH /listings/:id — update a listing. Only the owning landlord can.
