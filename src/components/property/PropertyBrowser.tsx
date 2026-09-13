@@ -335,7 +335,7 @@ export function PropertyBrowser() {
                   this repo's `cn` is a plain join with no tailwind-merge, so
                   passing `w-auto` against the field base's `w-full` would
                   leave the winner to stylesheet order rather than intent. */}
-              <div className="w-[184px]">
+              <div className="w-[45vw] max-w-[184px] sm:w-[184px]">
                 <Select
                   id="sort"
                   value={filters.sort}

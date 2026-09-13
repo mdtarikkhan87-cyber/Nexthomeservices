@@ -3,8 +3,10 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
+import { isValidPhoneNumber } from "react-phone-number-input";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
+import { PhoneNumberField } from "@/components/ui/PhoneNumberField";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { IconCheck } from "@/components/ui/icons";
 import { consumeAuthReturnTo } from "@/components/shared/AuthGate";
@@ -128,7 +130,8 @@ function RegisterFlow() {
   // needs all of this (including motherMaidenName) at registration time.
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState<string | undefined>(undefined);
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [password, setPassword] = useState("");
   const [motherMaidenName, setMotherMaidenName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -156,8 +159,14 @@ function RegisterFlow() {
     // always fails, which would strand the user on trust-layer with no way
     // to complete it. Caught here, before an account with no phone even
     // gets created.
-    if (needsTrustLayer && !phone.trim()) {
+    if (needsTrustLayer && !phone) {
+      setPhoneTouched(true);
       setError("A phone number is required for identity verification.");
+      return;
+    }
+    if (phone && !isValidPhoneNumber(phone)) {
+      setPhoneTouched(true);
+      setError("That doesn't look like a valid number for the selected country.");
       return;
     }
     setError(null);
@@ -316,20 +325,28 @@ function RegisterFlow() {
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
-              <div>
-                <Label htmlFor="phone">Phone number{needsTrustLayer ? "" : " (optional)"}</Label>
-                <Input
+              <div onBlur={() => setPhoneTouched(true)}>
+                <PhoneNumberField
                   id="phone"
-                  type="tel"
-                  placeholder="+234 800 000 0000"
+                  label={`Phone number${needsTrustLayer ? "" : " (optional)"}`}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={setPhone}
+                  required={needsTrustLayer}
+                  error={
+                    phoneTouched && needsTrustLayer && !phone
+                      ? "A phone number is required for identity verification."
+                      : phone && !isValidPhoneNumber(phone)
+                        ? "That doesn't look like a valid number for the selected country."
+                        : undefined
+                  }
+                  hint={
+                    !phone || isValidPhoneNumber(phone)
+                      ? needsTrustLayer
+                        ? "Required — we'll verify this on the next step."
+                        : "Not required for your selected role(s)."
+                      : undefined
+                  }
                 />
-                <p className="u-ui mt-1 text-xs text-[var(--color-text-secondary)]">
-                  {needsTrustLayer
-                    ? "Required — we'll verify this on the next step."
-                    : "Not required for your selected role(s)."}
-                </p>
               </div>
               <div>
                 <Label htmlFor="reg-email">Email</Label>
