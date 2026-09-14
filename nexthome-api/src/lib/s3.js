@@ -67,11 +67,18 @@ async function getPresignedUploadUrl({ purpose, fileName, fileType, userId, base
     };
   }
 
+  // No per-object ACL here — every bucket created since April 2023 defaults
+  // to "Bucket owner enforced" (Object Ownership), which disables ACLs
+  // entirely; a PutObjectCommand carrying ACL: "public-read" against such a
+  // bucket fails outright. Public read for listings/ and ads/ is granted by
+  // a bucket policy scoped to those prefixes instead (see the setup notes
+  // this project's README/setup guide), which works regardless of Object
+  // Ownership setting and doesn't require "Block Public Access" disabled
+  // for ACLs at all — only for bucket policies.
   const command = new PutObjectCommand({
     Bucket: process.env.AWS_S3_BUCKET,
     Key: key,
     ContentType: fileType,
-    ...(isPublic ? { ACL: "public-read" } : {}),
   });
 
   const uploadUrl = await getSignedUrl(getClient(), command, { expiresIn: 300 }); // 5 minutes
