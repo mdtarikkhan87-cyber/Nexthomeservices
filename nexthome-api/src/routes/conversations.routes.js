@@ -199,10 +199,21 @@ router.post(
     // changed here," not reconstruct that shape a second time over the
     // socket. Sent to both participants' personal rooms, including the
     // sender's, so their own other open tabs/devices stay in sync too.
-    const io = getIO();
-    io.to(`conversation:${conversation.id}`).emit("new-message", message);
-    io.to(`user:${conversation.participantAId}`).emit("conversation-updated", { conversationId: conversation.id });
-    io.to(`user:${conversation.participantBId}`).emit("conversation-updated", { conversationId: conversation.id });
+    //
+    // Deliberately isolated in its own try/catch: the message is already
+    // committed at this point, so a failure here (Socket.IO not yet
+    // initialized, an emit throwing) must not turn an already-successful
+    // send into a client-visible 500 — that would make the frontend treat
+    // the send as failed and leave the draft for a retry, creating a
+    // duplicate message row on the next attempt.
+    try {
+      const io = getIO();
+      io.to(`conversation:${conversation.id}`).emit("new-message", message);
+      io.to(`user:${conversation.participantAId}`).emit("conversation-updated", { conversationId: conversation.id });
+      io.to(`user:${conversation.participantBId}`).emit("conversation-updated", { conversationId: conversation.id });
+    } catch (err) {
+      console.error("Failed to push real-time message event:", err);
+    }
 
     res.status(201).json(message);
   },

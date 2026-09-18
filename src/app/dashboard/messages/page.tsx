@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -45,9 +45,20 @@ function MessagesPageInner() {
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
 
+  // Guards against out-of-order responses: `conversation-updated` socket
+  // events (see below) can now fire this in rapid, externally-triggered
+  // bursts, and ordinary network jitter means an earlier-issued request
+  // can resolve AFTER a later one. Without this, that stale response's
+  // setConversations would silently overwrite fresher state — a
+  // conversation could flash back to "unread"/stale-preview right after a
+  // newer refetch had already fixed it.
+  const conversationsRequestSeq = useRef(0);
   const refetchConversations = useCallback(async () => {
+    const seq = ++conversationsRequestSeq.current;
     const result = await apiFetchConversations();
-    setConversations(result);
+    if (seq === conversationsRequestSeq.current) {
+      setConversations(result);
+    }
     return result;
   }, []);
 
@@ -108,7 +119,16 @@ function MessagesPageInner() {
   useEffect(() => {
     if (!socket) return;
     const onConversationUpdated = () => {
-      refetchConversations();
+      // Every other call site of refetchConversations already sits inside
+      // a try/catch (initial load, after sending, after marking read) —
+      // this socket-triggered one is the exception, and it's reachable at
+      // exactly the moment a network blip is most likely: a
+      // 'conversation-updated' event can arrive the instant a dropped
+      // connection re-establishes, before the REST API is reachable again,
+      // producing an unhandled promise rejection with no user-visible
+      // effect otherwise (a missed live refresh here is harmless — the
+      // next real change retries it).
+      refetchConversations().catch(() => {});
     };
     socket.on("conversation-updated", onConversationUpdated);
     return () => {
@@ -125,7 +145,21 @@ function MessagesPageInner() {
   // double up with the optimistic append already done in send() below.
   useEffect(() => {
     if (!socket || !activeId) return;
-    socket.emit("join-conversation", activeId);
+
+    // Re-joins on every (re)connection, not just once when this effect
+    // first runs — socket.io-client auto-reconnects the same Socket object
+    // after a transient drop (a brief network blip, the API redeploying),
+    // but the server-side conversation:<id> room membership was tied to
+    // the old, now-dead connection. Without this, live delivery for the
+    // still-open thread would silently stop after any reconnect until the
+    // user happened to switch away and back. Re-joining an already-joined
+    // room is a harmless no-op server-side, so this can safely also fire
+    // once for the very first connection alongside the immediate call
+    // below, rather than needing to know which case it is.
+    const join = () => socket.emit("join-conversation", activeId);
+    join();
+    socket.on("connect", join);
+
     const onNewMessage = (message: Message) => {
       if (message.conversationId !== activeId) return;
       setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
@@ -133,6 +167,7 @@ function MessagesPageInner() {
     socket.on("new-message", onNewMessage);
     return () => {
       socket.emit("leave-conversation", activeId);
+      socket.off("connect", join);
       socket.off("new-message", onNewMessage);
     };
   }, [socket, activeId]);
@@ -144,7 +179,13 @@ function MessagesPageInner() {
     setIsSending(true);
     try {
       const message = await apiSendMessage(activeId, draft.trim());
-      setMessages((prev) => [...prev, message]);
+      // Dedup guard, same as the socket handler above: the server emits
+      // `new-message` before it sends this REST response, so our own
+      // socket (also joined to this conversation's room) can deliver this
+      // exact message back to us before this await resolves. Without the
+      // guard, both paths append it and React ends up with two elements
+      // sharing one key.
+      setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
       setDraft("");
       await refetchConversations();
     } catch {

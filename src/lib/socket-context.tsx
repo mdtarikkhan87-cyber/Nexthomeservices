@@ -24,10 +24,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const token = getAccessToken();
     if (!token) return;
 
-    // Auth is sent in the handshake payload, not a header — that's how
-    // socket.io-client expects it, and matches what lib/socket.js on the
-    // backend reads via socket.handshake.auth.token.
-    const s = io(process.env.NEXT_PUBLIC_API_URL, { auth: { token } });
+    // `auth` as a callback, not a static `{ token }` object: socket.io-
+    // client calls this fresh before EVERY (re)connection attempt, not
+    // just the first. Access tokens expire in 15 minutes (JWT_ACCESS_
+    // EXPIRES_IN) — a static object would keep resending the token that
+    // was valid when this effect first ran, so any reconnect (a brief
+    // network blip, the API redeploying) after that window would have the
+    // backend's handshake auth (lib/socket.js) reject an expired token
+    // forever, with no visible error and no way to recover short of a full
+    // page reload. This always reads whatever's currently in storage,
+    // which is what backend-client.ts's tryRefresh() keeps current.
+    const s = io(process.env.NEXT_PUBLIC_API_URL, {
+      auth: (cb) => cb({ token: getAccessToken() }),
+    });
     setSocket(s);
 
     return () => {

@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 
 const { isConfigured: isS3Configured } = require("./lib/s3");
+const CORS_ORIGINS = require("./lib/cors-origins");
 
 const authRoutes = require("./routes/auth.routes");
 const listingsRoutes = require("./routes/listings.routes");
@@ -31,7 +32,7 @@ const app = express();
 // instead of leaving it wide open.
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://nexthomeservices.vercel.app"],
+    origin: CORS_ORIGINS,
     credentials: true,
   }),
 );

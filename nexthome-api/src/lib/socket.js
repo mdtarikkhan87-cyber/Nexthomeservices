@@ -2,6 +2,7 @@ const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 
 const prisma = require("./prisma");
+const CORS_ORIGINS = require("./cors-origins");
 
 // Real-time layer for messaging — the REST endpoints in
 // conversations.routes.js remain the single source of truth for reading
@@ -23,7 +24,7 @@ let io = null;
 function initSocket(httpServer) {
   io = new Server(httpServer, {
     cors: {
-      origin: ["http://localhost:3000", "https://nexthomeservices.vercel.app"],
+      origin: CORS_ORIGINS,
       credentials: true,
     },
   });
