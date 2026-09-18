@@ -3,6 +3,7 @@ const { body, param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
 const { authenticate } = require("../middleware/auth.middleware");
+const { getIO } = require("../lib/socket");
 
 const router = express.Router();
 
@@ -188,6 +189,20 @@ router.post(
       where: { id: conversation.id },
       data: { updatedAt: new Date() },
     });
+
+    // Real-time push (see lib/socket.js). `new-message` carries the message
+    // itself, for whoever has this exact thread open, to append instantly
+    // with no round trip. `conversation-updated` is deliberately just the
+    // id — the inbox list's shape (participant names, context title, last-
+    // message preview) is already built by toConversationSummary() on the
+    // frontend from a REST refetch, so this only needs to say "something
+    // changed here," not reconstruct that shape a second time over the
+    // socket. Sent to both participants' personal rooms, including the
+    // sender's, so their own other open tabs/devices stay in sync too.
+    const io = getIO();
+    io.to(`conversation:${conversation.id}`).emit("new-message", message);
+    io.to(`user:${conversation.participantAId}`).emit("conversation-updated", { conversationId: conversation.id });
+    io.to(`user:${conversation.participantBId}`).emit("conversation-updated", { conversationId: conversation.id });
 
     res.status(201).json(message);
   },

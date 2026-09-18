@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
 import { Avatar } from "@/components/ui/Avatar";
 import { useAuth } from "@/lib/auth-context";
+import { useSocket } from "@/lib/socket-context";
 import {
   apiFetchConversations,
   apiFetchMessages,
@@ -32,6 +33,7 @@ function isUnread(conv: ConversationSummary, myUserId: string) {
 // (only the bound data differs).
 function MessagesPageInner() {
   const { user } = useAuth();
+  const socket = useSocket();
   const searchParams = useSearchParams();
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -96,6 +98,44 @@ function MessagesPageInner() {
       cancelled = true;
     };
   }, [activeId, refetchConversations]);
+
+  // Inbox-level live updates — a new message anywhere (not just the open
+  // thread) bumps that conversation to the top with a fresh preview/unread
+  // dot. The event only carries a conversationId (see conversations.
+  // routes.js's emit) by design: rebuilding a full ConversationSummary
+  // over the socket would duplicate toConversationSummary()'s shape-
+  // building logic a second time, for no real benefit over just refetching.
+  useEffect(() => {
+    if (!socket) return;
+    const onConversationUpdated = () => {
+      refetchConversations();
+    };
+    socket.on("conversation-updated", onConversationUpdated);
+    return () => {
+      socket.off("conversation-updated", onConversationUpdated);
+    };
+  }, [socket, refetchConversations]);
+
+  // Live messages for whichever thread is actually open. Joining is
+  // authorization-checked server-side (lib/socket.js), not just a client-
+  // side room name — a socket can't listen in on a conversation it isn't
+  // part of merely by knowing its id. Dedupes by message id rather than
+  // skipping "messages I sent myself": the sender's own socket is in this
+  // room too and receives the same broadcast back, which would otherwise
+  // double up with the optimistic append already done in send() below.
+  useEffect(() => {
+    if (!socket || !activeId) return;
+    socket.emit("join-conversation", activeId);
+    const onNewMessage = (message: Message) => {
+      if (message.conversationId !== activeId) return;
+      setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
+    };
+    socket.on("new-message", onNewMessage);
+    return () => {
+      socket.emit("leave-conversation", activeId);
+      socket.off("new-message", onNewMessage);
+    };
+  }, [socket, activeId]);
 
   const active = conversations.find((c) => c.id === activeId);
 
