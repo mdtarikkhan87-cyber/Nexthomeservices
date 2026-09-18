@@ -28,6 +28,21 @@ function isUnread(conv: ConversationSummary, myUserId: string) {
   return Boolean(conv.lastMessageSenderId && conv.lastMessageSenderId !== myUserId && !conv.lastMessageReadAt);
 }
 
+// Shared by both REST snapshots of a conversation's history (the initial
+// fetch, and the join-ack catch-up fetch below): merges a fresh snapshot
+// with whatever's already in state for this same conversation, instead of
+// blindly overwriting. `prev` can hold messages the snapshot doesn't know
+// about yet — appended live via the socket after the snapshot was taken —
+// so anything in `prev` belonging to this conversation and missing from
+// `thread` is newer than the snapshot and gets kept, appended after it
+// (the snapshot is already createdAt-ascending).
+function mergeThreadSnapshot(prev: Message[], thread: Message[], conversationId: string): Message[] {
+  const liveOnly = prev.filter(
+    (m) => m.conversationId === conversationId && !thread.some((t) => t.id === m.id),
+  );
+  return liveOnly.length ? [...thread, ...liveOnly] : thread;
+}
+
 // COMPONENT_ARCHITECTURE.md §2: one shared Message Thread List/Composer
 // pattern, reused identically across Landlord/Tenant/Service Provider
 // (only the bound data differs).
@@ -53,13 +68,30 @@ function MessagesPageInner() {
   // conversation could flash back to "unread"/stale-preview right after a
   // newer refetch had already fixed it.
   const conversationsRequestSeq = useRef(0);
+  // Coalesces overlapping calls into the one already in flight, instead of
+  // firing a new request each time. Needed because two callers routinely
+  // land within milliseconds of each other: send() explicitly refetches
+  // after posting a message, and the server's own 'conversation-updated'
+  // emit (sent to the sender's own room too, see conversations.routes.js)
+  // triggers the socket-driven refetch below for that same send — without
+  // this, every message sent would cost two GET /conversations calls. A
+  // burst of several incoming messages collapses the same way.
+  const inFlightConversationsFetch = useRef<Promise<ConversationSummary[]> | null>(null);
   const refetchConversations = useCallback(async () => {
+    if (inFlightConversationsFetch.current) return inFlightConversationsFetch.current;
     const seq = ++conversationsRequestSeq.current;
-    const result = await apiFetchConversations();
-    if (seq === conversationsRequestSeq.current) {
-      setConversations(result);
-    }
-    return result;
+    const promise = apiFetchConversations()
+      .then((result) => {
+        if (seq === conversationsRequestSeq.current) {
+          setConversations(result);
+        }
+        return result;
+      })
+      .finally(() => {
+        inFlightConversationsFetch.current = null;
+      });
+    inFlightConversationsFetch.current = promise;
+    return promise;
   }, []);
 
   // Written as a promise callback (not synchronous code in the effect body)
@@ -94,7 +126,12 @@ function MessagesPageInner() {
       try {
         const thread = await apiFetchMessages(activeId);
         if (cancelled) return;
-        setMessages(thread);
+        // See mergeThreadSnapshot: an unconditional setMessages(thread)
+        // here would silently drop a message the live-socket effect below
+        // already appended for this same activeId while this fetch was
+        // still in flight (both start around the same time on a
+        // conversation switch).
+        setMessages((prev) => mergeThreadSnapshot(prev, thread, activeId));
         // Opening a thread reads it — mirrors any real messaging product,
         // and is what clears the unread dot in the list on the left.
         await apiMarkConversationRead(activeId);
@@ -145,6 +182,7 @@ function MessagesPageInner() {
   // double up with the optimistic append already done in send() below.
   useEffect(() => {
     if (!socket || !activeId) return;
+    let cancelled = false;
 
     // Re-joins on every (re)connection, not just once when this effect
     // first runs — socket.io-client auto-reconnects the same Socket object
@@ -156,7 +194,36 @@ function MessagesPageInner() {
     // room is a harmless no-op server-side, so this can safely also fire
     // once for the very first connection alongside the immediate call
     // below, rather than needing to know which case it is.
-    const join = () => socket.emit("join-conversation", activeId);
+    const join = () =>
+      socket.emit("join-conversation", activeId, (ack?: { ok: boolean; error?: string }) => {
+        if (cancelled) return;
+        // lib/socket.js authorization-checks every join server-side; a
+        // rejection (or a dropped ack) previously failed completely
+        // silently — the thread just never received live messages, with
+        // no error and no retry. Surfaced here rather than left silent, at
+        // minimum for debugging, since this path is rare enough (a stale
+        // activeId, or a transient DB error in the server's own check)
+        // that a full retry/backoff UI would be over-building for it.
+        if (!ack || !ack.ok) {
+          console.error("Failed to join conversation room:", ack?.error);
+          return;
+        }
+        // Catch-up fetch: connecting the socket and confirming the room
+        // join both take a real round trip, during which the REST fetch
+        // above may already have completed. A message the other
+        // participant sends in that exact gap would be missed by BOTH
+        // paths — too early for the REST snapshot, and the socket wasn't
+        // in the room yet to receive its broadcast — and would otherwise
+        // never appear until the thread was closed and reopened. Fires on
+        // every (re)join, so it also catches anything missed during a
+        // disconnect, not just on first load.
+        apiFetchMessages(activeId)
+          .then((thread) => {
+            if (cancelled) return;
+            setMessages((prev) => mergeThreadSnapshot(prev, thread, activeId));
+          })
+          .catch(() => {});
+      });
     join();
     socket.on("connect", join);
 
@@ -166,6 +233,7 @@ function MessagesPageInner() {
     };
     socket.on("new-message", onNewMessage);
     return () => {
+      cancelled = true;
       socket.emit("leave-conversation", activeId);
       socket.off("connect", join);
       socket.off("new-message", onNewMessage);

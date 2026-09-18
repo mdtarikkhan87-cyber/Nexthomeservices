@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "./auth-context";
 import { getAccessToken } from "./token-storage";
+import { tryRefresh } from "./backend-client";
 
 // One socket connection per signed-in session, established once auth is
 // known and torn down on logout — not one per component that happens to
@@ -37,9 +38,31 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const s = io(process.env.NEXT_PUBLIC_API_URL, {
       auth: (cb) => cb({ token: getAccessToken() }),
     });
+
+    // The `auth` callback above always reads the current token, but nothing
+    // else keeps that token current while this socket sits idle — the only
+    // refresh path elsewhere (backend-client.ts's authedRequest) is purely
+    // reactive to a REST call getting a 401, and a long-lived socket can go
+    // the whole 15-minute access-token lifetime without one. Without this,
+    // a reconnect after expiry (a network blip, an API redeploy) would keep
+    // retrying with the same dead token forever, since socket.io-client's
+    // default infinite reconnection never refreshes it on its own. One
+    // refresh attempt in flight at a time — repeated connect_errors while a
+    // refresh is already pending would otherwise fire redundant requests.
+    let refreshing = false;
+    const onConnectError = () => {
+      if (refreshing) return;
+      refreshing = true;
+      tryRefresh().finally(() => {
+        refreshing = false;
+      });
+    };
+    s.on("connect_error", onConnectError);
+
     setSocket(s);
 
     return () => {
+      s.off("connect_error", onConnectError);
       s.disconnect();
     };
   }, [isAuthenticated]);

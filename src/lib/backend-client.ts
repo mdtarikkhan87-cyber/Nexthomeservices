@@ -114,7 +114,10 @@ export async function authedRequest<T>(path: string, options: RequestInit = {}):
   }
 }
 
-async function tryRefresh(): Promise<string | null> {
+// Exported so socket-context.tsx can trigger the same refresh proactively
+// on a socket auth failure — see its `connect_error` handler for why a
+// purely reactive (401-only) refresh isn't enough for a long-lived socket.
+export async function tryRefresh(): Promise<string | null> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return null;
   try {
