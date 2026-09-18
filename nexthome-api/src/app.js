@@ -50,49 +50,6 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-// TEMPORARY DIAGNOSTIC — capture the full SMTP conversation with Brevo from
-// inside Railway's actual deployed network (not a local machine, which has
-// its own separate IP-allowlist problem). Returns the log inline instead of
-// relying on `railway logs` streaming, which has been slow/stale to check.
-// Remove this route once the SMTP delivery issue is diagnosed.
-app.get("/debug-smtp", async (req, res) => {
-  const nodemailer = require("nodemailer");
-  const logLines = [];
-  const capture = (level) => (...args) => logLines.push(`[${level}] ${args.map(String).join(" ")}`);
-
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: false,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    logger: { debug: capture("debug"), info: capture("info"), warn: capture("warn"), error: capture("error") },
-    debug: true,
-  });
-
-  const result = { env: { host: process.env.SMTP_HOST, port: process.env.SMTP_PORT, user: process.env.SMTP_USER } };
-
-  try {
-    result.verify = await transporter.verify();
-  } catch (err) {
-    result.verifyError = { message: err.message, code: err.code, response: err.response };
-  }
-
-  try {
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || "NextHome <no-reply@nexthome.example>",
-      to: req.query.to || "mdtarikkhan007@gmail.com",
-      subject: "SMTP diagnostic test (from Railway)",
-      html: "<p>Diagnostic send from the deployed container.</p>",
-    });
-    result.sendInfo = info;
-  } catch (err) {
-    result.sendError = { message: err.message, code: err.code, response: err.response };
-  }
-
-  result.smtpLog = logLines;
-  res.json(result);
-});
-
 // DEV-ONLY: backs the fake presigned upload URLs s3.js returns when AWS
 // isn't configured (see lib/s3.js), so the upload flow works end-to-end —
 // actually saving and serving the file — without a real AWS account.

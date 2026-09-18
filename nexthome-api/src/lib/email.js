@@ -1,37 +1,56 @@
-// Sends email via any standard SMTP account (Gmail app password, SendGrid,
-// Mailgun, Postmark — anything that speaks SMTP). If SMTP_HOST isn't set,
-// falls back to logging the email to the server console instead of failing
-// — lets you build and test the whole verification flow before an email
-// provider account exists.
-const nodemailer = require("nodemailer");
+// Sends email via Brevo's HTTP Transactional Email API (not raw SMTP).
+//
+// This used to go through nodemailer over SMTP, but Railway blocks
+// outbound SMTP entirely — confirmed by running a verbose nodemailer
+// verify+send from inside the actual deployed container (not `railway
+// run`, which executes locally with Railway's env vars injected and gives
+// a misleading result): every attempt, on both port 587 and Brevo's
+// alternate 2525, timed out (ETIMEDOUT) with no response from Brevo's
+// server at all — not a credentials/IP-allowlist rejection, a network-
+// level block. HTTPS (443) isn't subject to that restriction, so the fix
+// is Brevo's REST API instead of SMTP, not a different port.
+//
+// If BREVO_API_KEY isn't set, falls back to logging the email to the
+// server console instead of failing — lets you build and test the whole
+// verification flow before a Brevo account exists.
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
-let transporter = null;
-function getTransporter() {
-  if (transporter) return transporter;
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-  return transporter;
+// EMAIL_FROM is kept in the same "Name <email>" shape nodemailer used,
+// since that's still how it reads everywhere else it's documented — only
+// parsed apart here because Brevo's API wants sender name/email as two
+// separate JSON fields rather than one combined header string.
+function parseFrom(raw) {
+  const match = /^(.*)<(.+)>$/.exec(raw || "");
+  if (match) return { name: match[1].trim().replace(/^"|"$/g, ""), email: match[2].trim() };
+  return { name: "NextHome", email: raw || "no-reply@nexthome.example" };
 }
 
 async function sendEmail({ to, subject, html }) {
-  if (!process.env.SMTP_HOST) {
-    console.log(`[DEV EMAIL — no SMTP_HOST set] To: ${to} | Subject: ${subject}\n${html}`);
+  if (!process.env.BREVO_API_KEY) {
+    console.log(`[DEV EMAIL — no BREVO_API_KEY set] To: ${to} | Subject: ${subject}\n${html}`);
     return { delivered: false, dev: true };
   }
 
-  await getTransporter().sendMail({
-    from: process.env.EMAIL_FROM || "NextHome <no-reply@nexthome.example>",
-    to,
-    subject,
-    html,
+  const sender = parseFrom(process.env.EMAIL_FROM);
+  const res = await fetch(BREVO_API_URL, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "api-key": process.env.BREVO_API_KEY,
+    },
+    body: JSON.stringify({
+      sender,
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
   });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Brevo API send failed (${res.status}): ${body}`);
+  }
   return { delivered: true };
 }
 
