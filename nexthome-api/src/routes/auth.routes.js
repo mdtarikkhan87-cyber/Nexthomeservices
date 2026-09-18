@@ -6,7 +6,7 @@ const { body, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
 const { authenticate } = require("../middleware/auth.middleware");
-const { sendEmail } = require("../lib/email");
+const { sendEmail, buildWelcomeEmailHtml } = require("../lib/email");
 const {
   initialRoleState,
   initialSubscriptionState,
@@ -111,10 +111,12 @@ router.post(
       })
       .then(() => {
         const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${rawToken}`;
+        // One email doing both jobs — the warm welcome moment AND the
+        // verification link — rather than two emails landing seconds apart.
         return sendEmail({
           to: user.email,
-          subject: "Verify your NextHome email address",
-          html: `<p>Hi ${user.name},</p><p>Click below to verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+          subject: "Welcome to NextHome! 🎉",
+          html: buildWelcomeEmailHtml({ name: user.name, roles: uniqueRoles, verifyUrl }),
         });
       })
       .catch((err) => console.error("Failed to send verification email:", err));
