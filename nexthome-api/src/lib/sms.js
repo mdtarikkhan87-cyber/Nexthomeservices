@@ -20,6 +20,15 @@ async function sendViaTermii(to, message) {
   const senderId = process.env.TERMII_SENDER_ID || "NextHome";
 
   if (!apiKey) {
+    // NODE_ENV-gated: this fallback exists so the OTP flow can be built
+    // and tested before a Termii account exists, but it logs the message
+    // itself — which for an OTP is the verification code in plaintext.
+    // Never let that reach production logs; if Termii isn't configured
+    // there, fail loudly instead of silently "succeeding" with an OTP
+    // nobody actually receives.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("TERMII_API_KEY is not configured.");
+    }
     console.log(`[DEV SMS via Termii — no TERMII_API_KEY set] To: ${to} | Message: ${message}`);
     return { delivered: false, dev: true, provider: "termii" };
   }
@@ -50,6 +59,9 @@ async function sendViaTwilio(to, message) {
   const fromNumber = process.env.TWILIO_FROM_NUMBER;
 
   if (!sid || !authToken || !fromNumber) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Twilio credentials are not configured.");
+    }
     console.log(`[DEV SMS via Twilio — Twilio env vars not set] To: ${to} | Message: ${message}`);
     return { delivered: false, dev: true, provider: "twilio" };
   }
