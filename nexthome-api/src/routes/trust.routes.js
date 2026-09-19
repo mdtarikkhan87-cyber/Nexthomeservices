@@ -45,7 +45,7 @@ router.post("/phone/send-otp", authenticate, async (req, res) => {
   }
 
   const code = generateOtpCode();
-  await prisma.otpCode.create({
+  const otp = await prisma.otpCode.create({
     data: {
       userId: user.id,
       codeHash: hashValue(code),
@@ -54,7 +54,17 @@ router.post("/phone/send-otp", authenticate, async (req, res) => {
     },
   });
 
-  await sendSms(user.phone, `Your NextHome verification code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`);
+  try {
+    await sendSms(user.phone, `Your NextHome verification code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`);
+  } catch (err) {
+    // sendSms throws in production when the relevant provider isn't
+    // configured (see sms.js) — same fix as pre-register.routes.js's
+    // send-otp: a clean, controlled error instead of an unhandled 500, and
+    // the undeliverable row removed so it doesn't count as "already sent".
+    await prisma.otpCode.delete({ where: { id: otp.id } }).catch(() => {});
+    console.error("Failed to send phone verification OTP:", err);
+    return res.status(503).json({ message: "We couldn't send a verification code right now. Please try again shortly." });
+  }
 
   res.json({ sent: true });
 });

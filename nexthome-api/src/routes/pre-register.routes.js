@@ -63,7 +63,7 @@ router.post("/send-otp", [body("phone").isString().notEmpty()], async (req, res)
   }
 
   const code = generateOtpCode();
-  await prisma.preRegistrationOtp.create({
+  const otp = await prisma.preRegistrationOtp.create({
     data: {
       phone,
       codeHash: hashValue(code),
@@ -71,7 +71,18 @@ router.post("/send-otp", [body("phone").isString().notEmpty()], async (req, res)
     },
   });
 
-  await sendSms(phone, `Your NextHome verification code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`);
+  try {
+    await sendSms(phone, `Your NextHome verification code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`);
+  } catch (err) {
+    // sendSms throws in production when the relevant provider (Termii for
+    // Nigerian numbers, Twilio otherwise) isn't configured — see sms.js.
+    // Delete the row rather than leave it: an undeliverable code would
+    // otherwise still count against the 60s resend cooldown above, blocking
+    // a retry once the provider IS configured, for no benefit to anyone.
+    await prisma.preRegistrationOtp.delete({ where: { id: otp.id } }).catch(() => {});
+    console.error("Failed to send pre-registration OTP:", err);
+    return res.status(503).json({ message: "We couldn't send a verification code right now. Please try again shortly." });
+  }
 
   res.json({ sent: true });
 });
