@@ -7,6 +7,7 @@ const { isConfigured: isS3Configured } = require("./lib/s3");
 const CORS_ORIGINS = require("./lib/cors-origins");
 
 const authRoutes = require("./routes/auth.routes");
+const preRegisterRoutes = require("./routes/pre-register.routes");
 const listingsRoutes = require("./routes/listings.routes");
 const conversationsRoutes = require("./routes/conversations.routes");
 const trustRoutes = require("./routes/trust.routes");
@@ -95,6 +96,11 @@ if (!isS3Configured()) {
 }
 
 app.use("/auth", authRoutes);
+// Unauthenticated on purpose — see pre-register.routes.js's own comments.
+// Mounted under /auth so the register page's whole account-creation surface
+// stays under one path prefix, even though these three endpoints don't
+// share auth.routes.js's authenticated register/login/refresh handlers.
+app.use("/auth/pre-register", preRegisterRoutes);
 app.use("/listings", listingsRoutes);
 app.use("/conversations", conversationsRoutes);
 app.use("/trust", trustRoutes);

@@ -361,7 +361,7 @@ export function Header() {
                 aria-expanded={accountMenuOpen}
                 aria-haspopup="menu"
               >
-                <Avatar name="Account" size={22} className="ring-0" />
+                <Avatar name={user?.name ?? "Account"} size={22} className="ring-0" />
                 <span className="sr-only">Account menu</span>
                 <IconChevronDown
                   aria-hidden
@@ -389,6 +389,21 @@ export function Header() {
                     transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                     className="absolute right-0 top-full mt-2 w-56 origin-top-right rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-2 shadow-[var(--elevation-lg)]"
                   >
+                    {/* Additive, not a replacement for the "Viewing as" line
+                        below — that line answers "which role am I acting as
+                        right now" (a state the role switcher also controls);
+                        this one answers "which account am I signed into",
+                        which has no other control anywhere in this menu and
+                        previously never appeared at all (the trigger button's
+                        avatar circle used a hardcoded "Account" name, never
+                        the real one). */}
+                    {user?.name && (
+                      <p className="px-2 pb-1 pt-1 text-xs text-[var(--color-text-secondary)]">
+                        Signed in as{" "}
+                        <span className="font-bold text-[var(--color-text-primary)]">{user.name}</span>
+                      </p>
+                    )}
+
                     {/* The "Active role" list that used to sit here is gone —
                         the persistent switcher in the bar is now the single
                         control for that (see RoleSwitcher.tsx). What remains

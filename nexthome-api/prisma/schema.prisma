@@ -207,6 +207,24 @@ model OtpCode {
   @@map("otp_codes")
 }
 
+/// The same one-time-SMS-code pattern as OtpCode, but for a phone number
+/// that doesn't have a User yet — registration no longer creates a real
+/// account until the entire flow (phone OTP + document upload, where
+/// required) completes, so this has to be keyed by phone, not userId, and
+/// carries no foreign key at all. See pre-register.routes.js.
+model PreRegistrationOtp {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([phone])
+  @@map("pre_registration_otps")
+}
+
 /// A one-time link token emailed to the account holder to confirm they
 /// control that email address. Tokens are hashed at rest.
 model EmailVerificationToken {

@@ -43,11 +43,18 @@ router.post(
     body("motherMaidenName").optional().isString(),
     body("roles").isArray({ min: 1 }),
     body("roles.*").isIn(VALID_ROLES),
+    // Both optional and both produced by the pre-registration trust-layer
+    // step (pre-register.routes.js) — this endpoint is now the ONE moment a
+    // real account gets created, whether or not that step ran. Neither
+    // field blocks registration if missing or invalid; they only decide
+    // whether phoneVerifiedAt/documentUrl get set immediately below.
+    body("phoneVerificationToken").optional().isString(),
+    body("documentUrl").optional().isString(),
   ],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
 
-    const { name, email, phone, password, motherMaidenName, roles } = req.body;
+    const { name, email, phone, password, motherMaidenName, roles, phoneVerificationToken, documentUrl } = req.body;
 
     // Basic Trust Layer: every role now goes through phone + document
     // review (extended from the original landlord/service-provider-only
@@ -76,6 +83,26 @@ router.post(
       }
     }
 
+    // A phoneVerificationToken only ever proves ONE thing: this exact phone
+    // number completed OTP verification during pre-registration (see
+    // pre-register.routes.js). Cross-checking payload.phone against the
+    // phone actually being registered stops someone from verifying phone A
+    // and reusing that proof to mark a DIFFERENT phone B "verified" here
+    // without ever texting B. An invalid/expired/mismatched token never
+    // blocks registration outright — it just leaves phoneVerifiedAt unset,
+    // same as if the trust-layer step had never run.
+    let phoneVerifiedAt = null;
+    if (phoneVerificationToken) {
+      try {
+        const payload = jwt.verify(phoneVerificationToken, process.env.JWT_ACCESS_SECRET);
+        if (payload.purpose === "phone_verification" && payload.phone === phone) {
+          phoneVerifiedAt = new Date();
+        }
+      } catch {
+        // Invalid or expired — phone just stays unverified.
+      }
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
     const uniqueRoles = Array.from(new Set(roles));
 
@@ -86,12 +113,25 @@ router.post(
         phone,
         passwordHash,
         motherMaidenName,
+        phoneVerifiedAt,
         roles: {
-          create: uniqueRoles.map((role) => ({
-            role,
-            state: initialRoleState(role),
-            subscriptionState: initialSubscriptionState(role),
-          })),
+          create: uniqueRoles.map((role) => {
+            // VALID_ROLES doubles as "roles needing trust-layer review" —
+            // every one of them does today (trust.routes.js's own
+            // ROLES_NEEDING_TRUST_LAYER is the identical four), so a
+            // documentUrl submitted for ANY selected role moves it straight
+            // to pending_admin_document_review at creation instead of the
+            // separate authenticated POST /trust/roles/:role/document call
+            // this used to require after the account already existed.
+            const needsReview = documentUrl && VALID_ROLES.includes(role);
+            return {
+              role,
+              state: needsReview ? "pending_admin_document_review" : initialRoleState(role),
+              subscriptionState: initialSubscriptionState(role),
+              documentUrl: needsReview ? documentUrl : undefined,
+              documentSubmittedAt: needsReview ? new Date() : undefined,
+            };
+          }),
         },
       },
       include: { roles: true },

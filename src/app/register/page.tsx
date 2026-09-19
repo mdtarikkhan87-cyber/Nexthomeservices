@@ -148,17 +148,26 @@ function RegisterFlow() {
 
   const goToBasicInfo = () => selected.length > 0 && setStep("basic-info");
 
-  // Creates the REAL account — name/email/password/roles/motherMaidenName
-  // all go to the backend here, in one call, since that's what
-  // POST /auth/register actually requires.
+  // For roles needing the trust-layer step, this used to create the REAL
+  // account immediately — before phone OTP or document review ever
+  // happened. That left a permanent, real account behind for anyone who
+  // abandoned the flow mid-verification (their email/phone now "taken"
+  // forever, with nothing to show for it). Now it just validates and holds
+  // everything in this component's own state; the account isn't created
+  // until "Submit for review" on the trust-layer step, in ONE call that
+  // carries phone/document proof alongside it. See TrustLayerVerification's
+  // "pre-registration" mode and pre-register.routes.js.
+  //
+  // Roles that DON'T need the trust-layer step have nothing left to collect
+  // after this step, so THIS remains the last step for them — register()
+  // still fires immediately here, unchanged.
   const completeBasicInfo = async () => {
     if (selected.length === 0) return;
     // Phone verification is a required part of the next step for these
     // roles (see the "Submit for review" gate below) — without a phone
-    // number on file, POST /trust/phone/send-otp has nothing to text and
+    // number, POST /auth/pre-register/send-otp has nothing to text and
     // always fails, which would strand the user on trust-layer with no way
-    // to complete it. Caught here, before an account with no phone even
-    // gets created.
+    // to complete it. Caught here, before advancing to that step at all.
     if (needsTrustLayer && !phone) {
       setPhoneTouched(true);
       setError("A phone number is required for identity verification.");
@@ -170,6 +179,12 @@ function RegisterFlow() {
       return;
     }
     setError(null);
+
+    if (needsTrustLayer) {
+      setStep("trust-layer");
+      return;
+    }
+
     setSubmitting(true);
     try {
       await register({
@@ -177,19 +192,35 @@ function RegisterFlow() {
         email,
         phone: phone || undefined,
         password,
-        motherMaidenName: needsTrustLayer ? motherMaidenName : undefined,
         roles: selected,
-      } as Parameters<typeof register>[0] & { motherMaidenName?: string });
-      if (needsTrustLayer) {
-        setStep("trust-layer");
-      } else {
-        router.push(returnTo || roleLandingHref(selected[0]));
-      }
+      });
+      router.push(returnTo || roleLandingHref(selected[0]));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong creating your account.");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // The one moment a real account gets created for roles that DO need the
+  // trust-layer step — fired by TrustLayerVerification's "pre-registration"
+  // mode once phone OTP and document upload have both actually completed,
+  // carrying all of basic-info alongside that proof in the single call
+  // POST /auth/register requires. Awaited by submitDocument itself (see
+  // TrustLayerVerification), so a failure here surfaces through that
+  // component's own documentError UI rather than needing a second one.
+  const completeTrustLayer = async (result: { phoneVerificationToken: string; documentUrl: string }) => {
+    await register({
+      name,
+      email,
+      phone: phone || undefined,
+      password,
+      motherMaidenName,
+      roles: selected,
+      phoneVerificationToken: result.phoneVerificationToken,
+      documentUrl: result.documentUrl,
+    });
+    setStep("pending");
   };
 
   const visibleSteps = needsTrustLayer ? STEP_ORDER : STEP_ORDER.slice(0, 2);
@@ -395,7 +426,14 @@ function RegisterFlow() {
           <TrustLayerVerification
             reviewRoles={reviewRoles}
             instantRoles={instantRoles}
-            onComplete={() => setStep("pending")}
+            mode="pre-registration"
+            phone={phone}
+            onComplete={(result) => {
+              // Always populated in "pre-registration" mode — the
+              // `| undefined` in the shared prop type only covers
+              // "authenticated" mode's zero-argument call.
+              if (result) return completeTrustLayer(result);
+            }}
           />
         )}
 

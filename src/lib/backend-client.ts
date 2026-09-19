@@ -146,6 +146,14 @@ export interface RegisterInput {
       `roles` includes "landlord" or "service-provider"; omit otherwise. */
   motherMaidenName?: string;
   roles: RoleName[];
+  /** From apiPreRegisterVerifyOtp — proves `phone` completed OTP
+      verification before this account existed. Optional: registration
+      still succeeds without it, just with phoneVerifiedAt left unset. */
+  phoneVerificationToken?: string;
+  /** From apiPreRegisterPresignDocument + the resulting S3 upload — moves
+      every role in `roles` straight to pending_admin_document_review at
+      creation instead of a separate authenticated call afterward. */
+  documentUrl?: string;
 }
 
 export async function apiRegister(input: RegisterInput): Promise<void> {
@@ -219,6 +227,41 @@ export async function apiVerifyPhoneOtp(code: string): Promise<void> {
   await authedRequest("/trust/phone/verify-otp", {
     method: "POST",
     body: JSON.stringify({ code }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Pre-registration trust layer — used ONLY by the register page, before an
+// account exists. Plain `request` (not `authedRequest`): there is no token
+// to attach yet, and the backend's /auth/pre-register/* routes are
+// deliberately unauthenticated for exactly that reason. See
+// nexthome-api/src/routes/pre-register.routes.js.
+// ---------------------------------------------------------------------------
+
+export async function apiPreRegisterSendOtp(phone: string): Promise<void> {
+  await request("/auth/pre-register/send-otp", {
+    method: "POST",
+    body: JSON.stringify({ phone }),
+  });
+}
+
+/** Returns a short-lived token proving this phone was verified — pass it
+    through to apiPreRegisterPresignDocument and/or apiRegister. */
+export async function apiPreRegisterVerifyOtp(phone: string, code: string): Promise<{ phoneVerificationToken: string }> {
+  return request("/auth/pre-register/verify-otp", {
+    method: "POST",
+    body: JSON.stringify({ phone, code }),
+  });
+}
+
+export async function apiPreRegisterPresignDocument(input: {
+  fileName: string;
+  fileType: string;
+  phoneVerificationToken: string;
+}): Promise<PresignedUpload> {
+  return request("/auth/pre-register/presign-document", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 

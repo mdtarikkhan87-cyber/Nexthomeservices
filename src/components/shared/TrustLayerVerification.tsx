@@ -9,6 +9,9 @@ import {
   apiVerifyPhoneOtp,
   apiGetPresignedUpload,
   apiSubmitTrustDocument,
+  apiPreRegisterSendOtp,
+  apiPreRegisterVerifyOtp,
+  apiPreRegisterPresignDocument,
 } from "@/lib/backend-client";
 import { ROLE_LABELS } from "@/lib/roles";
 import { RoleName } from "@/lib/types";
@@ -19,10 +22,29 @@ import { RoleName } from "@/lib/types";
  * registration (all roles now need this) and "Add a role" from /account.
  * One real implementation, not a second copy — the two call sites differ
  * only in what happens once `onComplete` fires.
+ *
+ * TWO MODES, since registration and "Add a role" are at fundamentally
+ * different points in an account's life:
+ *
+ * "authenticated" (default) — /account's "Add a role": a real account
+ * already exists, so this hits the authenticated /trust/* endpoints exactly
+ * as it always has, and `onComplete()` fires with no argument once the
+ * document is attached to the role.
+ *
+ * "pre-registration" — /register's trust-layer step: NO account exists yet
+ * (see pre-register.routes.js's own comment for why registration no longer
+ * creates one until this whole step finishes), so OTP send/verify and the
+ * document presign all hit the unauthenticated /auth/pre-register/*
+ * endpoints instead, keyed by the phone number itself rather than a userId.
+ * `onComplete` fires with the collected proof — the phone-verification
+ * token and the uploaded document's URL — for the caller to submit in the
+ * single POST /auth/register call that actually creates the account.
  */
 export function TrustLayerVerification({
   reviewRoles,
   instantRoles = [],
+  mode = "authenticated",
+  phone,
   onComplete,
 }: {
   /** Roles this submission covers — usually one (adding a role later) or
@@ -31,13 +53,25 @@ export function TrustLayerVerification({
   /** Roles on this same account that DON'T need review, shown only for
       context ("your X access already works"). Registration-only. */
   instantRoles?: RoleName[];
-  onComplete: () => void;
+  mode?: "authenticated" | "pre-registration";
+  /** Required in "pre-registration" mode — there is no account yet to look
+      a phone number up from, so the number entered on the previous step has
+      to be passed in explicitly. Unused in "authenticated" mode. */
+  phone?: string;
+  /** "authenticated" mode calls this with no argument. "pre-registration"
+      mode calls it with the collected proof, and AWAITS it — letting the
+      caller's own apiRegister() call fail back into this component's
+      existing error UI (documentError) rather than needing a second one. */
+  onComplete: (result?: { phoneVerificationToken: string; documentUrl: string }) => void | Promise<void>;
 }) {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpSubmitting, setOtpSubmitting] = useState(false);
+  // Only ever set in "pre-registration" mode — the proof submitDocument
+  // needs to hand off to presign-document and then to onComplete.
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentSubmitting, setDocumentSubmitting] = useState(false);
@@ -47,7 +81,11 @@ export function TrustLayerVerification({
     setOtpError(null);
     setOtpSubmitting(true);
     try {
-      await apiSendPhoneOtp();
+      if (mode === "pre-registration") {
+        await apiPreRegisterSendOtp(phone!);
+      } else {
+        await apiSendPhoneOtp();
+      }
       setOtpSent(true);
     } catch (err) {
       setOtpError(err instanceof Error ? err.message : "Couldn't send a code. Try again.");
@@ -60,7 +98,12 @@ export function TrustLayerVerification({
     setOtpError(null);
     setOtpSubmitting(true);
     try {
-      await apiVerifyPhoneOtp(otpCode);
+      if (mode === "pre-registration") {
+        const { phoneVerificationToken: token } = await apiPreRegisterVerifyOtp(phone!, otpCode);
+        setPhoneVerificationToken(token);
+      } else {
+        await apiVerifyPhoneOtp(otpCode);
+      }
       setPhoneVerified(true);
     } catch (err) {
       setOtpError(err instanceof Error ? err.message : "Incorrect code.");
@@ -70,19 +113,30 @@ export function TrustLayerVerification({
   };
 
   // Uploads the file directly to storage (S3, or the dev-mode fake
-  // endpoint), then tells the backend where it landed for EACH role that
-  // needs review — a user can be reviewing more than one role at once
-  // (registering with two at a time), and both need this same document.
+  // endpoint). What happens after that upload is the one real difference
+  // between the two modes: "authenticated" tells the backend where it
+  // landed for EACH role that needs review (a user can be reviewing more
+  // than one role at once); "pre-registration" has no role rows to attach
+  // it to yet, so it hands the reference up to onComplete instead, which is
+  // awaited here so a failure in the caller's own apiRegister() call
+  // surfaces through documentError below rather than silently vanishing.
   const submitDocument = async () => {
     if (!selectedFile) return;
     setDocumentError(null);
     setDocumentSubmitting(true);
     try {
-      const presigned = await apiGetPresignedUpload({
-        purpose: "trust-document",
-        fileName: selectedFile.name,
-        fileType: selectedFile.type,
-      });
+      const presigned =
+        mode === "pre-registration"
+          ? await apiPreRegisterPresignDocument({
+              fileName: selectedFile.name,
+              fileType: selectedFile.type,
+              phoneVerificationToken: phoneVerificationToken!,
+            })
+          : await apiGetPresignedUpload({
+              purpose: "trust-document",
+              fileName: selectedFile.name,
+              fileType: selectedFile.type,
+            });
 
       await fetch(presigned.uploadUrl, {
         method: "PUT",
@@ -91,11 +145,15 @@ export function TrustLayerVerification({
       });
 
       const documentReference = presigned.publicUrl || presigned.key;
-      for (const role of reviewRoles) {
-        await apiSubmitTrustDocument(role, documentReference);
-      }
 
-      onComplete();
+      if (mode === "pre-registration") {
+        await onComplete({ phoneVerificationToken: phoneVerificationToken!, documentUrl: documentReference });
+      } else {
+        for (const role of reviewRoles) {
+          await apiSubmitTrustDocument(role, documentReference);
+        }
+        onComplete();
+      }
     } catch (err) {
       setDocumentError(err instanceof Error ? err.message : "Upload failed. Try again.");
     } finally {
