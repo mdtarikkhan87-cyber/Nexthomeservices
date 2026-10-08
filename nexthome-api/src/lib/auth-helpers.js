@@ -1,5 +1,7 @@
 const jwt = require("jsonwebtoken");
 
+const { createRefreshToken, setRefreshCookie } = require("./refresh-tokens");
+
 // Which state a newly-added role starts in. Every role now goes through
 // phone + document review before it's trusted — a later product decision
 // than PRODUCT_DECISIONS.md §6's original landlord/service-provider-only
@@ -13,22 +15,25 @@ function initialSubscriptionState(role) {
   return role === "landlord" ? "inactive" : undefined;
 }
 
-// Builds and signs both tokens for a user. `roles` is a plain array of role
-// name strings, e.g. ["landlord", "tenant_buyer"]. `isAdmin` is embedded the
-// same way `roles` is — trusted from the token, same as requireRole checks
+// Builds the short-lived access token. `roles` is a plain array of role name
+// strings, e.g. ["landlord", "tenant_buyer"]. `isAdmin` is embedded the same
+// way `roles` is — trusted from the token, same as requireRole checks
 // req.user.roles directly rather than re-querying the DB per request.
-function issueTokensFor({ userId, email, roles, isAdmin }) {
+//
+// The refresh token is NOT a JWT any more — see lib/refresh-tokens.js.
+function signAccessToken({ userId, email, roles, isAdmin }) {
   const payload = { sub: userId, email, roles, isAdmin: Boolean(isAdmin) };
-
-  const accessToken = jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
+  return jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
     expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
   });
-
-  const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
-  });
-
-  return { accessToken, refreshToken };
 }
 
-module.exports = { initialRoleState, initialSubscriptionState, issueTokensFor };
+// Mints a fresh session: access token in the response body, brand-new
+// refresh token (new rotation family) in an httpOnly cookie.
+async function startSession(res, { userId, email, roles, isAdmin }) {
+  const refresh = await createRefreshToken(userId);
+  setRefreshCookie(res, refresh.raw);
+  return { accessToken: signAccessToken({ userId, email, roles, isAdmin }) };
+}
+
+module.exports = { initialRoleState, initialSubscriptionState, signAccessToken, startSession };

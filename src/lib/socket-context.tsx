@@ -18,10 +18,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      setSocket(null);
-      return;
-    }
+    // Logged out: nothing to connect. The previous run's cleanup already
+    // disconnected any old socket, and the provider value below is masked
+    // to null while unauthenticated — no setState needed here.
+    if (!isAuthenticated) return;
     const token = getAccessToken();
     if (!token) return;
 
@@ -59,15 +59,23 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
     s.on("connect_error", onConnectError);
 
-    setSocket(s);
+    // Published from a microtask, not synchronously in the effect body
+    // (react-hooks/set-state-in-effect). `cancelled` stops a socket that was
+    // already torn down — StrictMode double-run, or logout racing this
+    // microtask — from being published after its cleanup has disconnected it.
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setSocket(s);
+    });
 
     return () => {
+      cancelled = true;
       s.off("connect_error", onConnectError);
       s.disconnect();
     };
   }, [isAuthenticated]);
 
-  return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>;
+  return <SocketContext.Provider value={isAuthenticated ? socket : null}>{children}</SocketContext.Provider>;
 }
 
 /** Returns the current socket, or null while unauthenticated/connecting.

@@ -10,8 +10,17 @@ const { sendEmail, buildWelcomeEmailHtml } = require("../lib/email");
 const {
   initialRoleState,
   initialSubscriptionState,
-  issueTokensFor,
+  signAccessToken,
+  startSession,
 } = require("../lib/auth-helpers");
+const {
+  rotateRefreshToken,
+  revokeFamilyByToken,
+  revokeAllForUser,
+  setRefreshCookie,
+  clearRefreshCookie,
+  readRefreshCookie,
+} = require("../lib/refresh-tokens");
 
 const router = express.Router();
 
@@ -161,8 +170,8 @@ router.post(
       })
       .catch((err) => console.error("Failed to send verification email:", err));
 
-    const tokens = issueTokensFor({ userId: user.id, email: user.email, roles: uniqueRoles, isAdmin: user.isAdmin });
-    res.status(201).json(tokens);
+    const session = await startSession(res, { userId: user.id, email: user.email, roles: uniqueRoles, isAdmin: user.isAdmin });
+    res.status(201).json(session);
   },
 );
 
@@ -196,40 +205,62 @@ router.post(
     }
 
     const roleNames = user.roles.map((r) => r.role);
-    const tokens = issueTokensFor({ userId: user.id, email: user.email, roles: roleNames, isAdmin: user.isAdmin });
-    res.json(tokens);
+    const session = await startSession(res, { userId: user.id, email: user.email, roles: roleNames, isAdmin: user.isAdmin });
+    res.json(session);
   },
 );
 
 // -----------------------------------------------------------------------
 // POST /auth/refresh
-// Body: { refreshToken }
+// No body — the refresh token arrives in the httpOnly `nh_refresh` cookie.
+// Rotates: the presented token is revoked and a new one set in its place.
+// Replaying an already-rotated token revokes the whole session family.
 // -----------------------------------------------------------------------
-router.post("/refresh", [body("refreshToken").isString()], async (req, res) => {
-  if (!checkValidation(req, res)) return;
+router.post("/refresh", async (req, res) => {
+  const presented = readRefreshCookie(req);
+  if (!presented) {
+    return res.status(401).json({ message: "No refresh token." });
+  }
 
-  const { refreshToken } = req.body;
-
-  let payload;
-  try {
-    payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-  } catch (err) {
+  const rotated = await rotateRefreshToken(presented);
+  if (!rotated) {
+    clearRefreshCookie(res);
     return res.status(401).json({ message: "Invalid or expired refresh token." });
   }
 
-  // Re-fetch roles rather than trusting the old token's claims, in case a
-  // role was added/changed since the refresh token was issued.
+  // Re-fetch roles rather than trusting stale claims, in case a role was
+  // added/changed since the last token was issued.
   const user = await prisma.user.findUnique({
-    where: { id: payload.sub },
+    where: { id: rotated.userId },
     include: { roles: true },
   });
   if (!user) {
+    clearRefreshCookie(res);
     return res.status(401).json({ message: "Account no longer exists." });
   }
 
+  setRefreshCookie(res, rotated.raw);
   const roleNames = user.roles.map((r) => r.role);
-  const tokens = issueTokensFor({ userId: user.id, email: user.email, roles: roleNames, isAdmin: user.isAdmin });
-  res.json(tokens);
+  res.json({ accessToken: signAccessToken({ userId: user.id, email: user.email, roles: roleNames, isAdmin: user.isAdmin }) });
+});
+
+// -----------------------------------------------------------------------
+// POST /auth/logout
+// Revokes the refresh token's whole family server-side and clears the
+// cookie. Always 204 — logging out must never fail from the user's side,
+// even with a missing/expired/unknown cookie.
+// -----------------------------------------------------------------------
+router.post("/logout", async (req, res) => {
+  const presented = readRefreshCookie(req);
+  if (presented) {
+    try {
+      await revokeFamilyByToken(presented);
+    } catch (err) {
+      console.error("Failed to revoke refresh token on logout:", err);
+    }
+  }
+  clearRefreshCookie(res);
+  res.sendStatus(204);
 });
 
 // -----------------------------------------------------------------------
@@ -243,7 +274,7 @@ router.get("/me", authenticate, async (req, res) => {
   if (!user) {
     return res.status(401).json({ message: "Account no longer exists." });
   }
-  const { passwordHash, ...safeUser } = user;
+  const { passwordHash: _passwordHash, ...safeUser } = user;
   res.json(safeUser);
 });
 
@@ -343,6 +374,9 @@ router.post(
       prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
       prisma.passwordResetToken.update({ where: { id: record.id }, data: { consumedAt: new Date() } }),
     ]);
+    // A password reset is the "I think someone else has my account" path —
+    // kill every session that existed before it.
+    await revokeAllForUser(record.userId);
 
     res.json({ message: "Password reset. You can now log in with your new password." });
   },

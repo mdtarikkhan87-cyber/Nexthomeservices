@@ -1,10 +1,19 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const cookieParser = require("cookie-parser");
 const fs = require("fs");
 const path = require("path");
 
 const { isConfigured: isS3Configured } = require("./lib/s3");
 const CORS_ORIGINS = require("./lib/cors-origins");
+const {
+  globalLimiter,
+  loginLimiter,
+  otpSendLimiter,
+  otpVerifyLimiter,
+  authWriteLimiter,
+} = require("./lib/rate-limit");
 
 const authRoutes = require("./routes/auth.routes");
 const preRegisterRoutes = require("./routes/pre-register.routes");
@@ -23,14 +32,25 @@ const adminRoutes = require("./routes/admin.routes");
 
 const app = express();
 
+// Railway (like most PaaS hosts) puts one reverse proxy in front of the app.
+// Without this, req.ip is the proxy's address for every request — so every
+// visitor would share one rate-limit bucket, and the limiters below would
+// either throttle everyone together or none of them.
+app.set("trust proxy", 1);
+
+// Security headers. This is a JSON API (no HTML served), so helmet's
+// defaults are fine; cross-origin resource policy is relaxed because the
+// separately-hosted frontend legitimately fetches from here.
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+
 // CORS must be registered BEFORE express.json(). If a request body parser
 // rejects a request (e.g. PayloadTooLargeError below) before CORS has run,
 // the error response goes out with no CORS headers at all — the browser
 // then reports it as a CORS failure, masking the real error (a confusing
 // bug to debug blind; caught here by seeing the real error in this
 // terminal versus what the browser console showed).
-// Tighten `origin` to your real frontend URL before going to production
-// instead of leaving it wide open.
+// `origin` is the explicit allowlist in lib/cors-origins.js — never "*",
+// since credentials (the refresh-token cookie) are allowed.
 app.use(
   cors({
     origin: CORS_ORIGINS,
@@ -46,6 +66,24 @@ app.use(
 // moving to real presigned S3 uploads instead of embedding photos in JSON.
 app.use(express.json({ limit: "50mb" }));
 
+// Reads the httpOnly refresh-token cookie (see lib/refresh-tokens.js).
+app.use(cookieParser());
+
+app.use(globalLimiter);
+
+// Stricter per-route limits, registered before the routers they guard.
+// Login: brute force. OTP/email sends: every one costs real money (Termii
+// SMS credit) or sender reputation, and the per-phone 60s cooldown alone
+// doesn't stop an attacker rotating phone numbers.
+app.use("/auth/login", loginLimiter);
+app.use("/auth/register", authWriteLimiter);
+app.use("/auth/forgot-password", authWriteLimiter);
+app.use("/auth/pre-register/send-otp", otpSendLimiter);
+app.use("/auth/pre-register/verify-otp", otpVerifyLimiter);
+app.use("/trust/phone/send-otp", otpSendLimiter);
+app.use("/trust/email/send-verification", otpSendLimiter);
+app.use("/trust/phone/verify-otp", otpVerifyLimiter);
+
 // Simple health check — useful for confirming the server is up, and later
 // for deployment platforms (Railway) to verify the service is alive.
 app.get("/health", (req, res) => {
@@ -53,18 +91,16 @@ app.get("/health", (req, res) => {
 });
 
 // DEV-ONLY: backs the fake presigned upload URLs s3.js returns when AWS
-// isn't configured (see lib/s3.js), so the upload flow works end-to-end —
-// actually saving and serving the file — without a real AWS account.
+// isn't configured (see lib/s3.js), so the upload flow works end-to-end
+// locally without a real AWS account.
 //
-// NOT DURABLE: Railway's filesystem is ephemeral, so anything written here
-// is gone on the next deploy or restart. This used to just swallow the file
-// and say "ok" with no GET counterpart at all, which was silently broken
-// for every real visitor on the live site (their browser has nothing at
-// localhost:4000 — that was always the developer's own machine, never a
-// real server). This makes uploads at least actually work until the next
-// deploy; it is a stopgap, not a replacement for configuring real S3
-// credentials (isS3Configured() below gates it off entirely once you do).
-if (!isS3Configured()) {
+// Never registered in production: Railway's filesystem is ephemeral, so
+// anything written here would vanish on the next deploy. assertEnv()
+// (lib/env.js) refuses to boot in production without S3, and s3.js throws
+// rather than hand out a fake URL — this guard is the third layer, so the
+// route can't exist there even if both of those were bypassed. It is also
+// off whenever S3 is configured.
+if (!isS3Configured() && process.env.NODE_ENV !== "production") {
   const UPLOAD_ROOT = path.join(__dirname, "..", "uploads");
 
   // Keys are server-generated (`${folder}/${userId}/${uuid}-${fileName}` in
@@ -117,7 +153,9 @@ app.use("/admin", adminRoutes);
 // Catch-all error handler — anything thrown/rejected in a route handler
 // that isn't already caught ends up here instead of crashing the server or
 // leaking a raw stack trace to the client.
-app.use((err, req, res, next) => {
+// Express only treats a 4-argument function as an error handler, so the
+// unused `_next` must stay in the signature.
+app.use((err, req, res, _next) => {
   console.error(err);
   res.status(500).json({ message: "Something went wrong." });
 });

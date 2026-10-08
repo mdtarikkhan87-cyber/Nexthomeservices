@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { IconArrowRight } from "@/components/ui/icons";
-import { mockServices } from "@/lib/mock-data";
+import { SERVICE_CATEGORIES } from "@/lib/service-categories";
 
 // EDITORIAL REDESIGN — the widest, most immersive block on the page.
 //
@@ -10,11 +10,12 @@ import { mockServices } from "@/lib/mock-data";
 // bleed). Ending the sequence on the widest element gives the page a clear
 // crescendo instead of eight equally-sized slabs.
 //
-// Category chips are the real ServiceListing categories from the catalog and
-// each links into the live /services directory, so nothing here is a
-// decorative label.
+// Category chips come from the same SERVICE_CATEGORIES list the provider
+// signup form and the /services directory filter use, so a chip is always a
+// category a provider can actually register under. Each links into the live
+// /services directory.
 export function ServicesBand() {
-  const categories = Array.from(new Set(mockServices.map((s) => s.category)));
+  const categories = SERVICE_CATEGORIES;
 
   return (
     <section className="px-4 py-16 sm:px-6 sm:py-20">

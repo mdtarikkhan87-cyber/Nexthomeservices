@@ -245,8 +245,21 @@ router.patch(
     const status = action === "approve" ? "live" : "rejected";
     const model = LISTING_MODEL_BY_KIND[kind]();
 
+    const data = { status };
+    // GET /ads (ads.routes.js) only ever matches an exact placement, and an
+    // advertiser can't set one themselves (PRD §9 — the admin decides where
+    // an ad appears). Without this, approving an ad left it "live" with
+    // placement still null, which matched no placement-scoped query
+    // anywhere — the ad was approved but literally unable to appear on the
+    // site. "homepage-banner" is the only placement that exists today
+    // (AdBanner on the homepage); this stops being a blanket assignment the
+    // moment a second one is added and an admin needs to actually choose.
+    if (kind === "advertisement" && action === "approve") {
+      data.placement = "homepage-banner";
+    }
+
     try {
-      const updated = await model.update({ where: { id }, data: { status } });
+      const updated = await model.update({ where: { id }, data });
       const itemTitle = kind === "property" ? updated.title : kind === "service" ? updated.category : updated.headline;
       await logAudit(req, action === "approve" ? "Approved listing" : "Rejected listing", itemTitle);
       res.json(updated);

@@ -1,6 +1,6 @@
 import { RoleName } from "./types";
 import { HeldRole } from "./auth-context";
-import { getAccessToken, getRefreshToken, setTokens, clearTokens } from "./token-storage";
+import { getAccessToken, setAccessToken, clearTokens, hasSessionHint } from "./token-storage";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -66,7 +66,7 @@ function toFrontendRoles(backendRoles: BackendUserRole[]): HeldRole[] {
 // Low-level fetch helper
 // ---------------------------------------------------------------------------
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
     super(message);
@@ -77,6 +77,9 @@ class ApiError extends Error {
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
+    // The refresh-token cookie (httpOnly, set by the API) must ride along on
+    // these cross-origin calls for /auth/refresh and /auth/logout to see it.
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
@@ -117,20 +120,32 @@ export async function authedRequest<T>(path: string, options: RequestInit = {}):
 // Exported so socket-context.tsx can trigger the same refresh proactively
 // on a socket auth failure — see its `connect_error` handler for why a
 // purely reactive (401-only) refresh isn't enough for a long-lived socket.
-export async function tryRefresh(): Promise<string | null> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
-  try {
-    const tokens = await request<{ accessToken: string; refreshToken: string }>("/auth/refresh", {
-      method: "POST",
-      body: JSON.stringify({ refreshToken }),
-    });
-    setTokens(tokens.accessToken, tokens.refreshToken);
-    return tokens.accessToken;
-  } catch {
-    clearTokens();
-    return null;
+//
+// The refresh token lives in an httpOnly cookie, so there's nothing to send
+// in the body. The backend ROTATES it on every call and treats re-use of an
+// old one as theft (revoking the whole session), so concurrent callers must
+// share ONE in-flight request — two parallel refreshes would look like a
+// replay and log the user out.
+let refreshInFlight: Promise<string | null> | null = null;
+
+export function tryRefresh(): Promise<string | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const { accessToken } = await request<{ accessToken: string }>("/auth/refresh", { method: "POST" });
+        setAccessToken(accessToken);
+        return accessToken;
+      } catch (err) {
+        // Only a definitive rejection ends the session. A network blip or
+        // 5xx (backend redeploying) must not log the user out.
+        if (err instanceof ApiError && err.status === 401) clearTokens();
+        return null;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
   }
+  return refreshInFlight;
 }
 
 // ---------------------------------------------------------------------------
@@ -157,23 +172,32 @@ export interface RegisterInput {
 }
 
 export async function apiRegister(input: RegisterInput): Promise<void> {
-  const tokens = await request<{ accessToken: string; refreshToken: string }>("/auth/register", {
+  const { accessToken } = await request<{ accessToken: string }>("/auth/register", {
     method: "POST",
     body: JSON.stringify({ ...input, roles: input.roles.map((r) => ROLE_TO_BACKEND[r]) }),
   });
-  setTokens(tokens.accessToken, tokens.refreshToken);
+  setAccessToken(accessToken);
 }
 
 export async function apiLogin(email: string, password: string): Promise<void> {
-  const tokens = await request<{ accessToken: string; refreshToken: string }>("/auth/login", {
+  const { accessToken } = await request<{ accessToken: string }>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
-  setTokens(tokens.accessToken, tokens.refreshToken);
+  setAccessToken(accessToken);
 }
 
-export function apiLogout() {
+/** Revokes the session server-side (the refresh token's whole rotation
+    family) and clears the cookie. Local state is cleared first so the UI
+    logs out instantly and a failed network call can't leave the user
+    looking signed-in. */
+export async function apiLogout(): Promise<void> {
   clearTokens();
+  try {
+    await request("/auth/logout", { method: "POST" });
+  } catch {
+    /* best effort — the local session is already gone */
+  }
 }
 
 /** Always resolves the same way regardless of whether the email is
@@ -196,7 +220,12 @@ export async function apiResetPassword(token: string, password: string): Promise
 /** Fetches the current user + roles, translated into frontend-shaped data.
     Returns null if there's no valid session (no token, or refresh failed). */
 export async function apiFetchCurrentUser(): Promise<{ id: string; name: string; email: string; isAdmin: boolean; roles: RoleName[]; heldRoles: HeldRole[] } | null> {
-  if (!getAccessToken()) return null;
+  // After a page reload the in-memory access token is gone; the httpOnly
+  // refresh cookie is what restores the session. Skip the round trip for
+  // visitors who've never signed in on this browser.
+  if (!getAccessToken()) {
+    if (!hasSessionHint() || !(await tryRefresh())) return null;
+  }
   try {
     const user = await authedRequest<BackendUser>("/auth/me");
     return {
@@ -210,6 +239,17 @@ export async function apiFetchCurrentUser(): Promise<{ id: string; name: string;
   } catch {
     return null;
   }
+}
+
+/** Redeems the token from the emailed /verify-email link. Rejects with the
+    backend's message (400) when the link is invalid, expired or already used. */
+export async function apiVerifyEmail(token: string): Promise<void> {
+  await request(`/trust/email/verify?token=${encodeURIComponent(token)}`);
+}
+
+/** Emails a fresh verification link to the signed-in user. */
+export async function apiSendEmailVerification(): Promise<void> {
+  await authedRequest("/trust/email/send-verification", { method: "POST" });
 }
 
 export async function apiAddRole(role: RoleName): Promise<void> {

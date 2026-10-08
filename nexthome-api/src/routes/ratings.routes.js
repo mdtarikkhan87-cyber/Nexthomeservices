@@ -1,5 +1,5 @@
 const express = require("express");
-const { body, param, query, validationResult } = require("express-validator");
+const { body, param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
 const { authenticate } = require("../middleware/auth.middleware");

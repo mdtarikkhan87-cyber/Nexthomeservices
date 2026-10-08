@@ -203,7 +203,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
-    apiLogout();
+    // Fire-and-forget: local state clears immediately; the server-side
+    // revocation completes in the background.
+    void apiLogout();
     // The saved role preference deliberately survives logout — signing back
     // in restores it rather than re-asking.
     setState({ isAuthenticated: false, isHydrating: false, user: null, roles: [], activeRole: null, needsRoleChoice: false });

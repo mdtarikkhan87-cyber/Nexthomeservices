@@ -37,9 +37,10 @@ function getClient() {
 //   "ad-image"        -> public (anyone can view a live ad's creative)
 //   "trust-document"  -> private (only admins should ever see these)
 //
-// DEV MODE: if AWS isn't configured yet, returns a fake placeholder URL
-// instead of failing — lets you build/test the upload flow's shape (the
-// request/response contract) before an AWS account exists. `baseUrl` is the
+// DEV MODE (NODE_ENV !== "production" only): if AWS isn't configured, returns
+// a fake placeholder URL instead of failing — lets you build/test the upload
+// flow's shape (the request/response contract) before an AWS account exists.
+// In production this throws instead — see below. `baseUrl` is the
 // caller's own live origin (see uploads.routes.js), NOT a hardcoded
 // "localhost:4000" — that was reachable from a developer's own machine
 // running the backend locally, but was returned to EVERY caller including
@@ -58,6 +59,13 @@ async function getPresignedUploadUrl({ purpose, fileName, fileType, userId, base
   const isPublic = PUBLIC_PURPOSES.includes(purpose);
 
   if (!isConfigured()) {
+    // Never hand out a fake local URL in production: the file would be
+    // written to Railway's ephemeral disk and lost on the next deploy, while
+    // the user was told the upload worked. assertEnv() should already have
+    // refused to boot; this is the runtime backstop.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("S3 is not configured (AWS_REGION/AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_S3_BUCKET) — refusing to use local-disk uploads in production.");
+    }
     console.log(`[DEV S3 — AWS env vars not set] Would upload to key: ${key} (${fileType})`);
     return {
       uploadUrl: `${baseUrl}/dev-fake-upload/${key}`,

@@ -1,28 +1,44 @@
-// Stores the access/refresh tokens issued by the backend. Deliberately kept
-// in one small file so the storage mechanism (localStorage today) can be
-// swapped later without touching auth-context.tsx or the API client.
+// Holds the short-lived access token IN MEMORY ONLY — never localStorage,
+// where any XSS could read it. The long-lived refresh token isn't visible to
+// JavaScript at all: the backend keeps it in an httpOnly cookie
+// (nexthome-api/src/lib/refresh-tokens.js), and a page reload restores the
+// session by calling POST /auth/refresh (see backend-client.ts tryRefresh).
+//
+// The one thing persisted is a non-secret "a session probably exists" hint,
+// so anonymous first-time visitors don't fire a pointless /auth/refresh on
+// every page load. It grants nothing: the cookie is still what authenticates.
 
-const ACCESS_TOKEN_KEY = "nexthome:accessToken";
-const REFRESH_TOKEN_KEY = "nexthome:refreshToken";
+const SESSION_HINT_KEY = "nexthome:hasSession";
+
+let accessToken: string | null = null;
 
 export function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
+  return accessToken;
 }
 
-export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+export function setAccessToken(token: string) {
+  accessToken = token;
+  try {
+    localStorage.setItem(SESSION_HINT_KEY, "1");
+  } catch {
+    /* non-fatal — the hint is only an optimisation */
+  }
 }
 
-export function setTokens(accessToken: string, refreshToken: string) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+export function hasSessionHint(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(SESSION_HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export function clearTokens() {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  accessToken = null;
+  try {
+    localStorage.removeItem(SESSION_HINT_KEY);
+  } catch {
+    /* non-fatal */
+  }
 }

@@ -1,5 +1,11 @@
 require("dotenv").config();
 
+const { assertEnv } = require("./lib/env");
+
+// Before anything else loads: crash at boot with a clear message rather
+// than failing confusingly at request time.
+assertEnv();
+
 const http = require("http");
 const app = require("./app");
 const { initSocket } = require("./lib/socket");

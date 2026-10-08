@@ -163,6 +163,7 @@ model User {
   otpCodes      OtpCode[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
+  refreshTokens           RefreshToken[]
   savedListings SavedListing[]
   auditLogEntries AuditLogEntry[]
 
@@ -254,6 +255,28 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+/// Server-side record of every refresh token issued. The raw token only ever
+/// lives in the client's httpOnly cookie; only its SHA-256 hash is stored.
+/// Tokens rotate on every use (the old row gets revokedAt + replacedById), and
+/// all rows sharing a familyId descend from one login — presenting an
+/// already-revoked token means it was stolen/replayed, so the whole family is
+/// revoked. Logout revokes the family too.
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String    @unique
+  familyId     String
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
 }
 
 // ---------------------------------------------------------------------------

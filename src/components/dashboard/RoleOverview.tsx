@@ -9,7 +9,6 @@ import { PropertyCard } from "@/components/property/PropertyCard";
 import { IconArrowRight } from "@/components/ui/icons";
 import { useListings } from "@/lib/listings-context";
 import { apiSearchListings } from "@/lib/listings-client";
-import { demoSavedListingIds } from "@/lib/mock-data";
 import { PropertyListing, RoleName } from "@/lib/types";
 
 // COMPONENT_ARCHITECTURE.md §4: one shared dashboard frame across all four
@@ -39,7 +38,7 @@ const contextCopy = {
 // any summary content — this holds regardless of which role is shown.
 export function RoleOverview({ role }: { role: RoleName }) {
   const { roles, setTenantBuyerContext } = useAuth();
-  const { myListings } = useListings();
+  const { myListings, savedListingIds } = useListings();
 
   const current = roles.find((r) => r.role === role);
   const context = current?.context ?? "rent";
@@ -161,8 +160,8 @@ export function RoleOverview({ role }: { role: RoleName }) {
             // real, approved data (Saved Homes, live listings). No
             // lease/escrow tracking, offers, financing, or JV pipeline was
             // carried over — none of that exists in the approved PRD.
-            const savedCount = contextListings.filter((l) => demoSavedListingIds.includes(l.id)).length;
-            const recommended = contextListings.filter((l) => !demoSavedListingIds.includes(l.id)).slice(0, 3);
+            const savedCount = contextListings.filter((l) => savedListingIds.has(l.id)).length;
+            const recommended = contextListings.filter((l) => !savedListingIds.has(l.id)).slice(0, 3);
 
             return (
               <div>
