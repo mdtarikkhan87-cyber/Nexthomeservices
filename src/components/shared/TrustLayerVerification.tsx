@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@/lib/auth-context";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
@@ -66,7 +67,12 @@ export function TrustLayerVerification({
 }) {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
-  const [phoneVerified, setPhoneVerified] = useState(false);
+  const { user } = useAuth();
+  const [phoneVerifiedLocal, setPhoneVerified] = useState(false);
+  // An account whose phone was already verified (at registration, or an
+  // earlier session) has nothing to verify here — the backend rejects a new
+  // code with "Phone is already verified", so asking would only dead-end.
+  const phoneVerified = phoneVerifiedLocal || (mode === "authenticated" && Boolean(user?.phoneVerified));
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpSubmitting, setOtpSubmitting] = useState(false);
   // Only ever set in "pre-registration" mode — the proof submitDocument
@@ -88,6 +94,11 @@ export function TrustLayerVerification({
       }
       setOtpSent(true);
     } catch (err) {
+      // Local state can lag the server (e.g. verified in another tab).
+      if (err instanceof Error && /already verified/i.test(err.message)) {
+        setPhoneVerified(true);
+        return;
+      }
       setOtpError(err instanceof Error ? err.message : "Couldn't send a code. Try again.");
     } finally {
       setOtpSubmitting(false);
@@ -138,11 +149,12 @@ export function TrustLayerVerification({
               fileType: selectedFile.type,
             });
 
-      await fetch(presigned.uploadUrl, {
+      const upload = await fetch(presigned.uploadUrl, {
         method: "PUT",
         headers: { "Content-Type": selectedFile.type },
         body: selectedFile,
       });
+      if (!upload.ok) throw new Error(`Upload failed (${upload.status}). Try again.`);
 
       const documentReference = presigned.publicUrl || presigned.key;
 
