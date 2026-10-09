@@ -1,16 +1,16 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from "react";
-import { AppNotification, SEED_NOTIFICATIONS } from "./notifications";
+import { AppNotification } from "./notifications";
 import { useAuth } from "./auth-context";
 
 // ---------------------------------------------------------------------------
 // In-memory notification store, mirroring AuthProvider's shape on purpose.
 //
-// This is the ONLY file that would change when a real backend arrives: the
-// `useState` seed becomes a fetch, `markRead` becomes a PATCH, and `notify`
-// becomes a server event / socket push. Every consumer talks to this hook,
-// never to the seed data directly.
+// The feed starts EMPTY — there is no backend notification source yet, and
+// no placeholder content stands in for one. This is the ONLY file that would
+// change when one arrives: the initial state becomes a fetch, `markRead`
+// becomes a PATCH, and `notify` becomes a server event / socket push.
 //
 // State is not persisted. That is deliberate rather than an omission — auth
 // is itself in-memory (a reload logs you out), so persisted read-state would
@@ -31,7 +31,7 @@ const NotificationContext = createContext<NotificationContextValue | null>(null)
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, activeRole } = useAuth();
-  const [all, setAll] = useState<AppNotification[]>(SEED_NOTIFICATIONS);
+  const [all, setAll] = useState<AppNotification[]>([]);
 
   // Role-aware by construction. A user holding several roles sees the feed of
   // whichever role is active — the same scoping the dashboard already applies
