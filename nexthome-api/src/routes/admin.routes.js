@@ -371,6 +371,14 @@ router.patch(
     if (kind === "advertisement" && action === "approve") {
       data.placement = "homepage-banner";
     }
+    // The "Verified" badge on property and service listings means an admin
+    // has reviewed and approved them (the homepage promises "every listing
+    // is reviewed"). Nothing else ever set this flag, so every approved
+    // listing used to show "Not yet verified". Rejecting clears it.
+    // Advertisements have no verified field.
+    if (kind === "property" || kind === "service") {
+      data.verified = action === "approve";
+    }
 
     try {
       const updated = await model.update({ where: { id }, data });
