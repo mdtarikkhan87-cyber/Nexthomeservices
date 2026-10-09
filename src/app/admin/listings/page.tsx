@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import { useState } from "react";
 import { AdminListingKindToggle, ListingKind } from "@/components/admin/AdminListingKindToggle";
+import { AdReviewDialog } from "@/components/admin/AdReviewDialog";
 import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -62,37 +63,54 @@ function ListingRows({
   rows,
   onApprove,
   onReject,
+  onReview,
 }: {
   rows: AdminListingRow[];
   onApprove: (row: AdminListingRow) => void;
   onReject: (row: AdminListingRow) => void;
+  onReview: (row: AdminListingRow) => void;
 }) {
   return (
     <ul className="mt-4 flex flex-col gap-1">
-      {rows.map((row) => (
-        <li
-          key={row.id}
-          className="flex flex-wrap items-center gap-2.5 rounded-[var(--radius-control)] border border-[var(--color-border-hairline)] px-3 py-1.5"
-        >
-          <StatusBadge
-            kind={row.status === "live" ? "live" : row.status === "rejected" ? "rejected" : "pending"}
-            dense
-          />
-          <p className="min-w-0 flex-1 truncate text-sm font-bold text-[var(--color-text-primary)]">
-            {row.title}
-          </p>
-          {row.status !== "live" && (
-            <Button variant="secondary" size="dense" onClick={() => onApprove(row)}>
-              Approve
-            </Button>
-          )}
-          {row.status !== "rejected" && (
-            <Button variant="destructive" size="dense" onClick={() => onReject(row)}>
-              Reject
-            </Button>
-          )}
-        </li>
-      ))}
+      {rows.map((row) => {
+        // Only a PENDING ad is gated behind the review dialog — the actual
+        // creative only needs looking at before the first decision. An
+        // already-decided ad (live/rejected) can still be flipped the other
+        // way without re-opening the viewer, same as properties/services.
+        const needsReview = row.kind === "advertisement" && row.status === "pending-review";
+        return (
+          <li
+            key={row.id}
+            className="flex flex-wrap items-center gap-2.5 rounded-[var(--radius-control)] border border-[var(--color-border-hairline)] px-3 py-1.5"
+          >
+            <StatusBadge
+              kind={row.status === "live" ? "live" : row.status === "rejected" ? "rejected" : "pending"}
+              dense
+            />
+            <p className="min-w-0 flex-1 truncate text-sm font-bold text-[var(--color-text-primary)]">
+              {row.title}
+            </p>
+            {needsReview ? (
+              <Button variant="secondary" size="dense" onClick={() => onReview(row)}>
+                Review ad
+              </Button>
+            ) : (
+              <>
+                {row.status !== "live" && (
+                  <Button variant="secondary" size="dense" onClick={() => onApprove(row)}>
+                    Approve
+                  </Button>
+                )}
+                {row.status !== "rejected" && (
+                  <Button variant="destructive" size="dense" onClick={() => onReject(row)}>
+                    Reject
+                  </Button>
+                )}
+              </>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -101,6 +119,7 @@ export default function AdminListingsPage() {
   const { listings, approveListing, rejectListing } = useAdminListings();
   const [rejecting, setRejecting] = useState<AdminListingRow | null>(null);
   const [approving, setApproving] = useState<AdminListingRow | null>(null);
+  const [reviewing, setReviewing] = useState<AdminListingRow | null>(null);
   const [kind, setKind] = useState<ListingKind>("property");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -149,7 +168,24 @@ export default function AdminListingsPage() {
           description={isFiltered ? "Try a different search or status filter." : undefined}
         />
       ) : (
-        <ListingRows rows={visible} onApprove={setApproving} onReject={setRejecting} />
+        <ListingRows rows={visible} onApprove={setApproving} onReject={setRejecting} onReview={setReviewing} />
+      )}
+
+      {reviewing && (
+        <AdReviewDialog
+          open={reviewing !== null}
+          adId={reviewing.id}
+          fallbackTitle={reviewing.title}
+          onClose={() => setReviewing(null)}
+          onApprove={() => {
+            setApproving(reviewing);
+            setReviewing(null);
+          }}
+          onReject={() => {
+            setRejecting(reviewing);
+            setReviewing(null);
+          }}
+        />
       )}
 
       <ConfirmationDialog

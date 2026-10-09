@@ -3,6 +3,7 @@ const { param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
 const { authenticate, requireAdmin } = require("../middleware/auth.middleware");
+const { isConfigured, kindFromKey, fileNameFromKey, objectExists, getSignedReadUrl } = require("../lib/s3");
 
 const router = express.Router();
 
@@ -119,6 +120,73 @@ async function setUserRoleState(req, res, state) {
 }
 
 // -----------------------------------------------------------------------
+// GET /admin/users/:userId/roles/:role/document — a short-lived signed
+// view of the trust document submitted for that role (never the raw key,
+// which the client must never be able to hand back to us — see lib/s3.js).
+// Looked up by the same (userId, role) pair /verify and /reject use, so no
+// new id needs to flow to the frontend. Cache-Control: no-store since the
+// signed URL expires in 5 minutes — nothing here should be cached.
+// -----------------------------------------------------------------------
+router.get(
+  "/users/:userId/roles/:role/document",
+  [param("userId").isString(), param("role").isIn(VALID_ROLES)],
+  async (req, res) => {
+    if (!checkValidation(req, res)) return;
+    res.set("Cache-Control", "no-store");
+
+    const { userId, role } = req.params;
+
+    // Explicit try/catch (not relying on Express 5's automatic
+    // promise-rejection forwarding alone) so a Prisma or S3/AWS SDK failure
+    // here always returns a clean 500 JSON message, same as the rest of
+    // this router's existing routes below.
+    try {
+      const userRole = await prisma.userRole.findUnique({
+        where: { userId_role: { userId, role } },
+        select: { documentUrl: true, documentSubmittedAt: true },
+      });
+
+      if (!userRole) {
+        return res.status(404).json({ message: "That user doesn't hold this role." });
+      }
+      if (!userRole.documentUrl) {
+        return res.json({ available: false, reason: "no-document", submittedAt: userRole.documentSubmittedAt });
+      }
+
+      const kind = kindFromKey(userRole.documentUrl);
+      const fileName = fileNameFromKey(userRole.documentUrl);
+      const submittedAt = userRole.documentSubmittedAt;
+
+      // Not configured at all (local dev without AWS credentials) — the key
+      // was never a real S3 upload to begin with.
+      if (!isConfigured()) {
+        return res.json({ available: false, reason: "placeholder", kind, fileName, submittedAt });
+      }
+
+      // Configured now, but this key may predate that — e.g. a document
+      // submitted while S3 wasn't set up yet. Nothing in the DB records
+      // which case this is, so we check the bucket directly rather than
+      // trusting the stored value.
+      const exists = await objectExists(userRole.documentUrl);
+      if (!exists) {
+        return res.json({ available: false, reason: "not-found", kind, fileName, submittedAt });
+      }
+
+      const url = await getSignedReadUrl({
+        key: userRole.documentUrl,
+        disposition: kind === "other" ? "attachment" : "inline",
+        fileName,
+      });
+
+      res.json({ available: true, url, fileName, kind, submittedAt });
+    } catch (err) {
+      console.error(`[admin] Failed to load document for user ${userId}, role ${role}:`, err);
+      res.status(500).json({ message: "Couldn't load that document." });
+    }
+  },
+);
+
+// -----------------------------------------------------------------------
 // PATCH /admin/users/:userId/roles/:role/activate-subscription
 // PATCH /admin/users/:userId/roles/:role/deactivate-subscription
 //
@@ -220,6 +288,52 @@ router.get("/listings", async (req, res) => {
 
   res.json(rows);
 });
+
+// -----------------------------------------------------------------------
+// GET /admin/listings/advertisement/:id/review — full ad detail for the
+// review dialog (the combined /admin/listings list above deliberately
+// stays lean — see its own comment — so this is fetched only when an
+// admin opens the dialog, not preloaded per row).
+//
+// imageUrl is passed through UNSIGNED: ad images are public by design
+// (lib/s3.js's PUBLIC_PURPOSES — a bucket policy grants public read on the
+// ads/ prefix), so there's no key to sign here, only a URL already fully
+// resolved at upload time. isPlaceholder flags the one case that URL can't
+// actually be trusted — a dev-mode "/dev-fake-file/" URL recorded before
+// S3 was configured, which no longer resolves to anything.
+// -----------------------------------------------------------------------
+router.get(
+  "/listings/advertisement/:id/review",
+  [param("id").isString()],
+  async (req, res) => {
+    if (!checkValidation(req, res)) return;
+    res.set("Cache-Control", "no-store");
+
+    // Explicit try/catch for the same reason as the document route above —
+    // a clean 500 JSON message on a Prisma failure, not an implicit
+    // framework behavior.
+    try {
+      const ad = await prisma.advertisement.findUnique({
+        where: { id: req.params.id },
+        select: { headline: true, linkUrl: true, imageUrl: true, status: true },
+      });
+      if (!ad) {
+        return res.status(404).json({ message: "Advertisement not found." });
+      }
+
+      res.json({
+        headline: ad.headline,
+        linkUrl: ad.linkUrl,
+        imageUrl: ad.imageUrl,
+        status: ad.status,
+        isPlaceholder: ad.imageUrl.includes("/dev-fake-file/"),
+      });
+    } catch (err) {
+      console.error(`[admin] Failed to load ad review for ${req.params.id}:`, err);
+      res.status(500).json({ message: "Couldn't load that advertisement." });
+    }
+  },
+);
 
 // -----------------------------------------------------------------------
 // PATCH /admin/listings/:kind/:id/:action —

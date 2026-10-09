@@ -1,4 +1,4 @@
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { v4: uuidv4 } = require("uuid");
 
@@ -98,4 +98,116 @@ async function getPresignedUploadUrl({ purpose, fileName, fileType, userId, base
   return { uploadUrl, key, publicUrl };
 }
 
-module.exports = { getPresignedUploadUrl, isConfigured };
+// ---------------------------------------------------------------------------
+// Admin document/ad-image review (GET side) — see admin.routes.js.
+//
+// Trust documents are the one upload purpose that's actually private (no
+// publicUrl is ever generated for them — see PUBLIC_PURPOSES above), so an
+// admin needs a short-lived signed GET to view one at all. Ad images are
+// public by design and never go through this; admin.routes.js passes
+// Advertisement.imageUrl straight through unsigned.
+// ---------------------------------------------------------------------------
+
+const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif"];
+const MIME_BY_EXTENSION = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  pdf: "application/pdf",
+};
+// Matches the "<uuid>-" prefix getPresignedUploadUrl's key format always adds
+// (see `key` above), so the admin UI can show the file's original name
+// rather than its storage key.
+const UUID_PREFIX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i;
+
+function extensionFromKey(key) {
+  const match = /\.([a-zA-Z0-9]+)$/.exec(key);
+  return match ? match[1].toLowerCase() : "";
+}
+
+// "image" | "pdf" | "other" — decided from the key's extension alone, since
+// nothing in the DB records the original content type for a trust document.
+function kindFromKey(key) {
+  const ext = extensionFromKey(key);
+  if (IMAGE_EXTENSIONS.includes(ext)) return "image";
+  if (ext === "pdf") return "pdf";
+  return "other";
+}
+
+function fileNameFromKey(key) {
+  const basename = key.split("/").pop() || key;
+  return basename.replace(UUID_PREFIX, "") || basename;
+}
+
+// True only if the object genuinely exists in the bucket. Our IAM user has
+// no s3:ListBucket, so S3 returns 403 (not 404) for a key that was never
+// written — both, along with the SDK's own "NotFound" error name, mean
+// "can't show this" from the caller's point of view. Any other failure
+// (network, throttling, a real permissions problem) degrades to the same
+// "unavailable" result rather than throwing, so a storage hiccup shows the
+// admin a plain "not found" instead of a 500 — the real error is logged
+// server-side (with no credentials in it) for whoever investigates.
+async function objectExists(key) {
+  if (!isConfigured()) return false;
+  try {
+    await getClient().send(new HeadObjectCommand({ Bucket: process.env.AWS_S3_BUCKET, Key: key }));
+    return true;
+  } catch (err) {
+    const status = err?.$metadata?.httpStatusCode;
+    if (status === 403) {
+      // Ambiguous by nature: no s3:ListBucket means a genuinely missing key
+      // 403s instead of 404ing (see above) — but this IAM user could just as
+      // easily be missing s3:GetObject on a key that actually exists. Can't
+      // tell which from this response alone, so this is a warning to go
+      // check, not a confirmed diagnosis either way.
+      console.warn(
+        `[s3] HeadObject got 403 for key "${key}" — either the key doesn't exist, or the IAM user is missing s3:GetObject on it.`,
+      );
+    } else if (err?.name !== "NotFound" && status !== 404) {
+      console.error(`[s3] HeadObject failed unexpectedly for key "${key}":`, err?.name || err);
+    }
+    return false;
+  }
+}
+
+// Content-Disposition is a header value, not a JSON field — an arbitrary
+// original file name (unicode, quotes, CRLF) can break the header or inject
+// into it. Restricted to a safe ASCII subset for THIS use only; the real
+// fileName (returned to the frontend for display, via fileNameFromKey) is
+// never touched by this.
+function sanitizeFileNameForHeader(fileName, ext) {
+  const cleaned = (fileName || "").replace(/[^A-Za-z0-9._ -]/g, "_");
+  if (!/[A-Za-z0-9]/.test(cleaned)) {
+    return ext ? `document.${ext}` : "document";
+  }
+  return cleaned;
+}
+
+// Short-lived signed GET for a private object (trust documents only — see
+// above). `disposition` is "inline" for image/pdf so the browser renders
+// them directly in the viewer dialog, and "attachment" for anything else so
+// an unrecognized file type downloads instead of being executed/rendered by
+// the browser.
+async function getSignedReadUrl({ key, expiresIn = 300, disposition = "inline", fileName }) {
+  const ext = extensionFromKey(key);
+  const contentType = MIME_BY_EXTENSION[ext];
+  const safeFileName = fileName ? sanitizeFileNameForHeader(fileName, ext) : null;
+  const command = new GetObjectCommand({
+    Bucket: process.env.AWS_S3_BUCKET,
+    Key: key,
+    ResponseContentDisposition: safeFileName ? `${disposition}; filename="${safeFileName}"` : disposition,
+    ...(contentType ? { ResponseContentType: contentType } : {}),
+  });
+  return getSignedUrl(getClient(), command, { expiresIn });
+}
+
+module.exports = {
+  getPresignedUploadUrl,
+  isConfigured,
+  kindFromKey,
+  fileNameFromKey,
+  objectExists,
+  getSignedReadUrl,
+};

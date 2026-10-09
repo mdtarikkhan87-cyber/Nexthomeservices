@@ -197,6 +197,25 @@ export function useAdminUsers() {
   };
 }
 
+export interface AdminDocumentReview {
+  available: boolean;
+  /** A short-lived (5 min) signed URL — only present when available. Never
+      cached; re-fetch on every dialog open rather than reusing a stale one. */
+  url?: string;
+  fileName?: string;
+  kind?: "image" | "pdf" | "other";
+  submittedAt: string | null;
+  reason?: "no-document" | "placeholder" | "not-found";
+}
+
+// Plain on-demand fetch, not a hook — called once when a review dialog
+// opens, never preloaded for every row. Not wrapped in useAdminUsers()
+// because unlike the list data, this isn't something every page render
+// needs: it's a 5-minute signed link, fetched fresh each time it's viewed.
+export function fetchUserDocument(userId: string, role: RoleName): Promise<AdminDocumentReview> {
+  return apiAuthedRequest<AdminDocumentReview>(`/admin/users/${userId}/roles/${ROLE_TO_BACKEND[role]}/document`);
+}
+
 // ---- Listings ---------------------------------------------------------------
 
 export interface AdminListingRow {
@@ -255,6 +274,35 @@ export function useAdminListings() {
     approveListing: (id: string) => setStatus(id, "approve"),
     rejectListing: (id: string) => setStatus(id, "reject"),
   };
+}
+
+export interface AdminAdReview {
+  headline: string;
+  linkUrl: string;
+  /** Public by design (ad images are served from a publicly-readable S3
+      prefix) — passed through unsigned, never a signed URL. */
+  imageUrl: string;
+  status: ContentItemState;
+  /** A dev-mode placeholder recorded before S3 was configured — won't
+      resolve to a real image. Not the same as a URL that 404s at render
+      time (see the dialog's onError handling for that case). */
+  isPlaceholder: boolean;
+}
+
+interface BackendAdReview {
+  headline: string;
+  linkUrl: string;
+  imageUrl: string;
+  status: BackendContentItemState;
+  isPlaceholder: boolean;
+}
+
+// Plain on-demand fetch, same reasoning as fetchUserDocument above — the
+// combined /admin/listings list deliberately omits imageUrl/linkUrl (see
+// admin.routes.js), so this is fetched only when a review dialog opens.
+export async function fetchAdReview(adId: string): Promise<AdminAdReview> {
+  const result = await apiAuthedRequest<BackendAdReview>(`/admin/listings/advertisement/${adId}/review`);
+  return { ...result, status: STATUS_TO_FRONTEND[result.status] };
 }
 
 // ---- Complaints -------------------------------------------------------------

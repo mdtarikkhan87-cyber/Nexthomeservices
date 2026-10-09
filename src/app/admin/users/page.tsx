@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DocumentReviewDialog } from "@/components/admin/DocumentReviewDialog";
 import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -25,6 +26,7 @@ export default function AdminUsersPage() {
   const { users, verifyUserRole, rejectUserRole, activateSubscription, deactivateSubscription } = useAdminUsers();
   const [rejecting, setRejecting] = useState<{ userId: string; userName: string; role: RoleName } | null>(null);
   const [verifying, setVerifying] = useState<{ userId: string; userName: string; role: RoleName } | null>(null);
+  const [reviewing, setReviewing] = useState<{ userId: string; userName: string; role: RoleName } | null>(null);
   const [subscriptionAction, setSubscriptionAction] = useState<{
     userId: string;
     userName: string;
@@ -61,23 +63,27 @@ export default function AdminUsersPage() {
                       <p className="min-w-0 flex-1 font-bold text-[var(--color-text-primary)]">
                         {ROLE_LABELS[row.role]}
                       </p>
-                      {row.state !== "role-verified" && (
+                      {row.state === "pending-admin-document-review" ? (
+                        // Document-gated: the only path to Verify/Reject is
+                        // through the review dialog, so an admin can't act
+                        // without the actual document in front of them.
                         <Button
                           variant="secondary"
                           size="dense"
-                          onClick={() => setVerifying({ userId: user.id, userName: user.name, role: row.role })}
+                          onClick={() => setReviewing({ userId: user.id, userName: user.name, role: row.role })}
                         >
-                          Verify
+                          Review document
                         </Button>
-                      )}
-                      {row.state === "pending-admin-document-review" && (
-                        <Button
-                          variant="destructive"
-                          size="dense"
-                          onClick={() => setRejecting({ userId: user.id, userName: user.name, role: row.role })}
-                        >
-                          Reject
-                        </Button>
+                      ) : (
+                        row.state !== "role-verified" && (
+                          <Button
+                            variant="secondary"
+                            size="dense"
+                            onClick={() => setVerifying({ userId: user.id, userName: user.name, role: row.role })}
+                          >
+                            Verify
+                          </Button>
+                        )
                       )}
                       {/* Subscription isn't wired to real payments yet — this is the
                           manual stand-in until Stripe/Paystack exists. Landlord-only,
@@ -115,6 +121,25 @@ export default function AdminUsersPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      {reviewing && (
+        <DocumentReviewDialog
+          open={reviewing !== null}
+          userId={reviewing.userId}
+          userName={reviewing.userName}
+          role={reviewing.role}
+          roleLabel={ROLE_LABELS[reviewing.role]}
+          onClose={() => setReviewing(null)}
+          onVerify={() => {
+            setVerifying(reviewing);
+            setReviewing(null);
+          }}
+          onReject={() => {
+            setRejecting(reviewing);
+            setReviewing(null);
+          }}
+        />
       )}
 
       <ConfirmationDialog
