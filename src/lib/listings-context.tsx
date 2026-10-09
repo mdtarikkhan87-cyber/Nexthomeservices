@@ -29,7 +29,7 @@ import { useAuth } from "./auth-context";
 //     This had to change shape: a real id cannot be invented client-side.
 //   - `resolveRooms` / `setRoomOccupied` / `setRoomAvailable` are REMOVED
 //     from this context. They existed only to merge a local override map
-//     on top of a static, never-refetched mock catalog — a real backend
+//     on top of a static, never-refetched demo catalog — a real backend
 //     doesn't have that staleness problem, so each consumer now reads
 //     `listing.shared.rooms` directly off whatever real listing it already
 //     fetched, and calls the new PATCH /listings/:id/rooms/:roomId endpoint

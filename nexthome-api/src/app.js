@@ -58,13 +58,13 @@ app.use(
   }),
 );
 
-// Parses incoming JSON request bodies into req.body. Default limit is only
-// 100kb — far too small for the interim base64-encoded photo uploads this
-// project currently uses (no S3 yet). Raised to 50mb to comfortably cover
-// the wizard's own limits (up to 8 photos, 5MB each, plus ~33% base64
-// overhead). This is exactly the kind of practical ceiling that motivates
-// moving to real presigned S3 uploads instead of embedding photos in JSON.
-app.use(express.json({ limit: "50mb" }));
+// Parses incoming JSON request bodies into req.body. 1 MB is generous for
+// everything the API accepts: photos and documents never travel in a JSON
+// body (they go straight to S3 via presigned URLs — see uploads.routes.js),
+// so the largest legitimate payload is a listing's text fields plus up to 20
+// photo URLs, a few tens of KB at most. Anything bigger is rejected with 413
+// (see the error handler below).
+app.use(express.json({ limit: "1mb" }));
 
 // Reads the httpOnly refresh-token cookie (see lib/refresh-tokens.js).
 app.use(cookieParser());
@@ -158,6 +158,15 @@ app.use("/admin", adminRoutes);
 // Express only treats a 4-argument function as an error handler, so the
 // unused `_next` must stay in the signature.
 app.use((err, req, res, _next) => {
+  // Errors raised by the body parser (oversized or malformed JSON) carry a
+  // 4xx status and are the client's fault — report them as such rather than
+  // as a 500.
+  const status = err.status || err.statusCode;
+  if (status >= 400 && status < 500) {
+    return res.status(status).json({
+      message: err.type === "entity.too.large" ? "Request body is too large." : "Invalid request.",
+    });
+  }
   console.error(err);
   res.status(500).json({ message: "Something went wrong." });
 });

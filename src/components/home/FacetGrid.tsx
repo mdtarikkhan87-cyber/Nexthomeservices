@@ -18,8 +18,8 @@ import { PropertyListing } from "@/lib/types";
 // inventory that isn't there.
 //
 // `listings` is passed in from the homepage's single server-side fetch
-// (see app/(public)/page.tsx) rather than imported from mock-data.ts
-// directly — every entry is already "live" (the backend only ever returns
+// (see app/(public)/page.tsx) rather than read from a bundled
+// demo catalog — every entry is already "live" (the backend only ever returns
 // that status), so no status filter is needed here either.
 export function FacetGrid({ listings }: { listings: PropertyListing[] }) {
   const liveRentals = listings.filter((l) => l.type === "rent");

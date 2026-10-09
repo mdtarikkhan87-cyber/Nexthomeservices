@@ -53,8 +53,8 @@ export const dynamic = "force-dynamic";
 // again, per the Brand Guidelines and Website Revision Spec §3E.)
 //
 // REAL BACKEND (6 Sept 2026): fetched ONCE here, server-side, and passed
-// down to FacetGrid and CuratedListings as props — both used to import
-// mock-data.ts directly and separately. A single fetch avoids duplicating
+// down to FacetGrid and CuratedListings as props — both used to read a
+// bundled demo catalog separately. A single fetch avoids duplicating
 // the request, and keeps this the one place that decides what a visitor's
 // first view of the catalog contains.
 export default async function HomePage() {
@@ -72,7 +72,7 @@ export default async function HomePage() {
   }
   // Every listing returned is already "live" — the backend's search
   // endpoint only ever returns that status (see listings.routes.js) — so
-  // no further status filtering is needed here, unlike the old mock catalog.
+  // no further status filtering is needed here, unlike the old bundled demo catalog.
   const live = allListings;
   // A verified home with gallery depth makes the strongest hero plate; fall
   // back through progressively looser criteria rather than hard-coding an id.

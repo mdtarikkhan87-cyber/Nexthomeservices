@@ -17,13 +17,10 @@ import { ListingTeaser } from "@/lib/types";
  * exclusively for a signed-in user — so the gated fields never reach an
  * anonymous visitor's HTML, RSC payload, or DOM.
  *
- * HONEST LIMIT: with no backend, the mock catalog is bundled into the client
- * JS that every visitor downloads (lib/mock-data is already imported by the
- * public listings browser, so this changes nothing about that). A real
- * implementation enforces this server-side by not returning gated fields to an
- * unauthenticated request at all. This component boundary is the correct shape
- * for that swap — the wall consumes a teaser, the full view consumes an id —
- * but the enforcement is client-side until there is a server to enforce it.
+ * ENFORCEMENT is server-side: GET /listings/:id returns an anonymous caller a
+ * redacted record (redactForAnonymous in nexthome-api/src/routes/listings.routes.js),
+ * so the gated fields never reach this page's HTML, RSC payload or DOM — and
+ * the teaser built from it carries only the public card fields.
  * Tracked in IMPLEMENTATION_NOTES.md.
  */
 export function ListingDetailGate({ teaser }: { teaser: ListingTeaser }) {

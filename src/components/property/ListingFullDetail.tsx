@@ -50,7 +50,7 @@ export function ListingFullDetail({ id }: { id: string }) {
 
   const shared = isShared(listing) ? listing.shared : undefined;
   // Rooms are read straight off the freshly-fetched listing — no local
-  // override map needed, since (unlike the old mock catalog) this data is
+  // override map needed, since (unlike the old static demo data) this data is
   // never stale: a landlord's room-status change is fetched fresh on the
   // next visit here rather than being merged from session state.
   const rooms = roomsOf(listing);

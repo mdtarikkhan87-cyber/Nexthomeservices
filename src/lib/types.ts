@@ -30,7 +30,7 @@ export type ListingType = "rent" | "sale";
 //
 // NAMING — this is `occupancyType`, NOT `propertyType`. `propertyType` already
 // exists below and means the physical form of the building (apartment, duplex,
-// bungalow…). It is used by the mock catalog, the wizard, matchesFilters, the
+// bungalow…). It is used by the listing wizard, matchesFilters, the
 // `?ptype=` URL param, the filter chips and the detail Specification block.
 // Reusing that name would have collided with all of it; renaming the existing
 // field would have been a refactor across eight files for no user benefit.

@@ -72,7 +72,8 @@ export const KIND_LABELS: Record<NotificationKind, string> = {
  * Kept deliberately small (2–4 per role). The brief was explicit about not
  * padding the page, and a notification feed's credibility comes from every
  * row being actionable, not from volume. Each entry names a real listing or
- * provider from mock-data.ts and links to the screen that resolves it.
+ * provider and links to the screen that resolves it. NOTE: this is hardcoded demo
+ * content, not data from the backend — see SEED_NOTIFICATIONS below.
  */
 export const SEED_NOTIFICATIONS: AppNotification[] = [
   // ---- Landlord -----------------------------------------------------------
