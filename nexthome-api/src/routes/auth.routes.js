@@ -27,6 +27,15 @@ const router = express.Router();
 // Every role your frontend's registration screen can submit.
 const VALID_ROLES = ["landlord", "tenant_buyer", "service_provider", "advertiser"];
 
+// What the signed-in user may be sent about themselves. Secrets never leave
+// the server: the password hash, and the mother's maiden name (a recovery
+// answer — it is only ever written at registration and never read by the
+// client, so there is no reason for it to travel to the browser).
+function toPublicUser(user) {
+  const { passwordHash: _passwordHash, motherMaidenName: _motherMaidenName, ...safeUser } = user;
+  return safeUser;
+}
+
 // Small helper: if express-validator found problems with the request body,
 // respond with them and stop; otherwise let the route handler continue.
 function checkValidation(req, res) {
@@ -274,8 +283,7 @@ router.get("/me", authenticate, async (req, res) => {
   if (!user) {
     return res.status(401).json({ message: "Account no longer exists." });
   }
-  const { passwordHash: _passwordHash, ...safeUser } = user;
-  res.json(safeUser);
+  res.json(toPublicUser(user));
 });
 
 // -----------------------------------------------------------------------
@@ -338,8 +346,7 @@ router.patch(
         : []),
     ]);
 
-    const { passwordHash: _passwordHash, ...safeUser } = user;
-    res.json(safeUser);
+    res.json(toPublicUser(user));
   },
 );
 
