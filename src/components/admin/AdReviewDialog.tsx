@@ -42,11 +42,12 @@ export function AdReviewDialog({
       .catch(() => setState({ status: "error" }));
   };
 
+  // Fetches once per mount — the parent always mounts a fresh instance per
+  // open (`{reviewing && <AdReviewDialog .../>}`), so the initial "loading"
+  // state above already covers it. Re-fetch on every open rather than
+  // reusing a prior result.
   useEffect(() => {
-    if (!open) return;
     let cancelled = false;
-    setState({ status: "loading" });
-    setImageFailed(false);
     fetchAdReview(adId)
       .then((review) => {
         if (!cancelled) setState({ status: "loaded", review });
@@ -57,8 +58,7 @@ export function AdReviewDialog({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, adId]);
+  }, [adId]);
 
   if (!open) return null;
 
@@ -105,8 +105,8 @@ export function AdReviewDialog({
                 }
               />
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element -- a
-              // public S3 URL, not a static asset next/image can optimize
+              // A public S3 URL, not a static asset next/image can optimize.
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={review!.imageUrl}
                 alt={review!.headline}

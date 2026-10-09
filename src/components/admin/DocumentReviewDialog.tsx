@@ -55,14 +55,13 @@ export function DocumentReviewDialog({
       .catch(() => setState({ status: "error" }));
   };
 
-  // Re-fetch every time the dialog opens, never reused across opens — the
-  // signed URL is only good for 5 minutes (see lib/s3.js), so a stale one
-  // from a previous open could already be dead.
+  // Fetches once per mount — the parent always mounts a fresh instance per
+  // open (`{reviewing && <DocumentReviewDialog .../>}`), so the initial
+  // "loading" state above already covers it; this effect never needs to
+  // reset state mid-mount. Re-fetch on every open rather than reusing a
+  // prior result, since the signed URL is only good for 5 minutes.
   useEffect(() => {
-    if (!open) return;
     let cancelled = false;
-    setState({ status: "loading" });
-    setPreviewFailed(false);
     fetchUserDocument(userId, role)
       .then((review) => {
         if (!cancelled) setState({ status: "loaded", review });
@@ -73,8 +72,7 @@ export function DocumentReviewDialog({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, userId, role]);
+  }, [userId, role]);
 
   if (!open) return null;
 
@@ -141,8 +139,8 @@ export function DocumentReviewDialog({
                 }
               />
             ) : review!.kind === "image" ? (
-              // eslint-disable-next-line @next/next/no-img-element -- a
-              // signed S3 URL, not a static asset next/image can optimize
+              // A signed S3 URL, not a static asset next/image can optimize.
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={review!.url}
                 alt={review!.fileName ?? "Submitted document"}
