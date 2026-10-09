@@ -9,7 +9,7 @@ import { IconCheck, IconClose } from "@/components/ui/icons";
 import { useAuth } from "@/lib/auth-context";
 import { useNotifications } from "@/lib/notification-context";
 import { useListings } from "@/lib/listings-context";
-import { objectUrlToDataUrl, CreateListingInput } from "@/lib/listings-client";
+import { uploadListingPhoto, CreateListingInput } from "@/lib/listings-client";
 import {
   AMENITY_LABELS,
   Amenity,
@@ -180,13 +180,10 @@ export default function PostPropertyPage() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      // Photos are still object URLs (local file picker previews) at this
-      // point. There's no S3 upload path live yet (no AWS account set up),
-      // so — exactly as this file previously documented — they're converted
-      // to base64 data URLs and sent as plain strings. This is explicitly
-      // NOT how this should work long-term; swap for real presigned-upload
-      // URLs (see uploads.routes.js on the backend) once AWS is configured.
-      const photoUrls = await Promise.all(draft.images.map((img) => objectUrlToDataUrl(img.url)));
+      // Photos are still object URLs (local file picker previews) here.
+      // Each is uploaded straight to S3 via a presigned URL, and only the
+      // resulting short URL is sent to the API.
+      const photoUrls = await Promise.all(draft.images.map((img, i) => uploadListingPhoto(img.url, i)));
 
       const input: CreateListingInput = {
         type: draft.type,

@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const { body, query, param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
+const { toListItem } = require("../lib/listing-view");
 const { authenticate, requireRole } = require("../middleware/auth.middleware");
 
 const router = express.Router();
@@ -48,6 +49,18 @@ function redactForAnonymous(listing) {
     galleryUrls: listing.galleryUrls.map((url, i) => (i === 0 ? url : "")),
   };
 }
+
+
+// Photos must be uploaded to S3 first (POST /uploads/presign) and referenced
+// by URL. Rejecting anything else — notably inline `data:` base64 images,
+// which is how photos used to be stored — keeps the database small and the
+// list endpoints fast.
+const PHOTO_URL_OPTIONS = { protocols: ["http", "https"], require_protocol: true, require_tld: false };
+const photoUrlRule = (field) => body(field).isString().isLength({ max: 2048 }).isURL(PHOTO_URL_OPTIONS);
+const galleryUrlsRules = [
+  body("galleryUrls").optional().isArray({ max: 20 }),
+  body("galleryUrls.*").isString().isLength({ max: 2048 }).isURL(PHOTO_URL_OPTIONS),
+];
 
 const LISTING_TYPES = ["rent", "sale"];
 const RENT_DURATIONS = ["short_term", "long_term"];
@@ -100,8 +113,8 @@ router.post(
     body("furnishing").optional().isIn(FURNISHING_STATUSES),
     body("amenities").optional().isArray(),
     body("amenities.*").optional().isIn(AMENITIES),
-    body("photoUrl").isString().notEmpty(),
-    body("galleryUrls").optional().isArray(),
+    photoUrlRule("photoUrl"),
+    ...galleryUrlsRules,
     body("occupancyType").optional().isIn(OCCUPANCY_TYPES),
     // Only required/validated when occupancyType === "shared"
     body("shared").optional().isObject(),
@@ -204,7 +217,7 @@ router.get(
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { createdAt: "desc" },
-      }),
+      }).then((rows) => rows.map(toListItem)),
       prisma.listing.count({ where }),
     ]);
 
@@ -227,7 +240,7 @@ router.get("/mine", authenticate, requireRole("landlord"), async (req, res) => {
     include: { shared: { include: { rooms: true } } },
     orderBy: { createdAt: "desc" },
   });
-  res.json(listings);
+  res.json(listings.map(toListItem));
 });
 
 // -----------------------------------------------------------------------
@@ -294,8 +307,8 @@ router.patch(
     body("price").optional().isInt({ min: 0 }),
     body("bedrooms").optional().isInt({ min: 0 }),
     body("bathrooms").optional().isInt({ min: 0 }),
-    body("photoUrl").optional().isString().notEmpty(),
-    body("galleryUrls").optional().isArray(),
+    photoUrlRule("photoUrl").optional(),
+    ...galleryUrlsRules,
   ],
   async (req, res) => {
     if (!checkValidation(req, res)) return;

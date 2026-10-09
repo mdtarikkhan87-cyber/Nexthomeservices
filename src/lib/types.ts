@@ -237,6 +237,9 @@ export interface PropertyListing {
       only (COMPONENT_ARCHITECTURE.md's "Property Image Gallery" was already
       approved scope, just not previously populated with data). */
   galleryUrls?: string[];
+  /** Photo count. List endpoints send only this (not the full gallery) —
+      the gallery itself comes from the single-listing fetch. */
+  galleryCount?: number;
   verified: boolean;
   status: ContentItemState;
   viewCount: number;

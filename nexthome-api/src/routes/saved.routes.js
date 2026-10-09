@@ -2,6 +2,7 @@ const express = require("express");
 const { param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
+const { toListItem } = require("../lib/listing-view");
 const { authenticate } = require("../middleware/auth.middleware");
 
 const router = express.Router();
@@ -29,7 +30,7 @@ router.get("/", authenticate, async (req, res) => {
     include: { listing: { include: { shared: { include: { rooms: true } } } } },
     orderBy: { createdAt: "desc" },
   });
-  res.json(saved.map((s) => s.listing));
+  res.json(saved.map((s) => toListItem(s.listing)));
 });
 
 // -----------------------------------------------------------------------

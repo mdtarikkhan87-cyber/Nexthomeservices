@@ -76,7 +76,7 @@ export default async function HomePage() {
   const live = allListings;
   // A verified home with gallery depth makes the strongest hero plate; fall
   // back through progressively looser criteria rather than hard-coding an id.
-  const heroListing = live.find((l) => l.verified && (l.galleryUrls?.length ?? 0) > 2) ?? live[0];
+  const heroListing = live.find((l) => l.verified && (l.galleryCount ?? l.galleryUrls?.length ?? 0) > 2) ?? live[0];
 
   // The one ad slot that exists today. Caught separately from the listings
   // fetch above: an ad is decorative, not core content, so a flaky ads

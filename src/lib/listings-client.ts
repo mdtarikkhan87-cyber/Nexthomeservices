@@ -10,7 +10,7 @@ import {
   RentDuration,
   SharedRoom,
 } from "./types";
-import { request as apiRequest, authedRequest as apiAuthedRequest } from "./backend-client";
+import { request as apiRequest, authedRequest as apiAuthedRequest, apiGetPresignedUpload } from "./backend-client";
 
 // ---------------------------------------------------------------------------
 // Naming translation — same reasoning as backend-client.ts's role mapping:
@@ -113,7 +113,10 @@ interface BackendListing {
   furnishing: BackendFurnishingStatus | null;
   amenities: BackendAmenity[];
   photoUrl: string;
-  galleryUrls: string[];
+  /** Full gallery — present on GET /listings/:id only. List endpoints omit
+      it and send `galleryCount` instead. */
+  galleryUrls?: string[];
+  galleryCount?: number;
   verified: boolean;
   status: BackendContentItemState;
   viewCount: number;
@@ -141,6 +144,7 @@ function toFrontendListing(b: BackendListing): PropertyListing {
     amenities: b.amenities.map((a) => AMENITY_TO_FRONTEND[a]),
     photoUrl: b.photoUrl,
     galleryUrls: b.galleryUrls,
+    galleryCount: b.galleryCount ?? b.galleryUrls?.length,
     verified: b.verified,
     status: STATUS_TO_FRONTEND[b.status],
     viewCount: b.viewCount,
@@ -160,21 +164,34 @@ function toFrontendListing(b: BackendListing): PropertyListing {
 }
 
 // ---------------------------------------------------------------------------
-// Temporary image handling — there is no S3/upload backend yet. This
-// converts an in-browser blob: URL (from URL.createObjectURL, used by the
-// wizard's image picker) into a base64 data URL so it's an actual string
-// that survives being sent to and stored by the API. Works, but is NOT how
-// this should work long-term — swap for a real upload endpoint (S3
-// presigned URL) later; storing base64 photos in Postgres does not scale.
+// Photo upload — straight from the browser to S3 via a presigned URL (the
+// same path ad images use), so the database only ever stores the short
+// resulting URL. The backend rejects inline `data:` images outright.
 // ---------------------------------------------------------------------------
-export async function objectUrlToDataUrl(objectUrl: string): Promise<string> {
+const EXTENSION_BY_TYPE: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
+/** Uploads one wizard photo (an in-browser blob: URL) and returns its public URL. */
+export async function uploadListingPhoto(objectUrl: string, index: number): Promise<string> {
   const blob = await fetch(objectUrl).then((r) => r.blob());
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+  const fileType = blob.type || "image/jpeg";
+  const presigned = await apiGetPresignedUpload({
+    purpose: "listing-photo",
+    fileName: `photo-${index + 1}.${EXTENSION_BY_TYPE[fileType] ?? "jpg"}`,
+    fileType,
   });
+  const res = await fetch(presigned.uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": fileType },
+    body: blob,
+  });
+  if (!res.ok) throw new Error(`Photo upload failed (${res.status}).`);
+  if (!presigned.publicUrl) throw new Error("Photo upload didn't return a public URL.");
+  return presigned.publicUrl;
 }
 
 // ---------------------------------------------------------------------------

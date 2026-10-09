@@ -55,7 +55,10 @@ const FOLDER_BY_PURPOSE = { "trust-document": "documents", "ad-image": "ads" };
 
 async function getPresignedUploadUrl({ purpose, fileName, fileType, userId, baseUrl }) {
   const folder = FOLDER_BY_PURPOSE[purpose] || "listings";
-  const key = `${folder}/${userId}/${uuidv4()}-${fileName}`;
+  // fileName is user-supplied: keep only a safe basename so it can't add path
+  // segments to the key (or odd characters to the public URL).
+  const safeName = String(fileName).split(/[\\/]/).pop().replace(/[^A-Za-z0-9._-]/g, "_").slice(-100) || "file";
+  const key = `${folder}/${userId}/${uuidv4()}-${safeName}`;
   const isPublic = PUBLIC_PURPOSES.includes(purpose);
 
   if (!isConfigured()) {
