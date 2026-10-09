@@ -26,7 +26,9 @@ function checkValidation(req, res) {
 // -----------------------------------------------------------------------
 router.get("/", authenticate, async (req, res) => {
   const saved = await prisma.savedListing.findMany({
-    where: { userId: req.user.sub },
+    // Unpublished listings drop out of Saved while hidden; the saved rows are
+    // kept, so they reappear automatically if the owner publishes again.
+    where: { userId: req.user.sub, listing: { isPublished: true } },
     include: { listing: { include: { shared: { include: { rooms: true } } } } },
     orderBy: { createdAt: "desc" },
   });
@@ -43,7 +45,7 @@ router.put("/:listingId", authenticate, [param("listingId").isString()], async (
   if (!checkValidation(req, res)) return;
 
   const listing = await prisma.listing.findUnique({ where: { id: req.params.listingId } });
-  if (!listing) return res.status(404).json({ message: "Listing not found." });
+  if (!listing || !listing.isPublished) return res.status(404).json({ message: "Listing not found." });
 
   await prisma.savedListing.upsert({
     where: { userId_listingId: { userId: req.user.sub, listingId: req.params.listingId } },

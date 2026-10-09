@@ -71,7 +71,8 @@ router.post(
     let otherUserId;
     if (listingId) {
       const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-      if (!listing) return res.status(404).json({ message: "Listing not found." });
+      // Unpublished listings are hidden from the public, so they can't be messaged about either.
+      if (!listing || !listing.isPublished) return res.status(404).json({ message: "Listing not found." });
       otherUserId = listing.landlordId;
     } else {
       const service = await prisma.serviceListing.findUnique({ where: { id: serviceListingId } });

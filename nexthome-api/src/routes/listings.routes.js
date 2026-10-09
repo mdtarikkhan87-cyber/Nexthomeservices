@@ -203,6 +203,8 @@ router.get(
       // Rented/sold listings stay reachable by direct link (GET /listings/:id)
       // and in the landlord's own list, but drop out of public browsing.
       availability: "available",
+      // Owner can unpublish a listing without deleting it.
+      isPublished: true,
       ...(state && { state }),
       ...(type && { type }),
       ...(bedrooms && { bedrooms: parseInt(bedrooms) }),
@@ -286,7 +288,9 @@ router.get(
 
     const isOwner = req.user && listing.landlordId === req.user.sub;
     const isAdmin = req.user && req.user.isAdmin;
-    if (listing.status !== "live" && !isOwner && !isAdmin) {
+    // Unpublished listings are hidden from everyone but the owner and admins,
+    // exactly like a listing that isn't live yet.
+    if ((listing.status !== "live" || !listing.isPublished) && !isOwner && !isAdmin) {
       return res.status(404).json({ message: "Listing not found." });
     }
 
@@ -312,6 +316,7 @@ router.patch(
     body("bedrooms").optional().isInt({ min: 0 }),
     body("bathrooms").optional().isInt({ min: 0 }),
     body("availability").optional().isIn(AVAILABILITIES),
+    body("isPublished").optional().isBoolean({ strict: true }),
     photoUrlRule("photoUrl").optional(),
     ...galleryUrlsRules,
   ],
@@ -328,9 +333,10 @@ router.patch(
 
     // Only allow updating a fixed set of fields — never let the request
     // body silently overwrite landlordId, status, or viewCount.
-    // `availability` is the owner-controlled "is it still on the market"
-    // flag; moderation `status` stays admin-only and is deliberately absent.
-    const { title, description, price, bedrooms, bathrooms, availability, photoUrl, galleryUrls } = req.body;
+    // `availability` ("is it still on the market") and `isPublished` ("does the
+    // owner want it shown") are owner-controlled; moderation `status` stays
+    // admin-only and is deliberately absent.
+    const { title, description, price, bedrooms, bathrooms, availability, isPublished, photoUrl, galleryUrls } = req.body;
 
     // A rental can be "rented" and a sale can be "sold" — not the other way
     // round. "available" is valid for both.
@@ -344,7 +350,7 @@ router.patch(
     }
     const updated = await prisma.listing.update({
       where: { id: req.params.id },
-      data: { title, description, price, bedrooms, bathrooms, availability, photoUrl, galleryUrls },
+      data: { title, description, price, bedrooms, bathrooms, availability, isPublished, photoUrl, galleryUrls },
     });
 
     res.json(updated);

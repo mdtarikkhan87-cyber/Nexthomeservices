@@ -80,7 +80,14 @@ export function PropertyCard({
   if (variant === "dashboard") {
     return (
       <div className="flex items-center gap-4 rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] px-4 py-3.5 shadow-[var(--elevation-xs)] transition-shadow duration-[var(--motion-duration-standard)] hover:shadow-[var(--elevation-sm)]">
-        <StatusBadge kind={listing.status === "live" ? "live" : listing.status === "rejected" ? "rejected" : "pending"} dense />
+        {listing.isPublished === false && listing.status === "live" ? (
+          <StatusBadge kind="unavailable" label="Unpublished" dense />
+        ) : (
+          <>
+            <StatusBadge kind={listing.status === "live" ? "live" : listing.status === "rejected" ? "rejected" : "pending"} dense />
+            {listing.isPublished === false && <StatusBadge kind="unavailable" label="Unpublished" dense />}
+          </>
+        )}
         {unavailableLabel(listing) && <StatusBadge kind="unavailable" label={unavailableLabel(listing)!} dense />}
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 truncate font-bold text-[var(--color-text-primary)]">

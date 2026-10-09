@@ -316,6 +316,10 @@ model Listing {
   verified    Boolean           @default(false)
   status      ContentItemState  @default(pending_review)
   availability ListingAvailability @default(available)
+  // Owner-controlled visibility, independent of moderation `status` (admin)
+  // and `availability` (rented/sold). A listing is publicly visible only when
+  // status = live AND availability = available AND isPublished.
+  isPublished  Boolean           @default(true)
   viewCount   Int               @default(0)
 
   occupancyType OccupancyType?  // absent/null = "entire"

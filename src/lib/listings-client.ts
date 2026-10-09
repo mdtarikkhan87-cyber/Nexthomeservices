@@ -121,6 +121,7 @@ interface BackendListing {
   verified: boolean;
   status: BackendContentItemState;
   availability?: ListingAvailability; // identical vocabulary both sides
+  isPublished?: boolean;
   viewCount: number;
   occupancyType: OccupancyType | null; // identical vocabulary both sides
   shared: BackendSharedDetails | null;
@@ -150,6 +151,7 @@ function toFrontendListing(b: BackendListing): PropertyListing {
     verified: b.verified,
     status: STATUS_TO_FRONTEND[b.status],
     availability: b.availability ?? "available",
+    isPublished: b.isPublished ?? true,
     viewCount: b.viewCount,
     description: b.description,
     occupancyType: b.occupancyType ?? undefined,
@@ -302,7 +304,7 @@ export async function apiFetchMyListings(): Promise<PropertyListing[]> {
 
 export async function apiUpdateListing(
   id: string,
-  patch: Partial<Pick<CreateListingInput, "title" | "description" | "price" | "bedrooms" | "bathrooms" | "photoUrl" | "galleryUrls"> & { availability: ListingAvailability }>,
+  patch: Partial<Pick<CreateListingInput, "title" | "description" | "price" | "bedrooms" | "bathrooms" | "photoUrl" | "galleryUrls"> & { availability: ListingAvailability; isPublished: boolean }>,
 ): Promise<PropertyListing> {
   const result = await apiAuthedRequest<BackendListing>(`/listings/${id}`, {
     method: "PATCH",

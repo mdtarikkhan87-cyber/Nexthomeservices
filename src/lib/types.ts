@@ -249,6 +249,9 @@ export interface PropertyListing {
   status: ContentItemState;
   /** Absent means "available". */
   availability?: ListingAvailability;
+  /** Owner-controlled visibility. Absent means published; `false` hides the
+      listing from everyone but its owner and admins. */
+  isPublished?: boolean;
   viewCount: number;
   description: string;
   /** Absent means "entire" — see the SHARED PROPERTY note above. */
