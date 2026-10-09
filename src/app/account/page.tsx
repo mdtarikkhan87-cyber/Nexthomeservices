@@ -35,7 +35,7 @@ export default function AccountPage() {
 // shared AuthRequired guard as the dashboard. The authenticated content is
 // split into its own component so its hooks only run once past the guard.
 function AccountContent() {
-  const { roles, activeRole, setActiveRole, addRole, setTenantBuyerContext } = useAuth();
+  const { user, roles, activeRole, setActiveRole, addRole, setTenantBuyerContext, refreshUser } = useAuth();
   const { notify } = useNotifications();
   const router = useRouter();
 
@@ -60,6 +60,9 @@ function AccountContent() {
     if (!pendingTrustRole) return;
     const r = pendingTrustRole;
     setPendingTrustRole(null);
+    // Pull the role's new "documents under review" state so the account page
+    // doesn't keep showing "Setup incomplete" after this succeeds.
+    void refreshUser();
     notify({
       role: r,
       kind: "account",
@@ -86,8 +89,10 @@ function AccountContent() {
       <div className="mt-6 rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-5 shadow-[var(--elevation-xs)]">
         <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">Account-level</p>
         <p className="mt-2 flex flex-wrap items-center gap-2 text-[var(--color-text-primary)]">
-          <StatusBadge kind="verified" dense label="Phone verified" />
-          <StatusBadge kind="verified" dense label="Email verified" />
+          {/* Real state from the account — these used to be hardcoded as
+              verified regardless of what had actually happened. */}
+          <StatusBadge kind={user?.phoneVerified ? "verified" : "pending"} dense label={user?.phoneVerified ? "Phone verified" : "Phone not verified"} />
+          <StatusBadge kind={user?.emailVerified ? "verified" : "pending"} dense label={user?.emailVerified ? "Email verified" : "Email not verified"} />
         </p>
         <p className="mt-2.5 text-xs text-[var(--color-text-secondary)]">
           Reused automatically for every role you add — never re-collected (PRODUCT_DECISIONS.md §8.1).
@@ -143,6 +148,15 @@ function AccountContent() {
                   </div>
                 )}
               </div>
+              <div className="flex shrink-0 items-center gap-2">
+              {/* A role added but never finished (closed the tab, reloaded)
+                  would otherwise be stuck: the verification form only ever
+                  opened from the one-time "add a role" click. */}
+              {r.state === "role-added" && (
+                <Button size="dense" onClick={() => setPendingTrustRole(r.role)}>
+                  Finish verification
+                </Button>
+              )}
               {/* Switching from here lands on the role's home too, exactly as
                   the header switcher does — one rule for switching, wherever
                   it is triggered from. */}
@@ -158,6 +172,7 @@ function AccountContent() {
                   Switch to
                 </Button>
               )}
+              </div>
             </div>
           ))}
         </div>

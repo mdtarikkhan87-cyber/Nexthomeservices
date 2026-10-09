@@ -46,6 +46,8 @@ export interface AuthUser {
   /** The account's phone number has already passed OTP verification
       (during registration or later). */
   phoneVerified?: boolean;
+  /** The emailed verification link has been clicked. */
+  emailVerified?: boolean;
 }
 
 interface AuthState {
@@ -146,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await apiFetchCurrentUser();
       if (cancelled) return;
       if (result) {
-        const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified };
+        const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified, emailVerified: result.emailVerified };
         setState({
           isAuthenticated: true,
           isHydrating: false,
@@ -167,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await apiLogin(email, password);
     const result = await apiFetchCurrentUser();
     if (!result) throw new Error("Login succeeded but fetching the profile failed.");
-    const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified };
+    const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified, emailVerified: result.emailVerified };
     setState({
       isAuthenticated: true,
       isHydrating: false,
@@ -182,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRegister(input);
       const result = await apiFetchCurrentUser();
       if (!result) throw new Error("Registration succeeded but fetching the profile failed.");
-      const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified };
+      const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified, emailVerified: result.emailVerified };
       // Deliberately NOT resolveRoleSelection() here, even for a multi-role
       // signup. That helper sets needsRoleChoice: true, which pops the
       // global "How do you want to act today?" prompt (RoleSessionPrompt) —
@@ -241,7 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await apiFetchCurrentUser();
     if (!result) throw new Error("Adding role(s) succeeded but re-fetching the profile failed.");
 
-    const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified };
+    const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified, emailVerified: result.emailVerified };
     const active = primaryRole(incoming) ?? readStoredRole(user.id) ?? primaryRole(user.roles);
     if (active) writeStoredRole(user.id, active);
 
@@ -260,7 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async () => {
     const result = await apiFetchCurrentUser();
     if (!result) return null; // token expired/missing — leave existing state, apiFetchCurrentUser has its own handling
-    const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified };
+    const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified, emailVerified: result.emailVerified };
     setState((prev) => ({
       ...prev,
       isAuthenticated: true,

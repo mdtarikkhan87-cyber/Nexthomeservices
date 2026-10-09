@@ -28,6 +28,7 @@ interface BackendUser {
   email: string;
   isAdmin: boolean;
   phoneVerifiedAt: string | null;
+  emailVerifiedAt: string | null;
   roles: BackendUserRole[];
 }
 
@@ -220,7 +221,7 @@ export async function apiResetPassword(token: string, password: string): Promise
 
 /** Fetches the current user + roles, translated into frontend-shaped data.
     Returns null if there's no valid session (no token, or refresh failed). */
-export async function apiFetchCurrentUser(): Promise<{ id: string; name: string; email: string; isAdmin: boolean; phoneVerified: boolean; roles: RoleName[]; heldRoles: HeldRole[] } | null> {
+export async function apiFetchCurrentUser(): Promise<{ id: string; name: string; email: string; isAdmin: boolean; phoneVerified: boolean; emailVerified: boolean; roles: RoleName[]; heldRoles: HeldRole[] } | null> {
   // After a page reload the in-memory access token is gone; the httpOnly
   // refresh cookie is what restores the session. Skip the round trip for
   // visitors who've never signed in on this browser.
@@ -235,6 +236,7 @@ export async function apiFetchCurrentUser(): Promise<{ id: string; name: string;
       email: user.email,
       isAdmin: user.isAdmin,
       phoneVerified: Boolean(user.phoneVerifiedAt),
+      emailVerified: Boolean(user.emailVerifiedAt),
       roles: user.roles.map((r) => ROLE_TO_FRONTEND[r.role]),
       heldRoles: toFrontendRoles(user.roles),
     };
