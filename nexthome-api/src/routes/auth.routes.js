@@ -279,6 +279,71 @@ router.get("/me", authenticate, async (req, res) => {
 });
 
 // -----------------------------------------------------------------------
+// PATCH /auth/me — update the signed-in user's own name and/or phone.
+// Body: { name?, phone? }
+//
+// Email is deliberately NOT editable here: it is the login identity and the
+// target of email verification, so changing it needs its own re-verification
+// flow rather than a silent field edit — a request that includes it is
+// rejected with a clear message instead of being ignored.
+//
+// Changing the phone clears phoneVerifiedAt (the new number is unproven) and
+// cancels any outstanding OTP — the verify route matches a code to the USER,
+// not to a number, so without this a code texted to the OLD number could be
+// used to mark the NEW one verified.
+// -----------------------------------------------------------------------
+router.patch(
+  "/me",
+  authenticate,
+  [
+    body("name").optional().isString().trim().isLength({ min: 2, max: 100 }),
+    body("phone").optional().isString().matches(/^\+[1-9]\d{6,14}$/).withMessage("Enter the phone number in international format, e.g. +2348012345678."),
+  ],
+  async (req, res) => {
+    if (!checkValidation(req, res)) return;
+
+    if (req.body.email !== undefined) {
+      return res.status(400).json({
+        message: "Your email address can't be changed here — it's your login and is tied to verification.",
+      });
+    }
+
+    const { name, phone } = req.body;
+    if (name === undefined && phone === undefined) {
+      return res.status(400).json({ message: "Nothing to update." });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { id: req.user.sub } });
+    if (!existing) {
+      return res.status(401).json({ message: "Account no longer exists." });
+    }
+
+    const data = {};
+    if (name !== undefined) data.name = name;
+
+    const phoneChanged = phone !== undefined && phone !== existing.phone;
+    if (phoneChanged) {
+      const taken = await prisma.user.findUnique({ where: { phone } });
+      if (taken && taken.id !== existing.id) {
+        return res.status(409).json({ message: "An account with this phone number already exists." });
+      }
+      data.phone = phone;
+      data.phoneVerifiedAt = null;
+    }
+
+    const [user] = await prisma.$transaction([
+      prisma.user.update({ where: { id: existing.id }, data, include: { roles: true } }),
+      ...(phoneChanged
+        ? [prisma.otpCode.updateMany({ where: { userId: existing.id, consumedAt: null }, data: { consumedAt: new Date() } })]
+        : []),
+    ]);
+
+    const { passwordHash: _passwordHash, ...safeUser } = user;
+    res.json(safeUser);
+  },
+);
+
+// -----------------------------------------------------------------------
 // POST /auth/roles — the "Add a Role" flow from /account.
 // Requires "Authorization: Bearer <accessToken>" header.
 // Body: { role: string }

@@ -78,6 +78,8 @@ app.use(globalLimiter);
 app.use("/auth/login", loginLimiter);
 app.use("/auth/register", authWriteLimiter);
 app.use("/auth/forgot-password", authWriteLimiter);
+// Method-specific: GET /auth/me is hit on every page load and must not share this budget.
+app.patch("/auth/me", authWriteLimiter);
 app.use("/auth/pre-register/send-otp", otpSendLimiter);
 app.use("/auth/pre-register/verify-otp", otpVerifyLimiter);
 app.use("/trust/phone/send-otp", otpSendLimiter);

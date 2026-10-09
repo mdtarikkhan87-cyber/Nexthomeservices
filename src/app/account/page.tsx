@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { AuthRequired } from "@/components/shared/AuthGate";
+import { ProfileCard } from "@/components/account/ProfileCard";
 import { TrustLayerVerification } from "@/components/shared/TrustLayerVerification";
 import { useNotifications } from "@/lib/notification-context";
 import { ROLE_LABELS as roleLabels, roleLandingHref } from "@/lib/roles";
@@ -35,7 +36,7 @@ export default function AccountPage() {
 // shared AuthRequired guard as the dashboard. The authenticated content is
 // split into its own component so its hooks only run once past the guard.
 function AccountContent() {
-  const { user, roles, activeRole, setActiveRole, addRole, setTenantBuyerContext, refreshUser } = useAuth();
+  const { roles, activeRole, setActiveRole, addRole, setTenantBuyerContext, refreshUser } = useAuth();
   const { notify } = useNotifications();
   const router = useRouter();
 
@@ -86,17 +87,10 @@ function AccountContent() {
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
       <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)] sm:text-3xl">Account &amp; Roles</h1>
 
-      <div className="mt-6 rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-5 shadow-[var(--elevation-xs)]">
-        <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">Account-level</p>
-        <p className="mt-2 flex flex-wrap items-center gap-2 text-[var(--color-text-primary)]">
-          {/* Real state from the account — these used to be hardcoded as
-              verified regardless of what had actually happened. */}
-          <StatusBadge kind={user?.phoneVerified ? "verified" : "pending"} dense label={user?.phoneVerified ? "Phone verified" : "Phone not verified"} />
-          <StatusBadge kind={user?.emailVerified ? "verified" : "pending"} dense label={user?.emailVerified ? "Email verified" : "Email not verified"} />
-        </p>
-        <p className="mt-2.5 text-xs text-[var(--color-text-secondary)]">
-          Reused automatically for every role you add — never re-collected (PRODUCT_DECISIONS.md §8.1).
-        </p>
+      {/* Account-level identity. Role-level verification is the separate
+          "Your roles" section below — see the note above AccountPage. */}
+      <div className="mt-6">
+        <ProfileCard />
       </div>
 
       <div className="mt-7">

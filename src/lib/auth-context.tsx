@@ -45,6 +45,10 @@ export interface AuthUser {
   isAdmin?: boolean;
   /** The account's phone number has already passed OTP verification
       (during registration or later). */
+  /** E.164, e.g. +2348012345678. */
+  phone?: string;
+  /** ISO timestamp the account was created. */
+  createdAt?: string;
   phoneVerified?: boolean;
   /** The emailed verification link has been clicked. */
   emailVerified?: boolean;
@@ -86,6 +90,21 @@ interface AuthContextValue extends AuthState {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const activeRoleKey = (userId: string) => `activeRole:${userId}`;
+
+/** Maps GET /auth/me (as returned by apiFetchCurrentUser) onto AuthUser. */
+function toAuthUser(r: NonNullable<Awaited<ReturnType<typeof apiFetchCurrentUser>>>): AuthUser {
+  return {
+    id: r.id,
+    name: r.name,
+    email: r.email,
+    roles: r.roles,
+    isAdmin: r.isAdmin,
+    phone: r.phone,
+    createdAt: r.createdAt,
+    phoneVerified: r.phoneVerified,
+    emailVerified: r.emailVerified,
+  };
+}
 
 const ROLE_PRIORITY: RoleName[] = ["tenant-buyer", "landlord", "service-provider", "advertiser"];
 
@@ -148,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await apiFetchCurrentUser();
       if (cancelled) return;
       if (result) {
-        const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified, emailVerified: result.emailVerified };
+        const user = toAuthUser(result);
         setState({
           isAuthenticated: true,
           isHydrating: false,
@@ -169,7 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await apiLogin(email, password);
     const result = await apiFetchCurrentUser();
     if (!result) throw new Error("Login succeeded but fetching the profile failed.");
-    const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified, emailVerified: result.emailVerified };
+    const user = toAuthUser(result);
     setState({
       isAuthenticated: true,
       isHydrating: false,
@@ -184,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRegister(input);
       const result = await apiFetchCurrentUser();
       if (!result) throw new Error("Registration succeeded but fetching the profile failed.");
-      const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified, emailVerified: result.emailVerified };
+      const user = toAuthUser(result);
       // Deliberately NOT resolveRoleSelection() here, even for a multi-role
       // signup. That helper sets needsRoleChoice: true, which pops the
       // global "How do you want to act today?" prompt (RoleSessionPrompt) —
@@ -243,7 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await apiFetchCurrentUser();
     if (!result) throw new Error("Adding role(s) succeeded but re-fetching the profile failed.");
 
-    const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified, emailVerified: result.emailVerified };
+    const user = toAuthUser(result);
     const active = primaryRole(incoming) ?? readStoredRole(user.id) ?? primaryRole(user.roles);
     if (active) writeStoredRole(user.id, active);
 
@@ -262,7 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async () => {
     const result = await apiFetchCurrentUser();
     if (!result) return null; // token expired/missing — leave existing state, apiFetchCurrentUser has its own handling
-    const user: AuthUser = { id: result.id, name: result.name, email: result.email, roles: result.roles, isAdmin: result.isAdmin, phoneVerified: result.phoneVerified, emailVerified: result.emailVerified };
+    const user = toAuthUser(result);
     setState((prev) => ({
       ...prev,
       isAuthenticated: true,

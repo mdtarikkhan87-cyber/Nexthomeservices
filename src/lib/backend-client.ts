@@ -27,8 +27,10 @@ interface BackendUser {
   name: string;
   email: string;
   isAdmin: boolean;
+  phone: string | null;
   phoneVerifiedAt: string | null;
   emailVerifiedAt: string | null;
+  createdAt: string;
   roles: BackendUserRole[];
 }
 
@@ -221,7 +223,7 @@ export async function apiResetPassword(token: string, password: string): Promise
 
 /** Fetches the current user + roles, translated into frontend-shaped data.
     Returns null if there's no valid session (no token, or refresh failed). */
-export async function apiFetchCurrentUser(): Promise<{ id: string; name: string; email: string; isAdmin: boolean; phoneVerified: boolean; emailVerified: boolean; roles: RoleName[]; heldRoles: HeldRole[] } | null> {
+export async function apiFetchCurrentUser(): Promise<{ id: string; name: string; email: string; isAdmin: boolean; phone?: string; createdAt: string; phoneVerified: boolean; emailVerified: boolean; roles: RoleName[]; heldRoles: HeldRole[] } | null> {
   // After a page reload the in-memory access token is gone; the httpOnly
   // refresh cookie is what restores the session. Skip the round trip for
   // visitors who've never signed in on this browser.
@@ -235,6 +237,8 @@ export async function apiFetchCurrentUser(): Promise<{ id: string; name: string;
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
+      phone: user.phone ?? undefined,
+      createdAt: user.createdAt,
       phoneVerified: Boolean(user.phoneVerifiedAt),
       emailVerified: Boolean(user.emailVerifiedAt),
       roles: user.roles.map((r) => ROLE_TO_FRONTEND[r.role]),
@@ -254,6 +258,12 @@ export async function apiVerifyEmail(token: string): Promise<void> {
 /** Emails a fresh verification link to the signed-in user. */
 export async function apiSendEmailVerification(): Promise<void> {
   await authedRequest("/trust/email/send-verification", { method: "POST" });
+}
+
+/** Updates the signed-in user's own name and/or phone. Email is not editable
+    (the backend rejects it). Changing the phone clears its verified status. */
+export async function apiUpdateProfile(patch: { name?: string; phone?: string }): Promise<void> {
+  await authedRequest("/auth/me", { method: "PATCH", body: JSON.stringify(patch) });
 }
 
 export async function apiAddRole(role: RoleName): Promise<void> {

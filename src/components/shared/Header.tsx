@@ -398,10 +398,13 @@ export function Header() {
                         avatar circle used a hardcoded "Account" name, never
                         the real one). */}
                     {user?.name && (
-                      <p className="px-2 pb-1 pt-1 text-xs text-[var(--color-text-secondary)]">
-                        Signed in as{" "}
-                        <span className="font-bold text-[var(--color-text-primary)]">{user.name}</span>
-                      </p>
+                      <div className="px-2 pb-1 pt-1">
+                        <p className="text-xs text-[var(--color-text-secondary)]">Signed in as</p>
+                        <p className="truncate text-sm font-bold text-[var(--color-text-primary)]">{user.name}</p>
+                        <p className="truncate text-xs text-[var(--color-text-secondary)]" title={user.email}>
+                          {user.email}
+                        </p>
+                      </div>
                     )}
 
                     {/* The "Active role" list that used to sit here is gone —
