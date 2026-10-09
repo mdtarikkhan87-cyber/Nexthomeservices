@@ -156,11 +156,33 @@ async function objectExists(key) {
     return true;
   } catch (err) {
     const status = err?.$metadata?.httpStatusCode;
-    if (err?.name !== "NotFound" && status !== 404 && status !== 403) {
+    if (status === 403) {
+      // Ambiguous by nature: no s3:ListBucket means a genuinely missing key
+      // 403s instead of 404ing (see above) — but this IAM user could just as
+      // easily be missing s3:GetObject on a key that actually exists. Can't
+      // tell which from this response alone, so this is a warning to go
+      // check, not a confirmed diagnosis either way.
+      console.warn(
+        `[s3] HeadObject got 403 for key "${key}" — either the key doesn't exist, or the IAM user is missing s3:GetObject on it.`,
+      );
+    } else if (err?.name !== "NotFound" && status !== 404) {
       console.error(`[s3] HeadObject failed unexpectedly for key "${key}":`, err?.name || err);
     }
     return false;
   }
+}
+
+// Content-Disposition is a header value, not a JSON field — an arbitrary
+// original file name (unicode, quotes, CRLF) can break the header or inject
+// into it. Restricted to a safe ASCII subset for THIS use only; the real
+// fileName (returned to the frontend for display, via fileNameFromKey) is
+// never touched by this.
+function sanitizeFileNameForHeader(fileName, ext) {
+  const cleaned = (fileName || "").replace(/[^A-Za-z0-9._ -]/g, "_");
+  if (!/[A-Za-z0-9]/.test(cleaned)) {
+    return ext ? `document.${ext}` : "document";
+  }
+  return cleaned;
 }
 
 // Short-lived signed GET for a private object (trust documents only — see
@@ -171,10 +193,11 @@ async function objectExists(key) {
 async function getSignedReadUrl({ key, expiresIn = 300, disposition = "inline", fileName }) {
   const ext = extensionFromKey(key);
   const contentType = MIME_BY_EXTENSION[ext];
+  const safeFileName = fileName ? sanitizeFileNameForHeader(fileName, ext) : null;
   const command = new GetObjectCommand({
     Bucket: process.env.AWS_S3_BUCKET,
     Key: key,
-    ResponseContentDisposition: fileName ? `${disposition}; filename="${fileName}"` : disposition,
+    ResponseContentDisposition: safeFileName ? `${disposition}; filename="${safeFileName}"` : disposition,
     ...(contentType ? { ResponseContentType: contentType } : {}),
   });
   return getSignedUrl(getClient(), command, { expiresIn });

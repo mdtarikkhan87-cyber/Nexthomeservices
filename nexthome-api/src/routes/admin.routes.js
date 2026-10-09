@@ -135,44 +135,54 @@ router.get(
     res.set("Cache-Control", "no-store");
 
     const { userId, role } = req.params;
-    const userRole = await prisma.userRole.findUnique({
-      where: { userId_role: { userId, role } },
-      select: { documentUrl: true, documentSubmittedAt: true },
-    });
 
-    if (!userRole) {
-      return res.status(404).json({ message: "That user doesn't hold this role." });
+    // Explicit try/catch (not relying on Express 5's automatic
+    // promise-rejection forwarding alone) so a Prisma or S3/AWS SDK failure
+    // here always returns a clean 500 JSON message, same as the rest of
+    // this router's existing routes below.
+    try {
+      const userRole = await prisma.userRole.findUnique({
+        where: { userId_role: { userId, role } },
+        select: { documentUrl: true, documentSubmittedAt: true },
+      });
+
+      if (!userRole) {
+        return res.status(404).json({ message: "That user doesn't hold this role." });
+      }
+      if (!userRole.documentUrl) {
+        return res.json({ available: false, reason: "no-document", submittedAt: userRole.documentSubmittedAt });
+      }
+
+      const kind = kindFromKey(userRole.documentUrl);
+      const fileName = fileNameFromKey(userRole.documentUrl);
+      const submittedAt = userRole.documentSubmittedAt;
+
+      // Not configured at all (local dev without AWS credentials) — the key
+      // was never a real S3 upload to begin with.
+      if (!isConfigured()) {
+        return res.json({ available: false, reason: "placeholder", kind, fileName, submittedAt });
+      }
+
+      // Configured now, but this key may predate that — e.g. a document
+      // submitted while S3 wasn't set up yet. Nothing in the DB records
+      // which case this is, so we check the bucket directly rather than
+      // trusting the stored value.
+      const exists = await objectExists(userRole.documentUrl);
+      if (!exists) {
+        return res.json({ available: false, reason: "not-found", kind, fileName, submittedAt });
+      }
+
+      const url = await getSignedReadUrl({
+        key: userRole.documentUrl,
+        disposition: kind === "other" ? "attachment" : "inline",
+        fileName,
+      });
+
+      res.json({ available: true, url, fileName, kind, submittedAt });
+    } catch (err) {
+      console.error(`[admin] Failed to load document for user ${userId}, role ${role}:`, err);
+      res.status(500).json({ message: "Couldn't load that document." });
     }
-    if (!userRole.documentUrl) {
-      return res.json({ available: false, reason: "no-document", submittedAt: userRole.documentSubmittedAt });
-    }
-
-    const kind = kindFromKey(userRole.documentUrl);
-    const fileName = fileNameFromKey(userRole.documentUrl);
-    const submittedAt = userRole.documentSubmittedAt;
-
-    // Not configured at all (local dev without AWS credentials) — the key
-    // was never a real S3 upload to begin with.
-    if (!isConfigured()) {
-      return res.json({ available: false, reason: "placeholder", kind, fileName, submittedAt });
-    }
-
-    // Configured now, but this key may predate that — e.g. a document
-    // submitted while S3 wasn't set up yet. Nothing in the DB records
-    // which case this is, so we check the bucket directly rather than
-    // trusting the stored value.
-    const exists = await objectExists(userRole.documentUrl);
-    if (!exists) {
-      return res.json({ available: false, reason: "not-found", kind, fileName, submittedAt });
-    }
-
-    const url = await getSignedReadUrl({
-      key: userRole.documentUrl,
-      disposition: kind === "other" ? "attachment" : "inline",
-      fileName,
-    });
-
-    res.json({ available: true, url, fileName, kind, submittedAt });
   },
 );
 
@@ -299,21 +309,29 @@ router.get(
     if (!checkValidation(req, res)) return;
     res.set("Cache-Control", "no-store");
 
-    const ad = await prisma.advertisement.findUnique({
-      where: { id: req.params.id },
-      select: { headline: true, linkUrl: true, imageUrl: true, status: true },
-    });
-    if (!ad) {
-      return res.status(404).json({ message: "Advertisement not found." });
-    }
+    // Explicit try/catch for the same reason as the document route above —
+    // a clean 500 JSON message on a Prisma failure, not an implicit
+    // framework behavior.
+    try {
+      const ad = await prisma.advertisement.findUnique({
+        where: { id: req.params.id },
+        select: { headline: true, linkUrl: true, imageUrl: true, status: true },
+      });
+      if (!ad) {
+        return res.status(404).json({ message: "Advertisement not found." });
+      }
 
-    res.json({
-      headline: ad.headline,
-      linkUrl: ad.linkUrl,
-      imageUrl: ad.imageUrl,
-      status: ad.status,
-      isPlaceholder: ad.imageUrl.includes("/dev-fake-file/"),
-    });
+      res.json({
+        headline: ad.headline,
+        linkUrl: ad.linkUrl,
+        imageUrl: ad.imageUrl,
+        status: ad.status,
+        isPlaceholder: ad.imageUrl.includes("/dev-fake-file/"),
+      });
+    } catch (err) {
+      console.error(`[admin] Failed to load ad review for ${req.params.id}:`, err);
+      res.status(500).json({ message: "Couldn't load that advertisement." });
+    }
   },
 );
 
