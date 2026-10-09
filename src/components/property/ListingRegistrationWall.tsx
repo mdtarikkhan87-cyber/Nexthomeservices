@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { unavailableLabel } from "@/lib/shared-property";
 import { IconCheck, IconLock, IconMessageCircle, IconStar } from "@/components/ui/icons";
 import { ListingTeaser } from "@/lib/types";
 import { formatLocation } from "@/lib/nigeria-locations";
@@ -141,6 +142,7 @@ export function ListingRegistrationWall({ teaser }: { teaser: ListingTeaser }) {
             ) : (
               <StatusBadge kind="pending" label="Not yet verified" />
             )}
+            {unavailableLabel(listing) && <StatusBadge kind="unavailable" label={unavailableLabel(listing)!} />}
             {/* Card parity, and nothing more. The badge is a category label —
                 the same class of fact as type, bedrooms and duration, all of
                 which this wall already shows. Room-level facts (how many are

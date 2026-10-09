@@ -8,7 +8,7 @@ import { IconArrowRight, IconStar } from "@/components/ui/icons";
 import { useAuthGate } from "@/components/shared/AuthGate";
 import { useListings } from "@/lib/listings-context";
 import { PropertyListing } from "@/lib/types";
-import { isShared } from "@/lib/shared-property";
+import { isShared, unavailableLabel } from "@/lib/shared-property";
 import { formatLocation } from "@/lib/nigeria-locations";
 
 function formatPrice(listing: PropertyListing) {
@@ -81,6 +81,7 @@ export function PropertyCard({
     return (
       <div className="flex items-center gap-4 rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] px-4 py-3.5 shadow-[var(--elevation-xs)] transition-shadow duration-[var(--motion-duration-standard)] hover:shadow-[var(--elevation-sm)]">
         <StatusBadge kind={listing.status === "live" ? "live" : listing.status === "rejected" ? "rejected" : "pending"} dense />
+        {unavailableLabel(listing) && <StatusBadge kind="unavailable" label={unavailableLabel(listing)!} dense />}
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 truncate font-bold text-[var(--color-text-primary)]">
             <span className="truncate">{listing.title}</span>
@@ -130,6 +131,11 @@ export function PropertyCard({
         />
         <div className="pointer-events-none absolute left-0 right-0 top-0 flex items-center gap-2 p-5 sm:p-7">
           {listing.verified && <StatusBadge kind="verified" />}
+          {unavailableLabel(listing) && (
+            <span className="rounded-full bg-[var(--color-surface-raised)]">
+              <StatusBadge kind="unavailable" label={unavailableLabel(listing)!} />
+            </span>
+          )}
           {isShared(listing) && (
             <span className="u-label rounded-full bg-white/15 px-3 py-1.5 text-white backdrop-blur-sm">
               Shared Property
@@ -183,8 +189,17 @@ export function PropertyCard({
             alt={listing.title}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-            className="object-cover transition-transform duration-[var(--motion-duration-rich)] ease-[var(--motion-easing-warm)] group-hover:scale-[1.03]"
+            className={`object-cover transition-transform duration-[var(--motion-duration-rich)] ease-[var(--motion-easing-warm)] group-hover:scale-[1.03] ${unavailableLabel(listing) ? "opacity-60" : ""}`}
           />
+
+          {/* Off the market (rented/sold) — still reachable via saved items
+              and direct links, but clearly marked. Bottom-left: top-right is
+              the save button, top-left the card tag. */}
+          {unavailableLabel(listing) && (
+            <span className="absolute bottom-3 left-3 rounded-full bg-[var(--color-surface-raised)]">
+              <StatusBadge kind="unavailable" label={unavailableLabel(listing)!} />
+            </span>
+          )}
 
           {/* One tag maximum, top-left — derived from real listing facts,
               never a marketing claim. See cardTag() for the priority order. */}

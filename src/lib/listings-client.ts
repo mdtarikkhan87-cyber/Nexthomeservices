@@ -3,6 +3,7 @@ import {
   BathroomType,
   ContentItemState,
   FurnishingStatus,
+  ListingAvailability,
   ListingType,
   OccupancyType,
   PropertyListing,
@@ -119,6 +120,7 @@ interface BackendListing {
   galleryCount?: number;
   verified: boolean;
   status: BackendContentItemState;
+  availability?: ListingAvailability; // identical vocabulary both sides
   viewCount: number;
   occupancyType: OccupancyType | null; // identical vocabulary both sides
   shared: BackendSharedDetails | null;
@@ -147,6 +149,7 @@ function toFrontendListing(b: BackendListing): PropertyListing {
     galleryCount: b.galleryCount ?? b.galleryUrls?.length,
     verified: b.verified,
     status: STATUS_TO_FRONTEND[b.status],
+    availability: b.availability ?? "available",
     viewCount: b.viewCount,
     description: b.description,
     occupancyType: b.occupancyType ?? undefined,
@@ -299,7 +302,7 @@ export async function apiFetchMyListings(): Promise<PropertyListing[]> {
 
 export async function apiUpdateListing(
   id: string,
-  patch: Partial<Pick<CreateListingInput, "title" | "description" | "price" | "bedrooms" | "bathrooms" | "photoUrl" | "galleryUrls">>,
+  patch: Partial<Pick<CreateListingInput, "title" | "description" | "price" | "bedrooms" | "bathrooms" | "photoUrl" | "galleryUrls"> & { availability: ListingAvailability }>,
 ): Promise<PropertyListing> {
   const result = await apiAuthedRequest<BackendListing>(`/listings/${id}`, {
     method: "PATCH",

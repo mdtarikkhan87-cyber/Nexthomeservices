@@ -8,8 +8,8 @@ import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { apiFetchListingById, apiSetRoomStatus, apiUpdateListing } from "@/lib/listings-client";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { useListings } from "@/lib/listings-context";
-import { PropertyListing, SharedRoom } from "@/lib/types";
-import { isShared, roomAvailabilityLabel, roomsOf } from "@/lib/shared-property";
+import { ListingAvailability, PropertyListing, SharedRoom } from "@/lib/types";
+import { isShared, roomAvailabilityLabel, roomsOf, unavailableLabel } from "@/lib/shared-property";
 import { formatLocation } from "@/lib/nigeria-locations";
 
 export default function ListingManagementDetail({ params }: PageProps<"/dashboard/listings/[id]">) {
@@ -30,6 +30,8 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
   const [form, setForm] = useState({ title: "", description: "", price: "", bedrooms: "" });
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [availabilityBusy, setAvailabilityBusy] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +82,26 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
     }
   };
 
+  // Moderation status (live/pending/rejected) is admin-controlled and not
+  // touched here — this only says whether the property is still on the market.
+  const setAvailability = async (availability: ListingAvailability) => {
+    setAvailabilityError(null);
+    setAvailabilityBusy(true);
+    try {
+      await apiUpdateListing(listing.id, { availability });
+      setListing((prev) => (prev ? { ...prev, availability } : prev));
+      void refetchMyListings();
+    } catch (err) {
+      setAvailabilityError(err instanceof Error ? err.message : "Couldn't update availability. Try again.");
+    } finally {
+      setAvailabilityBusy(false);
+    }
+  };
+
+  const offMarket = listing.availability === "rented" || listing.availability === "sold";
+  const offMarketAction: { value: ListingAvailability; label: string } =
+    listing.type === "rent" ? { value: "rented", label: "Mark as rented" } : { value: "sold", label: "Mark as sold" };
+
   const startEdit = () => {
     setForm({
       title: listing.title,
@@ -128,6 +150,7 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
     <div className="max-w-xl">
       <div className="flex items-center gap-3">
         <StatusBadge kind={unpublished ? "pending" : listing.status === "live" ? "live" : listing.status === "rejected" ? "rejected" : "pending"} />
+        {unavailableLabel(listing) && <StatusBadge kind="unavailable" label={unavailableLabel(listing)!} />}
         <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">{listing.title}</h1>
       </div>
 
@@ -244,12 +267,27 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
         <Button variant="secondary" size="dense" onClick={startEdit}>
           Edit Listing
         </Button>
+        {offMarket ? (
+          <Button variant="secondary" size="dense" loading={availabilityBusy} onClick={() => setAvailability("available")}>
+            Mark as available
+          </Button>
+        ) : (
+          <Button variant="secondary" size="dense" loading={availabilityBusy} onClick={() => setAvailability(offMarketAction.value)}>
+            {offMarketAction.label}
+          </Button>
+        )}
         {!unpublished && (
           <Button variant="destructive" size="dense" onClick={() => setConfirmOpen(true)}>
             Unpublish
           </Button>
         )}
       </div>
+      )}
+      {availabilityError && <p role="alert" className="mt-3 text-sm font-bold text-red-600">{availabilityError}</p>}
+      {offMarket && (
+        <p className="mt-3 text-sm text-[var(--color-text-secondary)]">
+          This listing is hidden from public search but still opens from direct and saved links.
+        </p>
       )}
 
       <ConfirmationDialog

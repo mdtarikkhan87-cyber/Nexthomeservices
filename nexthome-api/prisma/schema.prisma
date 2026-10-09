@@ -50,6 +50,14 @@ enum SubscriptionState {
   active
 }
 
+/// Whether the property itself is still on the market — independent of
+/// ContentItemState (Listing.status), which is admin moderation only.
+enum ListingAvailability {
+  available
+  rented
+  sold
+}
+
 enum ContentItemState {
   pending_review
   live
@@ -307,6 +315,7 @@ model Listing {
 
   verified    Boolean           @default(false)
   status      ContentItemState  @default(pending_review)
+  availability ListingAvailability @default(available)
   viewCount   Int               @default(0)
 
   occupancyType OccupancyType?  // absent/null = "entire"

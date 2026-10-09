@@ -40,6 +40,7 @@ export default async function ListingDetailPage({ params }: PageProps<"/listing/
     bedrooms: listing.bedrooms,
     photoUrl: listing.photoUrl,
     verified: listing.verified,
+    availability: listing.availability,
     viewCount: listing.viewCount,
     rentDuration: listing.rentDuration,
     // The category label only — never the room records, the available count,

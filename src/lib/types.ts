@@ -15,6 +15,10 @@ export type RoleState =
 export type SubscriptionState = "inactive" | "pending-confirmation" | "active";
 
 // Content-item-level state (a specific listing / service listing / ad)
+/** Whether the property is still on the market — independent of the
+    moderation `status`. */
+export type ListingAvailability = "available" | "rented" | "sold";
+
 export type ContentItemState = "pending-review" | "live" | "rejected";
 
 export type ListingType = "rent" | "sale";
@@ -118,6 +122,7 @@ export interface ListingTeaser {
   bedrooms: number;
   photoUrl: string;
   verified: boolean;
+  availability?: ListingAvailability;
   viewCount: number;
   rentDuration?: RentDuration;
   /**
@@ -242,6 +247,8 @@ export interface PropertyListing {
   galleryCount?: number;
   verified: boolean;
   status: ContentItemState;
+  /** Absent means "available". */
+  availability?: ListingAvailability;
   viewCount: number;
   description: string;
   /** Absent means "entire" — see the SHARED PROPERTY note above. */

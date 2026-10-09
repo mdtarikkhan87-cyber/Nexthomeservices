@@ -9,7 +9,7 @@ import { IconCheck } from "@/components/ui/icons";
 import { UserRatings } from "@/components/shared/UserRatings";
 import { apiFetchListingById } from "@/lib/listings-client";
 import { AMENITY_LABELS, BATHROOM_TYPE_LABELS, FURNISHING_LABELS, PROPERTY_TYPE_LABELS, PropertyListing } from "@/lib/types";
-import { isShared, roomAvailabilityLabel, roomsOf } from "@/lib/shared-property";
+import { isShared, roomAvailabilityLabel, roomsOf, unavailableLabel } from "@/lib/shared-property";
 import { formatLocation } from "@/lib/nigeria-locations";
 
 function formatPrice(price: number, currency: string, type: string) {
@@ -90,6 +90,7 @@ export function ListingFullDetail({ id }: { id: string }) {
               {formatPrice(listing.price, listing.currency, listing.type)}
             </p>
             {listing.verified ? <StatusBadge kind="verified" /> : <StatusBadge kind="pending" label="Not yet verified" />}
+            {unavailableLabel(listing) && <StatusBadge kind="unavailable" label={unavailableLabel(listing)!} />}
             {shared && (
               <span className="rounded-full bg-[var(--color-surface-dense)] px-3 py-1 text-sm font-bold text-[var(--color-text-secondary)]">
                 Shared Property

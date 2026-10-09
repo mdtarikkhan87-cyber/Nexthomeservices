@@ -63,6 +63,7 @@ const galleryUrlsRules = [
 ];
 
 const LISTING_TYPES = ["rent", "sale"];
+const AVAILABILITIES = ["available", "rented", "sold"];
 const RENT_DURATIONS = ["short_term", "long_term"];
 const OCCUPANCY_TYPES = ["entire", "shared"];
 const BATHROOM_TYPES = ["private_bath", "shared_bath"];
@@ -199,6 +200,9 @@ router.get(
 
     const where = {
       status: "live",
+      // Rented/sold listings stay reachable by direct link (GET /listings/:id)
+      // and in the landlord's own list, but drop out of public browsing.
+      availability: "available",
       ...(state && { state }),
       ...(type && { type }),
       ...(bedrooms && { bedrooms: parseInt(bedrooms) }),
@@ -307,6 +311,7 @@ router.patch(
     body("price").optional().isInt({ min: 0 }),
     body("bedrooms").optional().isInt({ min: 0 }),
     body("bathrooms").optional().isInt({ min: 0 }),
+    body("availability").optional().isIn(AVAILABILITIES),
     photoUrlRule("photoUrl").optional(),
     ...galleryUrlsRules,
   ],
@@ -323,10 +328,23 @@ router.patch(
 
     // Only allow updating a fixed set of fields — never let the request
     // body silently overwrite landlordId, status, or viewCount.
-    const { title, description, price, bedrooms, bathrooms, photoUrl, galleryUrls } = req.body;
+    // `availability` is the owner-controlled "is it still on the market"
+    // flag; moderation `status` stays admin-only and is deliberately absent.
+    const { title, description, price, bedrooms, bathrooms, availability, photoUrl, galleryUrls } = req.body;
+
+    // A rental can be "rented" and a sale can be "sold" — not the other way
+    // round. "available" is valid for both.
+    if (
+      (availability === "rented" && existing.type !== "rent") ||
+      (availability === "sold" && existing.type !== "sale")
+    ) {
+      return res.status(400).json({
+        message: existing.type === "rent" ? "A rental can only be marked as rented." : "A property for sale can only be marked as sold.",
+      });
+    }
     const updated = await prisma.listing.update({
       where: { id: req.params.id },
-      data: { title, description, price, bedrooms, bathrooms, photoUrl, galleryUrls },
+      data: { title, description, price, bedrooms, bathrooms, availability, photoUrl, galleryUrls },
     });
 
     res.json(updated);
