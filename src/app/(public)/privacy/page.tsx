@@ -19,7 +19,10 @@ export default function PrivacyPage() {
         </LegalP>
         <LegalP>We collect:</LegalP>
         <LegalList>
-          <LegalItem lead="Account data:">name, email, phone number, password (stored hashed, never in plain text).</LegalItem>
+          <LegalItem lead="Account data:">
+            name, email, phone number, password (stored hashed, never in plain text), and a security recovery answer
+            (mother’s maiden name).
+          </LegalItem>
           <LegalItem lead="Verification data:">
             identity documents, proof of ownership, and other documents you upload for role verification. These are
             stored privately and are not publicly accessible.
@@ -28,8 +31,8 @@ export default function PrivacyPage() {
             property details, photos, ad content, and service descriptions you submit.
           </LegalItem>
           <LegalItem lead="Usage data:">
-            pages viewed, searches made, device and browser information, collected automatically to keep the Platform
-            working and secure.
+            basic server logs (IP address, timestamps, device/browser information) collected automatically to keep the
+            Platform working and secure.
           </LegalItem>
           <LegalItem lead="Communications:">
             messages sent through the Platform between users, and support requests you send us.
@@ -51,15 +54,18 @@ export default function PrivacyPage() {
             verification documents with other users — only NextHome admins review those).
           </LegalItem>
           <LegalItem>
-            Service providers who process data on our behalf: cloud hosting (Railway), file storage (Amazon Web
-            Services, for photos and documents), and SMS/OTP delivery (Twilio and/or Termii) — each bound to use your
-            data only to provide that service.
+            Service providers who process data on our behalf: website hosting (Vercel), cloud hosting (Railway), file
+            storage (Amazon Web Services, for photos and documents), SMS/OTP delivery (Twilio and/or Termii), and
+            email delivery (Brevo, for account and verification emails) — each bound to use your data only to provide
+            that service.
           </LegalItem>
           <LegalItem>Law enforcement or regulators, only where required by Nigerian law.</LegalItem>
         </LegalList>
         <LegalP>We do not sell your personal data.</LegalP>
         <LegalP lead="Cookies.">
-          We use essential cookies to keep you logged in securely (an httpOnly refresh-token cookie).{" "}
+          We use essential cookies to keep you logged in securely (an httpOnly refresh-token cookie), and store a login
+          hint and your selected account role in your browser’s local storage for convenience — neither is used for
+          tracking or advertising.{" "}
           <Pending>
             [CLIENT TO CONFIRM: if any analytics or marketing cookies are added later, this section and a
             cookie-consent banner will need updating — NDPA requires explicit consent for non-essential cookies]
@@ -91,7 +97,11 @@ export default function PrivacyPage() {
           <LegalItem>Object to certain processing.</LegalItem>
           <LegalItem>Receive your data in a portable format.</LegalItem>
         </LegalList>
-        <LegalP>To exercise any of these rights, contact us using the details in Section 4 below.</LegalP>
+        <LegalP>
+          The Platform currently lets you self-edit your name and phone number directly in your account. For all other
+          rights above — including access, correction of other fields, deletion, objection, or portability — contact us
+          using the details in Section 4 below and we will handle the request manually.
+        </LegalP>
         <LegalP lead="Data breaches.">
           If a breach affecting your personal data occurs, we will notify the Nigeria Data Protection Commission
           within 72 hours as required by the NDPA, and notify affected users where there is a real risk to their

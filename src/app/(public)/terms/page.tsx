@@ -21,8 +21,8 @@ export default function TermsPage() {
           and by our{" "}
           <Link href="/privacy" className="font-bold text-[var(--color-brand-primary)] hover:underline">
             Privacy Policy
-          </Link>{" "}
-          below.
+          </Link>
+          , linked on this page.
         </LegalP>
         <LegalP>
           NextHome is a marketplace that connects people looking to rent, buy, advertise or offer services related to
@@ -109,7 +109,8 @@ export default function TermsPage() {
           <Pending>[CLIENT TO CONFIRM: whether a liability cap in Naira terms should be added here]</Pending>.
         </LegalP>
         <LegalP lead="Termination.">
-          You may close your account at any time. We may suspend or terminate an account that violates these Terms,
+          You may request closure of your account at any time by contacting support; this is currently handled
+          manually rather than through a self-serve control. We may suspend or terminate an account that violates these Terms,
           poses a security risk, or where required by law.
         </LegalP>
         <LegalP lead="Governing law.">
