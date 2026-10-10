@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { CONTAINER_CLASS } from "@/components/ui/Container";
 import { Advertisement } from "@/lib/types";
 
 // The homepage's one ad slot — the "advertiser" role has always been able
@@ -17,7 +18,7 @@ export function AdBanner({ ad }: { ad: Advertisement | null }) {
   if (!ad) return null;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6">
+    <div className={CONTAINER_CLASS}>
       <a
         href={ad.linkUrl}
         target="_blank"

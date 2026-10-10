@@ -98,6 +98,17 @@
   --elevation-raised: 0 8px 24px -8px rgba(23, 42, 58, 0.25);
   --elevation-lg: 0 32px 64px -20px rgba(23, 42, 58, 0.38), 0 8px 20px -8px rgba(23, 42, 58, 0.16);
 
+  /* Landing-page depth. Same Dark Blue tint as the elevations above, layered
+     (tight contact shadow + wide ambient one) so cards read as lifted rather
+     than outlined. `float` is the search bar sitting over the hero edge. */
+  --elevation-card: 0 1px 2px rgba(23, 42, 58, 0.05), 0 8px 24px -10px rgba(23, 42, 58, 0.14);
+  --elevation-card-hover: 0 2px 4px rgba(23, 42, 58, 0.06), 0 22px 44px -14px rgba(23, 42, 58, 0.26);
+  --elevation-float: 0 2px 6px rgba(23, 42, 58, 0.05), 0 20px 60px -15px rgba(23, 42, 58, 0.25);
+  /* Body copy on the landing page: Dark Blue at 70%. Resolves to about
+     #5D6A75 on white (5.5:1) and #586873 on Off-white (5.0:1), so it clears
+     AA while sitting back from the Dark Blue headings. */
+  --color-text-body: color-mix(in srgb, var(--color-dark-blue) 70%, transparent);
+
   /* Inverted ("chapter") surface tokens — dark sections built ONLY from
      the existing brand palette (Dark Blue base), used for layered
      public-page composition. Never a new hue; see DESIGN_SYSTEM.md §2. */
@@ -156,13 +167,88 @@
    to stay at least partially visible — reserving the header's height as
    scroll padding is the fix, applied once here rather than per-page. */
 html {
-  scroll-padding-top: 5rem;
+  scroll-padding-top: 6rem;
 }
 
 body {
   background: var(--color-surface-base);
   color: var(--color-text-primary);
   font-family: var(--font-quicksand), ui-sans-serif, system-ui, sans-serif;
+  /* Lets a full-bleed band (below) run to the viewport edge without ever
+     creating a horizontal scrollbar. `clip`, not `hidden`, so sticky
+     positioning still works. */
+  overflow-x: clip;
+}
+
+/* Dropdown panels fade and drop in a few pixels. The reduced-motion rule
+   further down shortens every animation to nothing, so this needs no guard
+   of its own. */
+@keyframes u-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.u-pop {
+  animation: u-pop 140ms var(--motion-easing-warm) both;
+  transform-origin: top;
+}
+
+/* Header menus and the mobile sheet: a short fade and 6px slide in, a shorter
+   one out. The exit is a class swap (data-state) with the unmount on a timer in
+   NavMenu.tsx, not on animationend, so a navigation can never strand a panel
+   half-faded over the next page. The reduced-motion rule below zeroes both. */
+@keyframes u-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes u-menu-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+}
+.u-menu-panel[data-state="open"] {
+  animation: u-menu-in 180ms var(--motion-easing-warm) both;
+}
+.u-menu-panel[data-state="closed"] {
+  animation: u-menu-out 140ms ease-in both;
+  pointer-events: none;
+}
+
+/* A white band that runs the full viewport width behind an element sitting in
+   the capped 1600px column. The landing page's top block (header, hero, search)
+   uses it so that, on a very wide or zoomed-out screen, the hero photograph
+   fades into white that continues to the screen edge instead of into the
+   Off-white margins. The element must already be positioned (the header is
+   sticky, the hero block is relative) and creates its own stacking context. */
+.u-bleed-white {
+  isolation: isolate;
+}
+.u-bleed-white::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: var(--bleed-bg, var(--color-white));
 }
 
 /* ---------------------------------------------------------------------

@@ -3,21 +3,19 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PropertyCard } from "@/components/property/PropertyCard";
+import { Container } from "@/components/ui/Container";
 import { IconArrowRight } from "@/components/ui/icons";
 import { ListingType, PropertyListing } from "@/lib/types";
+import { Eyebrow } from "./Eyebrow";
+import { Reveal } from "./Reveal";
 
-// EDITORIAL REDESIGN — a curated, deliberately UNEVEN grid.
-//
-// The previous version placed same-size cards in a row, which is the
-// "boring 3-column" shape. Here one listing is promoted to a feature plate
-// spanning two columns while the rest run as smaller supporting cards, so
-// the eye enters at a clear point and then scans. The asymmetry is the
-// point: it mirrors how a property magazine spreads one hero image against
-// a gutter of smaller plates.
+// A curated, deliberately UNEVEN grid: one listing is promoted to a feature
+// plate spanning two columns while the rest run as smaller supporting cards,
+// so the eye enters at a clear point and then scans.
 //
 // The Rent/Buy control filters this preview in place — it is NOT a
-// substitute for the dedicated /rent and /buy routes, which remain the real
-// destinations (and are linked from "View all" beside it).
+// substitute for the dedicated /listings route, which stays the real
+// destination (linked from "View all" beside it).
 //
 // `listings` comes from the homepage's single server-side fetch (see
 // app/(public)/page.tsx) — every entry is already "live", so only the
@@ -34,64 +32,63 @@ export function CuratedListings({ listings }: { listings: PropertyListing[] }) {
   if (!feature) return null;
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-5">
-        <div>
-          <p className="u-label text-[var(--color-brand-primary-text)]">Recently listed</p>
-          <h2 className="u-heading mt-2 max-w-md text-3xl text-[var(--color-text-primary)] sm:text-[2.5rem]">
-            Homes worth a closer look
-          </h2>
-        </div>
+    <section className="bg-[var(--color-surface-raised)] py-20 md:py-24 lg:py-28">
+      <Container>
+        <Reveal>
+          <div className="mb-10 flex flex-wrap items-end justify-between gap-5">
+            <div>
+              <Eyebrow>Recently listed</Eyebrow>
+              <h2 className="u-heading mt-3 max-w-md text-3xl text-[var(--color-text-primary)] sm:text-4xl">
+                Homes worth a closer look
+              </h2>
+            </div>
 
-        <div className="flex items-center gap-4">
-          {/* Segmented control, echoing the reference's Buying/Selling
-              switch. Real radio semantics, not two styled divs. */}
-          <div
-            role="radiogroup"
-            aria-label="Filter recently listed homes"
-            className="inline-flex rounded-[var(--radius-control)] bg-[var(--color-surface-dense)] p-1"
-          >
-            {(["rent", "sale"] as const).map((m) => (
-              <button
-                key={m}
-                role="radio"
-                aria-checked={mode === m}
-                onClick={() => setMode(m)}
-                className={`u-ui rounded-[var(--radius-control)] px-4 py-2 text-[13px] font-semibold transition-colors duration-[var(--motion-duration-short)] ${
-                  mode === m
-                    ? "bg-[var(--color-surface-raised)] text-[var(--color-text-primary)] shadow-[var(--elevation-xs)]"
-                    : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-                }`}
+            <div className="flex items-center gap-4">
+              {/* Segmented control. Real radio semantics, not two styled divs. */}
+              <div
+                role="radiogroup"
+                aria-label="Filter recently listed homes"
+                className="inline-flex rounded-xl bg-[var(--color-surface-dense)] p-1"
               >
-                {m === "rent" ? "Renting" : "Buying"}
-              </button>
-            ))}
+                {(["rent", "sale"] as const).map((m) => (
+                  <button
+                    key={m}
+                    role="radio"
+                    aria-checked={mode === m}
+                    onClick={() => setMode(m)}
+                    className={`u-ui min-h-11 rounded-lg px-4 text-sm font-bold transition-colors duration-[var(--motion-duration-short)] ${
+                      mode === m
+                        ? "bg-[var(--color-surface-raised)] text-[var(--color-text-primary)] shadow-[var(--elevation-xs)]"
+                        : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                    }`}
+                  >
+                    {m === "rent" ? "Renting" : "Buying"}
+                  </button>
+                ))}
+              </div>
+
+              <Link
+                href={`/listings?mode=${mode}`}
+                className="group u-ui inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-[var(--color-brand-primary-text)] hover:underline"
+              >
+                View all
+                <IconArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
+            </div>
           </div>
 
-          <Link
-            href={`/listings?mode=${mode}`}
-            className="group u-ui inline-flex items-center gap-1.5 text-[13px] font-semibold text-[var(--color-brand-primary-text)] hover:underline"
-          >
-            View all
-            <IconArrowRight className="h-3.5 w-3.5 transition-transform duration-[var(--motion-duration-short)] group-hover:translate-x-0.5" />
-          </Link>
-        </div>
-      </div>
-
-      {/* One feature plate (2 cols) + a supporting gutter, then a lower run
-          of three. Falls back to a plain single column on phones, where any
-          asymmetry would just be arbitrary. */}
-      <div className="grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="sm:col-span-2">
-          <PropertyCard listing={feature} featured />
-        </div>
-        {supporting.slice(0, 1).map((l) => (
-          <PropertyCard key={l.id} listing={l} />
-        ))}
-        {supporting.slice(1, 4).map((l) => (
-          <PropertyCard key={l.id} listing={l} />
-        ))}
-      </div>
+          {/* One feature plate (2 cols) + supporting cards. A plain single
+              column on phones, where any asymmetry would just be arbitrary. */}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+            <div className="md:col-span-2">
+              <PropertyCard listing={feature} featured />
+            </div>
+            {supporting.slice(0, 4).map((l) => (
+              <PropertyCard key={l.id} listing={l} />
+            ))}
+          </div>
+        </Reveal>
+      </Container>
     </section>
   );
 }

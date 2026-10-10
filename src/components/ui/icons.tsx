@@ -151,3 +151,24 @@ export function IconStar({ filled, ...props }: IconProps & { filled?: boolean })
     </svg>
   );
 }
+
+export function IconBed(props: IconProps) {
+  return (
+    <svg {...strokeProps} aria-hidden="true" {...props}>
+      <path d="M3 19V6" />
+      <path d="M3 15h18v4" />
+      <path d="M21 15v-2.5A2.5 2.5 0 0 0 18.5 10H11v5" />
+      <circle cx="7" cy="11.5" r="1.75" />
+    </svg>
+  );
+}
+
+export function IconBath(props: IconProps) {
+  return (
+    <svg {...strokeProps} aria-hidden="true" {...props}>
+      <path d="M3 12h18v2.5a4.5 4.5 0 0 1-4.5 4.5h-9A4.5 4.5 0 0 1 3 14.5V12Z" />
+      <path d="M6 12V6.5A2.5 2.5 0 0 1 8.5 4 2.5 2.5 0 0 1 11 6.5" />
+      <path d="M7 19l-1 2M17 19l1 2" />
+    </svg>
+  );
+}

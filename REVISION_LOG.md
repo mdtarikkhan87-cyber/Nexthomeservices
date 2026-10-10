@@ -379,6 +379,105 @@ Redundant with the logo by design: the logo is the *implicit* home affordance, w
 
 Lint clean, `next build` green across all 29 routes, re-run after the revert. Checked signed-out and signed-in as the two-role demo account (the fullest the bar ever gets: back arrow · logo · Listings · role switcher · List Your Property · Dashboard · bell · avatar) — **no horizontal overflow at 375px or 1200px**. Arrow confirmed navigating `/dashboard/landlord` → `/`, and correctly absent on `/`. Post-revert DOM state confirmed: header logo `primary` at 34 × 44, bar 64.7px, nav `font-weight: 700`, `Footer.tsx` diff empty against its original.
 
+## 17. NEW — Homepage hero redesign, phase 1 (reference-led)
+
+Client: the hero had no clear action, "verified listings" was repeated down the page, and the dark FeatureBar competed with the search. Reference image: `docs/reference/hero-reference.png`. Only the hero, nav styling and the search container changed; routes, auth, dashboards and the backend client are untouched.
+
+- **Hero** (`Hero.tsx`): white, no gradient or card. Two-line Dark Blue headline left, short paragraph right, one "Browse listings" → `/listings` button (Dark Blue, 6px radius, 44px). Full-bleed photo below it, top faded into white with `mask-image`, no scrim, not a link. Static: it takes no listing data, so it renders with zero listings or the backend down. The `heroListing` logic is gone from `page.tsx`.
+- **Nav** (`Header.tsx`), styling only: white, no bottom border, 14px links. Log in is a text link, Register an outlined Dark Blue button. Items are unchanged: logged-out users see Listings · Log in · Register, and List Your Property stays role-gated. The logged-in account trigger and List Your Property button were restyled to match.
+- **Search** (`SearchBar.tsx`): now one slim hairline-bordered row from `lg` (mode toggle · fields · Search), stacked inputs below. State and `handleSearch` are unchanged. Field labels became screen-reader-only (each select's first option is the visible prompt) and the selects gained a chevron.
+- **Removed from the homepage:** `<FeatureBar />`. The component file is left in place, unused.
+
+**Placeholder photo.** `public/images/hero-home.jpg` is a free Unsplash photo by Archidea X ([unsplash.com/photos/QfIIsMOAuMM](https://unsplash.com/photos/QfIIsMOAuMM)), cropped to about 2.2:1 so the whole house sits in a wide strip. Swap it for client photography; the crop (house in the lower half, pale sky above) is what makes the fade work.
+
+**Responsive pass** (against `RESPONSIVE_STRATEGY.md`; measured at 320 to 1440px)
+- Hero and search use only the three spec tiers: Compact (<`md`), Medium (`md`), Wide (`lg`). The `sm:` structural steps are gone; `sm:px-6` stays as the shared gutter that lines up with the header.
+- Touch targets: the selects had their 44px of padding on the cell around them, so the control itself was a 20px strip. The padding now sits on the select. The nav "Listings" link (36px at tablet) and the logged-in bell (36px) are 44px.
+- Wide search bar: one slim row when the bar is at least 67rem wide (a container query, not a fourth viewport tier; roughly viewports ≥1120px), otherwise two rows (toggle, then fields + Search) so no prompt truncates at 1024px. The single row drops the toggle icons to save width.
+- Tablet: Duration and Service Type take the full row instead of leaving half of it empty. Headline is fluid on phones (40 to 56px) and fixed at 60px on tablet.
+- Not changed: the role-switcher trigger is 36px tall at phone and tablet; it is `RoleSwitcher.tsx`, outside this change.
+
+**Judgement calls**
+- The headline is "~80px" but capped by available width (`min(5rem, (100vw − 23.5rem)/10)`): at 80px "Find your next home," is about 785px wide, which does not fit in 60% of the container beside the paragraph. Both lines stay on two lines from `sm` up; on phones it wraps to three at 40px.
+- Photo height is `max(60vh, 37.5vw)`: 60vh as briefed, but never shorter than the house needs, so wide screens do not crop the roof.
+- The search row keeps Services, price, bedrooms and duration, not only Rent/Buy · location · Search: dropping them would remove homepage functionality the brief said to leave alone. Hiding them is a class change if the client wants the barer bar.
+
+---
+
+## 18. NEW — Landing page: wide-screen layout and a richer finish
+
+Supersedes parts of §17: the hero is a photo with a white headline again (not type on white with the photo below), and the search bar floats over the hero's bottom edge. The "Browse listings" button stays, now white on the photo.
+
+**Wide screens.** The page (header, content, footer) is wrapped in a centred 1600px column in `providers.tsx`; beyond it the Off-white body shows either side, and the hero's bottom corners round (`rounded-b-3xl`) once the screen is wider than the column. The header, hero, search bar, sections and footer share one 1280px container (`ui/Container.tsx`). Hero height is `min(70vh, 720px)`, independent of the image. The wrapper applies to every route, so other pages gain the Off-white margins above 1600px and are otherwise unchanged; only the landing page, header and footer use the new 1280px container, because the other routes are laid out on 6xl and would otherwise sit out of line with the logo.
+
+**Hero.** Dark Blue overlay: 40% at the bottom fading out, plus a uniform 28% tint and a scrim behind the text. The extra layers are not in the brief: with the 40% gradient alone the white headline measured under 3:1 over the sky and white walls at 375, 768 and 1024px. Now the headline (large text) is ≥ 3.8:1 at the 90th-percentile pixel at every width tested (375 to 1920px; its brightest 1% at 1024px dips to 2.8:1), and the subline is ≥ 5.6:1 even at its worst pixel. Headline 36–60px (clamp), Quicksand Bold; subline Medium. The photo is still the §17 placeholder; it was chosen for a pale sky, so a darker photo would need less overlay.
+
+**Sections.** Alternating White / Off-white with the Dark Blue trust chapter between; `py-20` to `py-28`; each section fades its own content up once (`Reveal`, reduced motion respected). Eyebrows keep the `u-label` style with a short Blue rule. Body copy on the landing page uses Dark Blue at 70% (`--color-text-body`, 5.5:1 on white).
+
+**Cards.** "Browse by" is now four photo cards (a real listing's photo per state; counts from the catalog). Listing cards (shared with `/listings`): rounded-2xl, layered shadow, 4px hover lift, photo zoom, Verified pill, price in Deep Blue, bed and bath counts with icons. There is no floor-area field in the data, so none is shown.
+
+**Stats strip.** Homes listed, states covered, service trades: counted from the live catalog, nothing typed in. With the mock catalog the numbers are small (18, 6, 5).
+
+**Judgement calls**
+- The eyebrow text is Deep Blue with a Blue rule, not Blue text: Blue at 11px is 3.6:1 on white and 3.2:1 on Off-white, under AA. One class flips it.
+- At a hard 1600px cap the page is physically small when the browser is zoomed far out (at 25% on a 1920px monitor the column is about 400px wide). That is what a cap does; raising it, or scaling the type above 1600px, is a one-line change if the client wants more.
+
+---
+
+## 19. REVERT — hero returns to the white design (supersedes the hero parts of §18)
+
+Client: bring back the white hero (dark headline left, subline right, dark Browse button, photo fading into white) and make it hold up zoomed out and on 2K/4K screens. Only the hero, the search bar's position and the header's backdrop changed; every other section keeps its §18 styling.
+
+- **Source.** Git has only the original card-style hero; the white version was this session's §17 work and was never committed, so it was rebuilt from that, not restored from history. Commit it once approved so it has a history.
+- **Container.** Header, hero text, search bar and sections all use the shared 1280px container.
+- **Photo.** In a wrapper centred and capped at 1600px, `fill` + `object-cover` + `preload` (Next 16's name for `priority`). A CSS mask of two intersected gradients (top fade; left and right fades) means no hard edge at any width, with the `-webkit-` pair. From `lg` the height is `min(max(60vh, 37.5vw), 640px)`: the brief's `min(60vh, 640px)` plus a width term, because at 1366×768 plain 60vh put the roofline inside the top fade. Phones and tablets keep the 4:3 and 2:1 plates from §17.
+- **Headline.** Two `clamp()`s: 40–60px on phones and tablets, 56–80px from `lg`. Always two lines beside the subline from `md` up.
+- **White to the screen edge.** The page is still capped at 1600px with Off-white margins (§18), which would have put a faint white rectangle on Off-white around the faded photo. The top block (header, hero, search, stats) gets a full-viewport white backdrop (`.u-bleed-white`), and `body` gets `overflow-x: clip` so it cannot cause a horizontal scrollbar. The Off-white margins begin below it.
+- **Search bar.** Unchanged (still the §18 look and the same logic), now directly under the photo instead of floating over it.
+
+Measured at 1366, 1440, 1920, 2560, 3840 and, for 33% and 25% zoom on a 1920px monitor, 5760 and 7680px: photo edges within 6/255 of white (16/255 on phones, where the fade is narrower), pure white outside the photo, no horizontal overflow.
+
+---
+
+## 20. Search card redesign; stats strip removed (supersedes the search parts of §18 and §19)
+
+**Stats strip removed.** "Homes listed / States covered / Service trades" and its component are gone, and "Browse by" now follows the search card with the white block's bottom padding and the section's top padding both reduced.
+
+**Search card.** One floating white `rounded-3xl` card, a faint Dark Blue 8% border and the layered shadow, overlapping the photo's bottom edge by 40px (`-mt-10`) in the shared 1280px container. Buy / Rent / Services is a segmented control whose Blue pill slides (200ms); below it Location (widest), Price, Bedrooms and Duration have small uppercase labels, hairline dividers, 56px hit areas, an Off-white hover and a Blue focus ring, then Search. Below `lg` it stacks: Location, Price | Bedrooms, Duration, a full-width Search; every control is at least 48px.
+
+**Dropdowns.** The native `<select>`s became `ui/SelectField.tsx`, a button + listbox (rounded panel, soft shadow, Off-white hover, Light Blue tint and a check on the chosen row). Opens with Enter, Space or the arrows; arrows, Home/End, PageUp/PageDown and type-ahead move; Enter chooses; Escape or an outside click closes, and Tab hands focus on. The two long lists (37 states, up to 44 LGAs per state) have a filter box; names that start with what was typed rank above names that only contain it. The segmented control is a radio group with arrow-key selection.
+
+**Behaviour is unchanged.** `handleSearch`, the state/LGA/price reset rules, the Rent-only Duration, the Services-only service type and every option list are the same code as before, and the redesign touched markup only. Eight scenarios (Rent, Buy and Services, with and without filters; the price reset on Rent→Buy; the LGA reset on a state change) produce URLs identical to the previous search bar's. The first Location option now reads "Any state" in the list, while the field still shows "State, locality or area".
+
+**Judgement calls**
+- Labels and placeholders use Dark Blue at 70% (`--color-text-body`, 5.5:1), not 60% (about 4.0:1, under AA at 11px).
+- White on brand Blue (the active segment and the Search button) is 3.6:1: fine for large or bold UI text, short of AA for body-size text. It is the same pairing the existing primary buttons use; hover goes to Deep Blue (7.8:1). Flagged, not changed.
+- The 56px field row wraps a long selected price range onto two lines at narrow desktop widths rather than truncating it.
+
+---
+
+## 21. Navbar: Listings menu, Menu button, account menu, mobile sheet
+
+The top-level nav is unchanged: **Listings, Log in, Register** (plus the existing demo shortcut). Rent, Buy, Services and Help are not top-level items, and the logo still links home. What changed is what sits under them.
+
+- **Listings ▾** opens on hover, click or keyboard: Rent / Buy (the Listings toggle's URLs), "All listings", Browse by location (the same four states and counts as the landing page, from the new shared `lib/browse-facets.ts`), Short-term / Long-term rentals, and the line "Every listing is reviewed before it goes live."
+- **Menu** (icon and label from `lg`, icon only on tablet; on phones the hamburger opens the full sheet): How it works, Verified listings, FAQs.
+- **Signed in**, the account menu: Dashboard, Switch role (only with more than one role), Profile, Log out. It calls the same `setActiveRole` and landing-page navigation as the header's role switcher, with the same two gates (not for admin, not for one role); `auth-context.tsx` and `RoleSwitcher.tsx` are untouched. An admin sees Admin overview in place of Dashboard and has no Profile or Switch role, as before.
+- **Bar:** 80px tall on the shared 1280px container (other routes keep their 6xl so the logo stays aligned with their content), white at 90% with a backdrop blur, and a soft shadow and hairline once the page scrolls. Hover is Off-white `rounded-xl`; the current section gets a Blue bar under its label.
+- **Behaviour:** a menu-button pattern (`aria-haspopup="menu"`, `aria-expanded`, `role="menu"`): Enter, Space or the arrows open it; arrows, Home and End move; Escape closes and returns focus; Tab closes and moves on; an outside click closes. Fade and 6px slide, 180ms in and 140ms out; the exit unmounts on a timer, not on animation end, so a navigation cannot strand a panel. All of it collapses to near-zero under `prefers-reduced-motion`.
+- **Phone:** one sheet from the hamburger with every item above; each item 48px or taller, and the always-visible bar controls are 48px (44px from tablet up).
+
+**Left out because the page does not exist**
+- **Contact**: there is no contact page. Feedback (`/feedback`) and Report a Concern (`/complaints`) exist but are forms.
+- **How it works** and **Verified listings** have no pages of their own. "How it works" points at the landing page's trust-process section (`id="how-it-works"` added to it); "Verified listings" uses the existing `?verified=1` filter on `/listings`.
+
+**Judgement calls**
+- "Active item in Blue" is the Blue bar and left rule; the text stays Dark Blue or Deep Blue, since Blue text at 14–15px is 3.6:1 on white.
+- The header's persistent role switcher stays (client requirement §3B); the menu's Switch role is a second entry point to the same state, not a second source of truth.
+- The role-switcher chip is 36px tall; it is `RoleSwitcher.tsx`, outside this change.
+
+---
+
 ## Open items — still need client confirmation
 
 Carried forward from Spec §4 and the revision request. **None of these were guessed at**; each has a documented interim and a single place to change it.

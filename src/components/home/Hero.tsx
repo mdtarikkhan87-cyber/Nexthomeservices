@@ -1,106 +1,69 @@
 import Image from "next/image";
 import Link from "next/link";
-import { IconShield } from "@/components/ui/icons";
-import { PropertyListing } from "@/lib/types";
+import { Container } from "@/components/ui/Container";
 
-// Fixed hero photograph — deliberately NOT tied to any listing's photoUrl.
-// The hero previously showed whatever property happened to be "featured",
-// which read as if that specific listing was being promoted. This is a
-// permanent brand image and should not change when the featured listing does.
-const HERO_IMAGE_URL =
-  "https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=1600&auto=format&fit=crop";
+// Two gradients intersected: one fades the top edge, the other the left and
+// right edges, so the photograph melts into the white page on three sides and
+// has no hard edge at any width. (The bottom meets the search bar.)
+const PHOTO_MASK = [
+  "linear-gradient(to bottom, transparent, black 25%)",
+  "linear-gradient(to right, transparent, black 6%, black 94%, transparent)",
+].join(", ");
 
-// ============================================================================
-// HERO — calm editorial composition: type left, architecture right and low
-// ============================================================================
-// REDESIGNED to a contained-card brief: the photograph is a single rounded
-// panel that fills the section's full height (flush top and bottom, rounded
-// on every corner) rather than bleeding off the page edge. The search bar
-// that used to be pulled up to straddle the hero's bottom edge now sits in
-// its own section below, in normal flow — see page.tsx.
-//
-// CONTENT: same eyebrow, same headline wording, same description, same
-// featured listing.
-export function Hero({ listing }: { listing: PropertyListing }) {
+// Static by design: no listing data, so it renders with zero listings or the
+// backend down. The photo is a brand placeholder and is not a link.
+// The photo is a PLACEHOLDER — Archidea X on Unsplash
+// (unsplash.com/photos/QfIIsMOAuMM), cropped wide. Swap for client photography.
+export function Hero() {
   return (
-    <section className="relative overflow-hidden bg-[var(--color-surface-raised)]">
-      {/* Soft field behind the type so the left half never reads as flat
-          white against the photograph's density. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(90% 70% at 0% 10%, color-mix(in srgb, var(--color-surface-dense) 60%, transparent) 0%, transparent 62%)",
-        }}
-      />
-
-      <div className="relative mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:py-16">
-        {/* ---------- The photograph --------------------------------------- */}
-        {/* A contained card — flush to the section's own top/bottom edge and
-            rounded on all four corners, rather than bleeding past the page. */}
-        <div className="pointer-events-none absolute inset-y-6 right-4 hidden w-[54%] overflow-hidden rounded-[var(--radius-feature)] sm:right-6 lg:block lg:inset-y-10">
-          <Link
-            href={`/listing/${listing.id}`}
-            aria-label={`View ${listing.title}`}
-            className="group pointer-events-auto absolute inset-0"
-          >
-            <Image
-              src={HERO_IMAGE_URL}
-              alt=""
-              fill
-              priority
-              sizes="55vw"
-              className="object-cover transition-transform duration-[var(--motion-duration-rich)] ease-[var(--motion-easing-warm)] group-hover:scale-[1.03]"
-            />
-            {/* Very light scrim on the left edge only — the type sits beside
-                the image, not on it, so this exists purely to stop a bright
-                sky butting hard against the copy. */}
-            <div
-              aria-hidden
-              className="absolute inset-0"
-              style={{
-                background:
-                  "linear-gradient(90deg, color-mix(in srgb, var(--color-dark-blue) 18%, transparent) 0%, transparent 24%)",
-              }}
-            />
-          </Link>
-        </div>
-
-        {/* ---------- The type ------------------------------------------ */}
-        <div className="relative z-10 py-2 sm:py-4 lg:min-h-[32rem] lg:w-[44%] lg:py-16">
-          <p className="u-label inline-flex items-center gap-2 text-[var(--color-brand-primary-text)]">
-            <IconShield className="h-4 w-4" />
-            Verified listings, reviewed before they go live
-          </p>
-
-          <h1 className="u-display mt-6 text-[2.75rem] text-[var(--color-text-primary)] sm:text-[3.5rem] lg:text-[4rem]">
+    <section className="bg-[var(--color-white)]">
+      {/* Same container as the header, search bar and sections. */}
+      <Container className="pb-8 pt-10 md:pb-10 md:pt-14 lg:pt-16">
+        <div className="lg:flex lg:items-start lg:justify-between lg:gap-8">
+          {/* Two clamps, one per tier, so both lines always fit beside the
+              paragraph: 40–60px on phones and tablets, 56–80px from `lg`. */}
+          <h1 className="text-balance text-[clamp(2.5rem,9vw,3.75rem)] font-bold leading-[1.05] tracking-[-0.02em] text-[var(--color-text-primary)] lg:shrink-0 lg:text-[clamp(3.5rem,6vw,5rem)]">
             Find your next home,
-            <br />
-            <span className="text-[var(--color-brand-primary)]">with confidence.</span>
+            <br className="hidden md:block" /> with confidence.
           </h1>
 
-          <p className="mt-6 max-w-md text-[var(--color-text-secondary)]">
-            Verified landlords, real listings, and one place to message, save and follow up — instead of
-            scattered groups and unreliable agents.
+          <p className="mt-5 max-w-[30ch] text-base text-[var(--color-text-secondary)] lg:mt-3 lg:shrink-0">
+            Verified landlords and <span className="whitespace-nowrap">admin-reviewed</span> listings across
+            Nigeria, all in one place.
           </p>
         </div>
 
-        {/* ---------- Photograph, compact viewports ---------------------- */}
-        {/* Contained and above the fold-line rather than bleeding, so the
-            subject is never cropped to a sliver on a narrow screen. */}
         <Link
-          href={`/listing/${listing.id}`}
-          className="group relative mt-6 block aspect-[16/11] w-full overflow-hidden rounded-[var(--radius-feature)] bg-[var(--color-surface-dense)] sm:aspect-[16/9] lg:hidden"
+          href="/listings"
+          className="mt-8 inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--color-dark-blue)] px-6 text-sm font-bold text-white transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-deep-blue)] lg:mt-10"
         >
-          <Image
-            src={HERO_IMAGE_URL}
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover transition-transform duration-[var(--motion-duration-rich)] ease-[var(--motion-easing-warm)] group-hover:scale-[1.03]"
-          />
+          Browse listings
         </Link>
+      </Container>
+
+      {/* Centred and capped at 1600px, so on a wide or zoomed-out screen the
+          photograph never stretches. From `lg` the height is 60vh, capped at
+          640px, and never shorter than the width needs to keep the roofline
+          below the top fade (it is the 37.5vw term that matters at 1366px).
+          No scrim, no text, not a link. Phones and tablets keep the fixed
+          4:3 / 2:1 plate. */}
+      <div
+        className="relative mx-auto aspect-[4/3] w-full max-w-[1600px] md:aspect-[2/1] lg:aspect-auto lg:h-[min(max(60vh,37.5vw),640px)]"
+        style={{
+          maskImage: PHOTO_MASK,
+          maskComposite: "intersect",
+          WebkitMaskImage: PHOTO_MASK,
+          WebkitMaskComposite: "source-in",
+        }}
+      >
+        <Image
+          src="/images/hero-home.jpg"
+          alt="A modern single-storey home with timber cladding and a white wing, set in a green garden"
+          fill
+          preload
+          sizes="(min-width: 1600px) 1600px, 100vw"
+          className="object-cover object-[62%_100%] lg:object-bottom"
+        />
       </div>
     </section>
   );
