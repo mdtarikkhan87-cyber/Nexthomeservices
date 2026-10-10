@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ReviewDialogShell } from "./ReviewDialogShell";
 import { useAdminReview } from "@/lib/use-admin-review";
 import { AdminAdReview, fetchAdReview } from "@/lib/admin-client";
+import { ContentItemState } from "@/lib/types";
 
 // Unlike the document dialog, a broken/placeholder ad image does NOT block
 // Approve/Reject — the headline and link are still fully reviewable text,
@@ -14,6 +15,7 @@ import { AdminAdReview, fetchAdReview } from "@/lib/admin-client";
 export function AdReviewDialog({
   open,
   adId,
+  status,
   fallbackTitle,
   onClose,
   onApprove,
@@ -21,6 +23,11 @@ export function AdReviewDialog({
 }: {
   open: boolean;
   adId: string;
+  /** The row's current status — drives which action(s) the footer offers:
+      pending shows both, live shows Reject only, rejected shows Approve
+      only. Taken from the row, not the fetched detail, same reasoning as
+      ListingReviewDialog. */
+  status: ContentItemState;
   /** The combined "{headline} — {advertiser}" title already known from the
       list row — shown immediately, before the real detail finishes loading. */
   fallbackTitle: string;
@@ -92,12 +99,16 @@ export function AdReviewDialog({
           <Button variant="secondary" size="dense" onClick={onClose}>
             Close
           </Button>
-          <Button variant="destructive" size="dense" onClick={onReject}>
-            Reject
-          </Button>
-          <Button variant="primary" size="dense" onClick={onApprove}>
-            Approve
-          </Button>
+          {status !== "rejected" && (
+            <Button variant="destructive" size="dense" onClick={onReject}>
+              Reject
+            </Button>
+          )}
+          {status !== "live" && (
+            <Button variant="primary" size="dense" onClick={onApprove}>
+              Approve
+            </Button>
+          )}
         </>
       }
     />
