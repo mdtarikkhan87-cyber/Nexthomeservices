@@ -15,7 +15,7 @@ export function FacetGrid({ listings }: { listings: PropertyListing[] }) {
   const { states, durations } = browseFacets(listings);
 
   return (
-    <section id="browse-by" className="bg-[var(--color-surface-base)] pb-20 pt-14 md:pb-24 md:pt-16 lg:pb-28 lg:pt-20">
+    <section id="browse-by" className="bg-[var(--color-surface-base)] pb-12 pt-8 md:pb-20 md:pt-12 lg:pt-16">
       <Container>
         <Reveal>
           <div className="mb-10 flex flex-wrap items-end justify-between gap-4">

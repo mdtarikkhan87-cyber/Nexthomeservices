@@ -35,7 +35,7 @@ export function ClosingCta() {
     "inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--color-border-default)] px-6 text-sm font-bold text-[var(--color-text-primary)] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-deep-blue)]";
 
   return (
-    <section className="bg-[var(--color-surface-base)] pb-8 pt-20 md:pt-24 lg:pt-28">
+    <section className="bg-[var(--color-surface-base)] py-12 md:py-20">
       <Container>
         <Reveal>
           <div className="flex flex-col gap-8 rounded-3xl bg-[var(--color-surface-raised)] p-8 shadow-[var(--elevation-card)] md:flex-row md:items-center md:justify-between md:p-12">

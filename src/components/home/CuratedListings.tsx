@@ -32,7 +32,7 @@ export function CuratedListings({ listings }: { listings: PropertyListing[] }) {
   if (!feature) return null;
 
   return (
-    <section className="bg-[var(--color-surface-raised)] py-20 md:py-24 lg:py-28">
+    <section className="bg-[var(--color-surface-raised)] py-12 md:py-20">
       <Container>
         <Reveal>
           <div className="mb-10 flex flex-wrap items-end justify-between gap-5">

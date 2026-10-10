@@ -21,7 +21,7 @@ export function ServicesBand() {
   const categories = SERVICE_CATEGORIES;
 
   return (
-    <section className="bg-[var(--color-surface-raised)] py-20 md:py-24 lg:py-28">
+    <section className="bg-[var(--color-surface-raised)] py-12 md:py-20">
       <Container>
         <Reveal>
           <div className="u-clip-corner relative overflow-hidden rounded-3xl">

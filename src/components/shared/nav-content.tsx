@@ -209,7 +209,9 @@ export function MobileSheetContent({
 }: {
   pathname: string;
   isAuthenticated: boolean;
-  loggedOutActions: ReactNode;
+  /** Omit (or pass null) when the header bar already shows Log in / Register,
+      so the two never appear on screen together. */
+  loggedOutActions?: ReactNode;
 }) {
   return (
     <div className="pb-2">
@@ -244,9 +246,11 @@ export function MobileSheetContent({
         ))}
       </SheetSection>
 
-      <div className="mx-3 border-t border-[var(--color-border-hairline)] pt-3">
-        {isAuthenticated ? <AccountItems inMenu={false} /> : loggedOutActions}
-      </div>
+      {(isAuthenticated || loggedOutActions) && (
+        <div className="mx-3 border-t border-[var(--color-border-hairline)] pt-3">
+          {isAuthenticated ? <AccountItems inMenu={false} /> : loggedOutActions}
+        </div>
+      )}
 
       <ReviewNote className="px-6 pb-3 pt-4" />
     </div>
