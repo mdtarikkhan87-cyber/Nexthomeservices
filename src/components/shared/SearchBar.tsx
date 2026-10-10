@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { FOCUS_RING, SelectField } from "@/components/ui/SelectField";
 import { mockServices } from "@/lib/mock-data";
 import { NIGERIAN_STATES, lgasForState } from "@/lib/nigeria-locations";
 
@@ -31,65 +32,34 @@ export const PRICE_RANGES: Record<"rent" | "sale", { value: string; label: strin
   ],
 };
 
-const TABS: { value: SearchMode; label: string; icon: React.ReactNode }[] = [
-  {
-    value: "sale",
-    label: "Buy",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L3.24 9.59A2 2 0 0 0 3.83 11l9.58 9.59a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.83Z" />
-        <circle cx="8.5" cy="8.5" r="1.5" />
-      </svg>
-    ),
-  },
-  {
-    value: "rent",
-    label: "Rent",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <circle cx="8" cy="15" r="4" />
-        <path d="M10.85 12.15 19 4M19 4h-4M19 4v4" />
-      </svg>
-    ),
-  },
-  {
-    value: "services",
-    label: "Services",
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M14.7 6.3a3.5 3.5 0 0 0 4.6 4.6l-8 8a2.3 2.3 0 0 1-3.2-3.2l8-8Z" />
-        <path d="m6.5 6.5 3 3" />
-      </svg>
-    ),
-  },
+const TABS: { value: SearchMode; label: string }[] = [
+  { value: "sale", label: "Buy" },
+  { value: "rent", label: "Rent" },
+  { value: "services", label: "Services" },
 ];
 
-// VISUAL REFINEMENT (structural layout inspired by a reference image,
-// restyled entirely with approved NextHome tokens — see chat for what was
-// intentionally NOT carried over from the reference: "Shortlet" and "Joint
-// Venture" tabs, and a literal "Property Type" filter, none of which exist
-// in the approved PRD/PRODUCT_DECISIONS.md scope. The reference's 4th
-// filter slot is used instead for the already-approved Short-Term/
-// Long-Term rent duration tag (PRD §4/§14), shown only in Rent mode.
-//
-// SPACING PASS: fields were reading cramped/congested — root cause was
-// two-fold: (1) the hero layout squeezed this into ~50% of the page width
-// (fixed at the call site, not here), and (2) the fields themselves used a
-// near-zero vertical padding (py-1) with an 11px label and 14px value.
-// Both fixed: generous per-field padding and larger label/value type so
-// the selected value is the most prominent thing in each column.
-//
-// OVERFLOW FIX: that pass also gave each field a hard `min-width` (260 /
-// 240 / 180 / 200px) and relied on `overflow-x-auto` as a fallback when
-// they didn't all fit — which is exactly backwards: those floors summed
-// to ~900px of hard minimums plus padding/dividers/button, easily
-// exceeding the available width below very wide viewports, so the
-// "fallback" was firing constantly and showing a scrollbar instead of a
-// genuinely fitted row. Replaced with CSS Grid `fr` columns at `lg`: by
-// definition a set of `fr` tracks always sums to exactly 100% of the
-// container, so this can't overflow. `min-w-0` on each field lets its
-// `<select>` shrink/ellipsis instead of forcing its column wider than its
-// fr share. No `overflow-x` anywhere in this component anymore.
+const BEDROOM_OPTIONS = [
+  { value: "", label: "Any beds" },
+  ...[1, 2, 3, 4].map((b) => ({ value: String(b), label: `${b}+ beds` })),
+];
+
+const DURATION_OPTIONS = [
+  { value: "", label: "Any duration" },
+  { value: "short-term", label: "Short-Term" },
+  { value: "long-term", label: "Long-Term" },
+];
+
+const STATE_OPTIONS_BASE = NIGERIAN_STATES.map((s) => ({ value: s, label: s }));
+
+// One floating card: the mode toggle on top, then the fields, then Search.
+// Layout follows RESPONSIVE_STRATEGY.md's tiers —
+//   Compact / Medium (<lg)  stacked: Location full width, Price and Bedrooms
+//                           side by side, Duration full width, Search full
+//                           width; every control at least 48px tall.
+//   Wide (lg)               one row: Location (widest) · Price · Bedrooms ·
+//                           Duration · Search, with hairline dividers.
+// Only the markup changed in the redesign; the state, the option lists, the
+// resets and the URLs built below are exactly what they were.
 export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }) {
   const router = useRouter();
   const [mode, setMode] = useState<SearchMode>(initialMode);
@@ -133,201 +103,187 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
     router.push(`/listings?${params.toString()}`);
   };
 
-  // EDITORIAL REDESIGN: labels drop to a small tracked-out UI label and
-  // values to a normal reading size. The previous pass had used a 20px bold
-  // value, which shouted — a search panel should read as a precise
-  // instrument, not as headline type. Values use the UI face so locations
-  // and price ranges align cleanly across the columns.
-  const fieldLabel = "u-label block text-[var(--color-text-secondary)] whitespace-nowrap";
-  const fieldValue =
-    "u-ui mt-2 w-full appearance-none bg-transparent text-[15px] font-semibold text-[var(--color-text-primary)] outline-none whitespace-nowrap overflow-hidden text-ellipsis [text-overflow:ellipsis]";
+  // Rent and sale prices are on different scales, so the bucket list (and the
+  // selected bucket) follow the mode. Services has no price.
+  const priceOptions = useMemo(
+    () => (mode === "services" ? [] : [{ value: "", label: "Any price" }, ...PRICE_RANGES[mode]]),
+    [mode]
+  );
+  const stateOptions = useMemo(
+    () => [{ value: "", label: "Any state" }, ...STATE_OPTIONS_BASE],
+    []
+  );
+  const lgaOptions = useMemo(
+    () => (state ? [{ value: "", label: `All LGAs in ${state}` }, ...lgasForState(state).map((l) => ({ value: l, label: l }))] : []),
+    [state]
+  );
+  const serviceOptions = useMemo(
+    () => [{ value: "", label: "Any service" }, ...SERVICE_TYPES.map((c) => ({ value: c, label: c }))],
+    []
+  );
+
+  // Switching mode clears the price: rent/sale buckets use different scales.
+  const selectMode = (next: SearchMode) => {
+    setMode(next);
+    setPriceRange("");
+  };
+
+  // Segmented control keyboard: arrows (and Home/End) move and select, with a
+  // roving tab stop so Tab passes through the control once.
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const onTabKeyDown = (e: React.KeyboardEvent, index: number) => {
+    let next = -1;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (index + 1) % TABS.length;
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (index - 1 + TABS.length) % TABS.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = TABS.length - 1;
+    if (next < 0) return;
+    e.preventDefault();
+    selectMode(TABS[next].value);
+    tabRefs.current[next]?.focus();
+  };
+  const modeIndex = TABS.findIndex((t) => t.value === mode);
+
+  // From `lg`, the field columns depend on the mode: Duration exists only in
+  // Rent, and Services swaps price/beds/duration for a service type. The
+  // Location column is always the widest.
+  const columns =
+    mode === "rent"
+      ? "lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)]"
+      : mode === "sale"
+        ? "lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.9fr)]"
+        : "lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]";
+
+  // A hairline divider before every field after the first, from `lg`.
+  const cell =
+    "relative min-w-0 lg:px-1 lg:before:absolute lg:before:inset-y-3 lg:before:left-0 lg:before:w-px lg:before:bg-[color-mix(in_srgb,var(--color-dark-blue)_12%,transparent)] lg:first:before:hidden";
 
   return (
-    <div className="w-full max-w-full rounded-[var(--radius-feature)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] shadow-[var(--elevation-lg)] [box-sizing:border-box]">
-      {/* Top row: intent tabs — individual pills, not a single segmented
-          track, per the reference's structure. Only Buy/Rent are real,
-          approved search modes (PRODUCT_UNDERSTANDING.md §5, PRD §4).
-          `flex-wrap` instead of `overflow-x-auto` — with only 2 tabs this
-          never actually needs to wrap, but it's a safe fallback that
-          can't produce a scrollbar if it ever did. */}
-      <div className="flex flex-wrap items-center gap-2 px-5 pt-5 sm:px-7 sm:pt-6">
-        {TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => {
-              setMode(tab.value);
-              setPriceRange(""); // rent/sale price buckets use different scales
-            }}
-            aria-pressed={mode === tab.value}
-            className={`u-ui inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-[13px] font-semibold transition-colors duration-[var(--motion-duration-short)] ${
-              mode === tab.value
-                ? "bg-[var(--color-brand-primary)] text-white shadow-[var(--elevation-xs)]"
-                : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-dense)]"
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+    <div
+      role="search"
+      aria-label="Search homes and services"
+      className="w-full max-w-full rounded-3xl border border-[color-mix(in_srgb,var(--color-dark-blue)_8%,transparent)] bg-[var(--color-surface-raised)] p-4 shadow-[var(--elevation-float)] sm:p-5 lg:p-6"
+    >
+      {/* Mode toggle. Only Buy/Rent/Services are real, approved search modes
+          (PRODUCT_UNDERSTANDING.md §5, PRD §4). The Blue pill slides under
+          the active label. */}
+      <div
+        role="radiogroup"
+        aria-label="Search for"
+        className="relative grid w-full grid-cols-3 rounded-full bg-[var(--color-surface-base)] p-1 md:w-[22rem]"
+      >
+        <span
+          aria-hidden
+          className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-full bg-[var(--color-brand-primary)] shadow-[0_2px_8px_-2px_rgba(4,146,194,0.5)] transition-transform duration-200 ease-out"
+          style={{ transform: `translateX(${modeIndex * 100}%)` }}
+        />
+        {TABS.map((tab, i) => {
+          const isActive = mode === tab.value;
+          return (
+            <button
+              key={tab.value}
+              ref={(el) => {
+                tabRefs.current[i] = el;
+              }}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              tabIndex={isActive ? 0 : -1}
+              onClick={() => selectMode(tab.value)}
+              onKeyDown={(e) => onTabKeyDown(e, i)}
+              className={`u-ui relative z-10 min-h-12 rounded-full! px-4 text-[15px] font-bold transition-colors duration-200 ${FOCUS_RING} ${
+                isActive ? "text-white" : "text-[var(--color-dark-blue)] hover:text-[var(--color-deep-blue)]"
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="mx-5 mt-5 border-t border-[var(--color-border-hairline)] sm:mx-7" />
-
-      {/* Main row: Location gets the most visual weight (first, widest);
-          fields are divided by a thin vertical rule, not individual boxes
-          (DESIGN_SYSTEM.md §6: borders used sparingly, dividers subtle).
-          At `lg`, `fr` grid columns replace the old flex+min-width
-          combo — `fr` tracks always sum to exactly the container's width,
-          so this literally cannot overflow it. `min-w-0` on every field
-          lets its `<select>` shrink/ellipsis inside its column instead of
-          forcing the column wider. Column count/ratio is conditional on
-          `mode` since Duration only exists in Rent mode. */}
-      <div
-        className={`grid grid-cols-1 divide-y divide-[var(--color-border-hairline)] p-5 sm:p-7 lg:divide-x lg:divide-y-0 lg:items-stretch ${
-          mode === "rent"
-            ? "lg:grid-cols-[1.3fr_1fr_1fr_1fr_auto]"
-            : mode === "sale"
-              ? "lg:grid-cols-[1.3fr_1fr_1fr_auto]"
-              : "lg:grid-cols-[1.3fr_1fr_auto]"
-        }`}
-      >
-        <div className="min-w-0 py-5 lg:py-3 lg:pr-8">
-          <label className={fieldLabel} htmlFor="sb-location">
-            Location
-          </label>
-          {/* Kept a dropdown, not free text — PRD §4: "Location filtering
-              uses a dropdown list of states rather than free text, so
-              results stay accurate." */}
-          {/* Live in every mode, Services included. It used to be disabled
-              there with a "coming soon" note, because ServiceListing had no
-              location to filter on; it has one now, and the directory filters
-              by it, so leaving this dead would have the homepage denying a
-              feature the page it links to actually has. */}
-          <select
-            id="sb-location"
-            value={state}
-            onChange={(e) => {
-              setState(e.target.value);
-              setLga("");
-            }}
-            className={fieldValue}
-          >
-            <option value="">{mode === "services" ? "Any state" : "State, locality or area"}</option>
-            {NIGERIAN_STATES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          {/* LGA lives INSIDE the Location column rather than taking a column
-              of its own: a sixth `fr` track in rent mode would squeeze every
-              field back to the cramped widths the grid pass just fixed. It
-              appears only once a state is chosen, because until then it has
-              nothing to offer — an LGA name is only unambiguous within its
+      <div className="mt-4 flex flex-col gap-3 lg:mt-5 lg:flex-row lg:items-center lg:gap-4">
+        <div className={`grid min-w-0 grid-cols-2 gap-3 lg:flex-1 lg:gap-0 ${columns}`}>
+          {/* Location. Kept a dropdown, not free text — PRD §4: "Location
+              filtering uses a dropdown list of states rather than free text,
+              so results stay accurate." Live in every mode, Services included.
+              The LGA picker sits INSIDE this field and appears only once a
+              state is chosen: an LGA name is only unambiguous within its
               state. */}
-          {state && (
-            <select
-              id="sb-lga"
-              aria-label="Local Government Area"
-              value={lga}
-              onChange={(e) => setLga(e.target.value)}
-              className="u-ui mt-1.5 w-full appearance-none overflow-hidden text-ellipsis whitespace-nowrap bg-transparent text-[13px] font-medium text-[var(--color-text-secondary)] outline-none"
-            >
-              <option value="">All LGAs in {state}</option>
-              {lgasForState(state).map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </select>
+          <div className={`${cell} col-span-2 flex flex-col gap-3 lg:col-span-1 lg:gap-0`}>
+            <SelectField
+              label="Location"
+              value={state}
+              options={stateOptions}
+              // The old prompt, kept as the field's resting text in Rent and Buy.
+              placeholder={mode === "services" ? "Any state" : "State, locality or area"}
+              searchable
+              searchPlaceholder="Search states"
+              onChange={(v) => {
+                setState(v);
+                setLga("");
+              }}
+            />
+            {state && (
+              <SelectField
+                variant="inline"
+                ariaLabel="Local Government Area"
+                fieldName="Local Government Area"
+                value={lga}
+                options={lgaOptions}
+                searchable
+                searchPlaceholder="Search areas"
+                onChange={setLga}
+              />
+            )}
+          </div>
+
+          {/* Property-only fields. `PRICE_RANGES[mode]` is indexed above, which
+              is exactly why the services mode must not reach this branch —
+              PRICE_RANGES has no "services" key. */}
+          {mode !== "services" && (
+            <>
+              <div className={cell}>
+                <SelectField label="Price" value={priceRange} options={priceOptions} onChange={setPriceRange} />
+              </div>
+              <div className={cell}>
+                <SelectField
+                  label="Bedrooms"
+                  value={bedrooms}
+                  options={BEDROOM_OPTIONS}
+                  onChange={setBedrooms}
+                  panelClassName="right-0 left-auto lg:left-0 lg:right-auto"
+                />
+              </div>
+            </>
           )}
 
+          {/* Service Type — the one Services field that genuinely filters.
+              Options come from the live catalog, so the dropdown can never
+              offer a category with no providers behind it. */}
+          {mode === "services" && (
+            <div className={`${cell} col-span-2 lg:col-span-1`}>
+              <SelectField label="Service type" value={serviceType} options={serviceOptions} onChange={setServiceType} />
+            </div>
+          )}
+
+          {mode === "rent" && (
+            <div className={`${cell} col-span-2 lg:col-span-1`}>
+              <SelectField label="Duration" value={duration} options={DURATION_OPTIONS} onChange={setDuration} />
+            </div>
+          )}
         </div>
 
-        {/* Property-only fields. `PRICE_RANGES[mode]` is indexed here, which
-            is exactly why the services mode must not reach this branch —
-            PRICE_RANGES has no "services" key. */}
-        {mode !== "services" && (
-          <>
-            <div className="min-w-0 py-5 lg:py-3 lg:px-8">
-              <label className={fieldLabel} htmlFor="sb-price">
-                Price Range
-              </label>
-              <select id="sb-price" value={priceRange} onChange={(e) => setPriceRange(e.target.value)} className={fieldValue}>
-                <option value="">Any price</option>
-                {PRICE_RANGES[mode].map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="min-w-0 py-5 lg:py-3 lg:px-8">
-              <label className={fieldLabel} htmlFor="sb-bedrooms">
-                Bedrooms
-              </label>
-              <select id="sb-bedrooms" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} className={fieldValue}>
-                <option value="">Any beds</option>
-                {[1, 2, 3, 4].map((b) => (
-                  <option key={b} value={b}>
-                    {b}+ beds
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
-
-        {/* Service Type — the one Services field that genuinely filters.
-            Options come from the live catalog, so the dropdown can never
-            offer a category with no providers behind it. */}
-        {mode === "services" && (
-          <div className="min-w-0 py-5 lg:py-3 lg:px-8">
-            <label className={fieldLabel} htmlFor="sb-service-type">
-              Service Type
-            </label>
-            <select
-              id="sb-service-type"
-              value={serviceType}
-              onChange={(e) => setServiceType(e.target.value)}
-              className={fieldValue}
-            >
-              <option value="">Any service</option>
-              {SERVICE_TYPES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {mode === "rent" && (
-          <div className="min-w-0 py-5 lg:py-3 lg:px-8">
-            <label className={fieldLabel} htmlFor="sb-duration">
-              Duration
-            </label>
-            <select id="sb-duration" value={duration} onChange={(e) => setDuration(e.target.value)} className={fieldValue}>
-              <option value="">Any duration</option>
-              <option value="short-term">Short-Term</option>
-              <option value="long-term">Long-Term</option>
-            </select>
-          </div>
-        )}
-
-        <div className="flex min-w-0 items-center pt-6 lg:py-3 lg:pl-8">
-          <button
-            onClick={handleSearch}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-[var(--radius-control)] bg-[var(--color-brand-primary)] px-7 py-3.5 text-sm font-bold text-white transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-brand-primary-hover)] lg:w-auto lg:px-8"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-            Search
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleSearch}
+          className={`inline-flex min-h-14 w-full items-center justify-center gap-2.5 rounded-2xl! bg-[var(--color-brand-primary)] px-8 text-base font-bold text-white shadow-[0_8px_20px_-8px_rgba(4,146,194,0.6)] transition-[background-color,transform,box-shadow] duration-200 hover:bg-[var(--color-deep-blue)] active:scale-[0.97] lg:w-auto lg:shrink-0 ${FOCUS_RING}`}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          Search
+        </button>
       </div>
     </div>
   );
