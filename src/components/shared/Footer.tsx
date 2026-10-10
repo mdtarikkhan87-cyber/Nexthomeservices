@@ -153,7 +153,7 @@ export function Footer() {
             <FooterGroup key={group.title} group={group} collapsible={compact} />
           ))}
         </div>
- <div className={`${compact ? "mt-0" : "mt-10"} border-t border-[var(--color-border-hairline)] ${compact ? "pt-4" : "pt-6"} text-sm text-[var(--color-text-secondary)]`}>
+        <div className={`${compact ? "mt-0" : "mt-10"} border-t border-[var(--color-border-hairline)] ${compact ? "pt-4" : "pt-6"} text-sm text-[var(--color-text-secondary)]`}>
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
             <span>© {new Date().getFullYear()} NextHome. All rights reserved.</span>
             <span className="flex gap-5">
@@ -166,3 +166,7 @@ export function Footer() {
             </span>
           </div>
         </div>
+      </div>
+    </footer>
+  );
+}
