@@ -224,7 +224,7 @@ export function PropertyBrowser() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <div className="mx-auto max-w-6xl px-4 pb-10 pt-6 sm:px-6 sm:pb-12 sm:pt-10">
       {/* One page, one H1, one mode control. The eyebrow/heading/intro are
           keyed on `mode` so the page states plainly which side of the toggle
           is showing — a toggle whose only feedback is the pill position makes
@@ -235,9 +235,9 @@ export function PropertyBrowser() {
           character-by-character under the reader. `min-h` reserves the
           block's height so the results grid below it cannot jump while the
           two-line and three-line intros swap. */}
-      <div className="mb-9 border-b border-[var(--color-border-hairline)] pb-8">
-        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-5">
-          <div className="min-h-[9.5rem] sm:min-h-[11.5rem]">
+      <div className="mb-6 border-b border-[var(--color-border-hairline)] pb-6 lg:mb-8 lg:pb-8">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+          <div className="min-h-[9.5rem] sm:min-h-[10.5rem]">
             {/* No AnimatePresence, and no exit animation, on purpose.
                 The heading is the page telling you which mode you are in —
                 required state, not decoration. Any presence-based exit makes
@@ -322,7 +322,7 @@ export function PropertyBrowser() {
               filter is visible here and individually removable, including the
               ones set from a shared URL or hidden inside the collapsed
               advanced section. */}
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <p className="u-ui text-[13px] font-semibold text-[var(--color-text-secondary)]">
               <span className="u-numeric text-[var(--color-text-primary)]">{results.length}</span> result
               {results.length !== 1 ? "s" : ""}
@@ -352,7 +352,7 @@ export function PropertyBrowser() {
           </div>
 
           {chips.length > 0 && (
-            <div className="mb-6 flex flex-wrap items-center gap-2">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
               {chips.map((chip) => (
                 <button
                   key={`${chip.key}-${chip.value ?? ""}`}
@@ -409,7 +409,7 @@ export function PropertyBrowser() {
               initial={chosen === null ? false : "hidden"}
               animate="shown"
               variants={{ shown: { transition: { staggerChildren: 0.035 } } }}
-              className="grid grid-cols-1 gap-x-5 gap-y-9 sm:grid-cols-2 xl:grid-cols-3"
+              className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 sm:gap-y-8 xl:grid-cols-3"
             >
               {results.map((listing, i) => (
                 <motion.div

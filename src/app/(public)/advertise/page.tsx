@@ -10,7 +10,7 @@ export default function AdvertisePage() {
   const router = useRouter();
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-14 text-center sm:px-6 sm:py-20">
+    <div className="mx-auto max-w-2xl px-4 py-10 text-center sm:px-6 sm:py-14">
       <h1 className="text-3xl font-bold tracking-tight text-[var(--color-text-primary)] sm:text-4xl">Advertise on NextHome</h1>
       <p className="mt-3 text-[var(--color-text-secondary)]">
         Put your business, property, or service in front of visitors browsing NextHome. Submit your ad for

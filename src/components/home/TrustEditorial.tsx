@@ -31,7 +31,7 @@ const STEPS = [
 
 export function TrustEditorial() {
   return (
-    <section id="how-it-works" className="bg-[var(--color-surface-inverted)] py-20 md:py-24 lg:py-28">
+    <section id="how-it-works" className="bg-[var(--color-surface-inverted)] py-12 md:py-20">
       <Container>
         <Reveal>
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">

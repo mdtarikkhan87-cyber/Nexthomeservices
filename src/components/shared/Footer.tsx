@@ -55,7 +55,7 @@ export function Footer() {
   // every other route keeps its own 6xl.
   const isHome = usePathname() === "/";
   return (
-    <footer className="mt-20 border-t border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)]">
+    <footer className="border-t border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)]">
       <div className={`py-12 ${isHome ? CONTAINER_CLASS : "mx-auto max-w-6xl px-4 sm:px-6"}`}>
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[1.3fr_repeat(3,1fr)]">
           <div>
