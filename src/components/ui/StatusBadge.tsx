@@ -6,7 +6,7 @@ import { IconCheck, IconClock, IconClose } from "@/components/ui/icons";
 // never color alone. This is the single component every trust-relevant
 // surface in the product routes through, so the account/role/content-item
 // state layers (PRODUCT_DECISIONS.md §6) never collapse into one generic look.
-export type StatusKind = "verified" | "pending" | "rejected" | "live" | "success" | "sponsored";
+export type StatusKind = "verified" | "pending" | "rejected" | "live" | "success" | "sponsored" | "unavailable";
 
 const config: Record<StatusKind, { label: string; color: string; icon: ReactNode }> = {
   verified: { label: "Verified", color: "var(--color-status-verified)", icon: <IconCheck className="h-3 w-3" /> },
@@ -18,6 +18,12 @@ const config: Record<StatusKind, { label: string; color: string; icon: ReactNode
   pending: { label: "Pending Review", color: "var(--color-status-pending)", icon: <IconClock className="h-3 w-3" /> },
   rejected: { label: "Rejected", color: "var(--color-status-rejected)", icon: <IconClose className="h-3 w-3" /> },
   success: { label: "Success", color: "var(--color-status-success)", icon: <IconCheck className="h-3 w-3" /> },
+  // Rented / sold — pass the specific label ("Rented" or "Sold").
+  unavailable: {
+    label: "Unavailable",
+    color: "var(--color-text-secondary)",
+    icon: <span className="h-1.5 w-1.5 rounded-full bg-current" />,
+  },
   sponsored: {
     label: "Sponsored",
     color: "var(--color-deep-blue)",

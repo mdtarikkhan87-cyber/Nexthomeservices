@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Plain CommonJS Express backend — the TypeScript rules above forbid
+    // require() and would flag every file in it.
+    "nexthome-api/**",
   ]),
 ]);
 

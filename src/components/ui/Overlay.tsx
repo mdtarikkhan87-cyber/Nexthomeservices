@@ -39,12 +39,17 @@ export function Overlay({
   align = "center",
   labelledBy,
   role = "dialog",
+  // Every existing dialog (ConfirmationDialog, etc.) relies on the default
+  // staying max-w-sm — only pass this for a panel that genuinely needs more
+  // room, like the document/ad review dialogs.
+  maxWidth = "max-w-sm",
 }: {
   onDismiss: () => void;
   children: ReactNode;
   align?: "center" | "bottom-on-mobile";
   labelledBy: string;
   role?: "dialog" | "alertdialog";
+  maxWidth?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -117,7 +122,7 @@ export function Overlay({
       <motion.div
         ref={panelRef}
         tabIndex={-1}
-        className={`w-full max-w-sm rounded-[var(--radius-modal)] border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] p-6 shadow-[var(--elevation-lg)] outline-none ${
+        className={`w-full ${maxWidth} rounded-[var(--radius-modal)] border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] p-6 shadow-[var(--elevation-lg)] outline-none ${
           align === "bottom-on-mobile" ? "rounded-b-none sm:rounded-b-[var(--radius-modal)]" : ""
         }`}
         initial={{ opacity: 0, scale: 0.97, y: align === "bottom-on-mobile" ? 24 : 8 }}

@@ -3,17 +3,14 @@
 import Link from "next/link";
 import { PropertyCard } from "@/components/property/PropertyCard";
 import { Button } from "@/components/ui/Button";
-import { mockListings } from "@/lib/mock-data";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useListings } from "@/lib/listings-context";
 
 export default function MyListingsPage() {
-  // Listings submitted in this session sit alongside the seeded catalog, so
-  // completing the wizard has a visible result instead of ending in a
-  // confirmation screen that leads nowhere.
-  const { submitted } = useListings();
+  const { myListings, isLoadingMyListings } = useListings();
 
   // Status-first ordering: pending/rejected surfaced before live (DESIGN_SYSTEM.md §12)
-  const sorted = [...submitted, ...mockListings].sort((a, b) => {
+  const sorted = [...myListings].sort((a, b) => {
     const order = { rejected: 0, "pending-review": 1, live: 2 } as const;
     return order[a.status] - order[b.status];
   });
@@ -26,11 +23,21 @@ export default function MyListingsPage() {
           <Button size="dense">List Your Property</Button>
         </Link>
       </div>
-      <div className="flex flex-col gap-3">
-        {sorted.map((l) => (
-          <PropertyCard key={l.id} listing={l} variant="dashboard" />
-        ))}
-      </div>
+
+      {isLoadingMyListings ? (
+        <p className="text-sm text-[var(--color-text-secondary)]">Loading your listings…</p>
+      ) : sorted.length === 0 ? (
+        <EmptyState
+          title="No listings yet"
+          description="Once you list a property, it'll show up here — including while it's pending review."
+        />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {sorted.map((l) => (
+            <PropertyCard key={l.id} listing={l} variant="dashboard" />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

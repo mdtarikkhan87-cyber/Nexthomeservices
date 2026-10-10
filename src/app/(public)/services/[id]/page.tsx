@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ServiceContactAction } from "@/components/property/ServiceContactAction";
-import { mockServices } from "@/lib/mock-data";
+import { UserRatings } from "@/components/shared/UserRatings";
+import { apiFetchServiceById } from "@/lib/services-client";
 import { coverageAreas, coversWholeState } from "@/lib/nigeria-locations";
 
 export default async function ServiceDetailPage({ params }: PageProps<"/services/[id]">) {
   const { id } = await params;
-  const service = mockServices.find((s) => s.id === id);
+  const service = await apiFetchServiceById(id).catch(() => null);
   if (!service) notFound();
 
   return (
@@ -55,8 +56,10 @@ export default async function ServiceDetailPage({ params }: PageProps<"/services
       </section>
 
       <div className="mt-7 rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-5 shadow-[var(--elevation-sm)]">
-        <ServiceContactAction providerName={service.providerName} />
+        <ServiceContactAction serviceListingId={service.id} providerName={service.providerName} />
       </div>
+
+      <UserRatings userId={service.providerId} label="provider" />
     </div>
   );
 }

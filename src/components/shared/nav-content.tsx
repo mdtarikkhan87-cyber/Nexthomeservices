@@ -5,7 +5,7 @@ import { ReactNode } from "react";
 import { IconCheck, IconShield } from "@/components/ui/icons";
 import { MenuButton, MenuDivider, MenuLabel, MenuLink } from "@/components/shared/NavMenu";
 import { useAuth } from "@/lib/auth-context";
-import { browseFacets } from "@/lib/browse-facets";
+import { useNotifications } from "@/lib/notification-context";
 import { roleDisplay, roleLandingHref } from "@/lib/roles";
 import type { RoleName } from "@/lib/types";
 
@@ -14,7 +14,7 @@ import type { RoleName } from "@/lib/types";
 //
 // Every destination below is an existing route or query param:
 //   /listings?mode=rent | sale      the Rent/Buy toggle on the Listings page
-//   /listings?mode=rent&state=…     the landing page's "Browse by" cards
+//   /#browse-by                     the landing page's "Browse by" location cards
 //   /listings?mode=rent&duration=…  the Short-Term / Long-Term filter
 //   /listings?verified=1            the "Verified listings only" filter
 //   /help                           "Help & FAQ" (the product's only FAQ page)
@@ -40,15 +40,20 @@ export function ReviewNote({ className = "" }: { className?: string }) {
   );
 }
 
-const homes = (n: number) => `${n} home${n === 1 ? "" : "s"}`;
+// Location links are live data on the landing page (fetched server-side), which
+// the header cannot see without a request of its own — so the menu points at
+// that section instead of listing states, and shows no counts.
+const STAY_LENGTH = [
+  { href: "/listings?mode=rent&duration=short-term", label: "Short-Term rentals" },
+  { href: "/listings?mode=rent&duration=long-term", label: "Long-Term rentals" },
+] as const;
 
 // ---------------------------------------------------------------------------
 // Listings
 // ---------------------------------------------------------------------------
 
-/** The Listings mega-menu body: Browse · Browse by location · Stay length. */
+/** The Listings menu body: Browse · Browse by location · Stay length. */
 export function ListingsMenuContent() {
-  const { states, durations } = browseFacets();
   return (
     <div className="grid max-h-[calc(100dvh-8rem)] gap-x-4 gap-y-5 overflow-y-auto p-4 md:grid-cols-2 md:p-5 lg:grid-cols-3">
       <div role="group" aria-label="Browse">
@@ -60,15 +65,13 @@ export function ListingsMenuContent() {
 
       <div role="group" aria-label="Browse by location">
         <MenuLabel>Browse by location</MenuLabel>
-        {states.map((s) => (
-          <MenuLink key={s.key} href={s.href} label={s.label} meta={homes(s.count)} />
-        ))}
+        <MenuLink href="/#browse-by" label="Choose a location" description="States with homes right now" />
       </div>
 
       <div role="group" aria-label="Stay length" className="md:col-span-2 lg:col-span-1">
         <MenuLabel>Stay length</MenuLabel>
-        {durations.map((d) => (
-          <MenuLink key={d.key} href={d.href} label={`${d.label} rentals`} meta={homes(d.count)} />
+        {STAY_LENGTH.map((d) => (
+          <MenuLink key={d.href} href={d.href} label={d.label} />
         ))}
       </div>
     </div>
@@ -106,6 +109,7 @@ export function MoreMenuContent({ pathname }: { pathname: string }) {
  */
 export function AccountItems({ inMenu = true }: { inMenu?: boolean }) {
   const { user, roles, activeRole, setActiveRole, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const router = useRouter();
   if (!user) return null;
 
@@ -148,6 +152,17 @@ export function AccountItems({ inMenu = true }: { inMenu?: boolean }) {
       {/* Admin has no roles to manage on /account either. */}
       {!isAdmin && <MenuLink inMenu={inMenu} href="/account" label="Profile" />}
 
+      {/* Admin has no role-scoped notification feed (it returns [] without an
+          activeRole), so the entry is for everyone else. */}
+      {!isAdmin && (
+        <MenuLink
+          inMenu={inMenu}
+          href="/dashboard/notifications"
+          label="Notifications"
+          meta={unreadCount > 0 ? `${unreadCount} unread` : undefined}
+        />
+      )}
+
       <MenuButton inMenu={inMenu} tone="danger" onSelect={logout}>
         Log out
       </MenuButton>
@@ -155,16 +170,20 @@ export function AccountItems({ inMenu = true }: { inMenu?: boolean }) {
   );
 }
 
-/** Name and current role, above the account list. */
+/** "Signed in as" name and email (as in the existing account menu), then the current role. */
 export function AccountHeader() {
   const { user, roles, activeRole } = useAuth();
-  if (!user) return null;
+  if (!user?.name) return null;
   const held = roles.find((r) => r.role === activeRole);
   const line = user.isAdmin ? "Admin" : held ? `Viewing as ${roleDisplay(held.role, held.context)}` : "";
   return (
     <div className="border-b border-[var(--color-border-hairline)] px-5 py-3">
+      <p className="text-xs font-medium text-[var(--color-text-body)]">Signed in as</p>
       <p className="truncate text-[15px] font-bold text-[var(--color-dark-blue)]">{user.name}</p>
-      {line && <p className="mt-0.5 text-[13px] font-medium text-[var(--color-text-body)]">{line}</p>}
+      <p className="truncate text-[13px] font-medium text-[var(--color-text-body)]" title={user.email}>
+        {user.email}
+      </p>
+      {line && <p className="mt-1 text-[13px] font-medium text-[var(--color-text-body)]">{line}</p>}
     </div>
   );
 }
@@ -192,7 +211,6 @@ export function MobileSheetContent({
   isAuthenticated: boolean;
   loggedOutActions: ReactNode;
 }) {
-  const { states, durations } = browseFacets();
   return (
     <div className="pb-2">
       <SheetSection label="Listings">
@@ -202,17 +220,13 @@ export function MobileSheetContent({
       </SheetSection>
 
       <SheetSection label="Browse by location">
-        <div className="grid grid-cols-2 gap-x-1">
-          {states.map((s) => (
-            <MenuLink key={s.key} inMenu={false} href={s.href} label={s.label} description={homes(s.count)} />
-          ))}
-        </div>
+        <MenuLink inMenu={false} href="/#browse-by" label="Choose a location" description="States with homes right now" />
       </SheetSection>
 
       <SheetSection label="Stay length">
         <div className="grid grid-cols-2 gap-x-1">
-          {durations.map((d) => (
-            <MenuLink key={d.key} inMenu={false} href={d.href} label={d.label} description={homes(d.count)} />
+          {STAY_LENGTH.map((d) => (
+            <MenuLink key={d.href} inMenu={false} href={d.href} label={d.label.replace(" rentals", "")} />
           ))}
         </div>
       </SheetSection>

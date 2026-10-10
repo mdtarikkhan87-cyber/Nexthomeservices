@@ -15,6 +15,10 @@ export type RoleState =
 export type SubscriptionState = "inactive" | "pending-confirmation" | "active";
 
 // Content-item-level state (a specific listing / service listing / ad)
+/** Whether the property is still on the market — independent of the
+    moderation `status`. */
+export type ListingAvailability = "available" | "rented" | "sold";
+
 export type ContentItemState = "pending-review" | "live" | "rejected";
 
 export type ListingType = "rent" | "sale";
@@ -26,7 +30,7 @@ export type ListingType = "rent" | "sale";
 //
 // NAMING — this is `occupancyType`, NOT `propertyType`. `propertyType` already
 // exists below and means the physical form of the building (apartment, duplex,
-// bungalow…). It is used by the mock catalog, the wizard, matchesFilters, the
+// bungalow…). It is used by the listing wizard, matchesFilters, the
 // `?ptype=` URL param, the filter chips and the detail Specification block.
 // Reusing that name would have collided with all of it; renaming the existing
 // field would have been a refactor across eight files for no user benefit.
@@ -118,6 +122,7 @@ export interface ListingTeaser {
   bedrooms: number;
   photoUrl: string;
   verified: boolean;
+  availability?: ListingAvailability;
   viewCount: number;
   rentDuration?: RentDuration;
   /**
@@ -211,6 +216,10 @@ export type TenantBuyerContext = ListingType;
 
 export interface PropertyListing {
   id: string;
+  /** The landlord who owns this listing — who a Ratings block on the
+      detail page rates, and who a Message action starts a conversation
+      with. */
+  landlordId: string;
   type: ListingType;
   title: string;
   price: number;
@@ -233,8 +242,16 @@ export interface PropertyListing {
       only (COMPONENT_ARCHITECTURE.md's "Property Image Gallery" was already
       approved scope, just not previously populated with data). */
   galleryUrls?: string[];
+  /** Photo count. List endpoints send only this (not the full gallery) —
+      the gallery itself comes from the single-listing fetch. */
+  galleryCount?: number;
   verified: boolean;
   status: ContentItemState;
+  /** Absent means "available". */
+  availability?: ListingAvailability;
+  /** Owner-controlled visibility. Absent means published; `false` hides the
+      listing from everyone but its owner and admins. */
+  isPublished?: boolean;
   viewCount: number;
   description: string;
   /** Absent means "entire" — see the SHARED PROPERTY note above. */
@@ -245,6 +262,9 @@ export interface PropertyListing {
 
 export interface ServiceListing {
   id: string;
+  /** Who a Ratings block on the detail page rates, and who a Message
+      action starts a conversation with. */
+  providerId: string;
   category: string;
   providerName: string;
   description: string;
@@ -268,5 +288,16 @@ export interface ServiceListing {
   lgas: string[];
   photoUrl?: string;
   verified: boolean;
+  status: ContentItemState;
+}
+
+export interface Advertisement {
+  id: string;
+  imageUrl: string;
+  headline: string;
+  linkUrl: string;
+  /** Admin-assigned; null until an admin sets one (PRD §9 — Admin phase,
+      not yet built). An advertiser only ever submits the creative. */
+  placement?: string;
   status: ContentItemState;
 }

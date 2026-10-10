@@ -3,12 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { FOCUS_RING, SelectField } from "@/components/ui/SelectField";
-import { mockServices } from "@/lib/mock-data";
+import { SERVICE_CATEGORIES } from "@/lib/service-categories";
 import { NIGERIAN_STATES, lgasForState } from "@/lib/nigeria-locations";
 
-// Service categories are read from the catalog, not hard-coded, so this list
-// and the /services directory can never disagree about what exists.
-const SERVICE_TYPES = Array.from(new Set(mockServices.map((s) => s.category))).sort();
+// Same list the provider signup form and the /services directory filter use,
+// so this dropdown and the directory can never disagree about what exists.
+const SERVICE_TYPES = [...SERVICE_CATEGORIES].sort();
 
 // PRD §4 approves price range, state, and bedrooms as filters (state must
 // stay a fixed dropdown, never free text). Buckets are mode-specific since

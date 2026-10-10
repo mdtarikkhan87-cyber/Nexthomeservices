@@ -68,3 +68,10 @@ export function buildRooms(listingId: string, totalRooms: number): SharedRoom[] 
 export function roomsOf(listing: PropertyListing): SharedRoom[] {
   return isShared(listing) ? (listing.shared?.rooms ?? []) : [];
 }
+
+/** "Rented" / "Sold" when a listing is off the market, otherwise null. */
+export function unavailableLabel(listing: { availability?: "available" | "rented" | "sold" }): string | null {
+  if (listing.availability === "rented") return "Rented";
+  if (listing.availability === "sold") return "Sold";
+  return null;
+}

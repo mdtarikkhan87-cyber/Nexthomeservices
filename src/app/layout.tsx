@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Quicksand } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -24,6 +24,13 @@ const quicksand = Quicksand({
 // are kept and repointed at Quicksand in globals.css, so the roles they
 // encode (dense UI text, tabular figures, tracked-out labels) survive as
 // *typographic treatments of the brand face* rather than as a second face.
+
+// Explicit rather than relying on Next's implicit default, so it can't be
+// silently lost if this file's metadata export is ever restructured.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   title: "NextHome — Rent, Buy, and Connect With Confidence",

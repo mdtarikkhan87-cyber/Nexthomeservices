@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/Input";
 import { IconStar } from "@/components/ui/icons";
 import { useAuthGate } from "@/components/shared/AuthGate";
 import { useAuth } from "@/lib/auth-context";
+import { apiSendMessage, apiStartConversation } from "@/lib/messaging-client";
 import { availableRooms } from "@/lib/shared-property";
 import { SharedRoom } from "@/lib/types";
 
@@ -34,9 +35,11 @@ import { SharedRoom } from "@/lib/types";
 // it separate chrome would make the shared path look like a different product.
 // ---------------------------------------------------------------------------
 export function ListingActions({
+  listingId,
   listingTitle,
   rooms,
 }: {
+  listingId: string;
   listingTitle: string;
   /** Present only for a shared listing. Already resolved to current status. */
   rooms?: SharedRoom[];
@@ -44,6 +47,9 @@ export function ListingActions({
   const { requireAuth } = useAuthGate();
   const { isAuthenticated } = useAuth();
   const [composerOpen, setComposerOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -62,10 +68,20 @@ export function ListingActions({
     ? `Log in to message the landlord about ${selectedRoom.label} at "${listingTitle}"`
     : `Log in to message the landlord about "${listingTitle}"`;
 
+  // Prefilled with the same copy the Textarea used to show as a placeholder
+  // — a real message needs real text, so what was previously just a hint
+  // becomes the actual starting draft, editable before Send.
+  const defaultMessage = selectedRoom
+    ? `Hi, I'm interested in ${selectedRoom.label}. Is it still available?`
+    : "Hi, I'm interested in this property. Is it still available?";
+
   const openComposer = () =>
     requireAuth({
       actionLabel: enquiryLabel,
-      onResume: () => setComposerOpen(true),
+      onResume: () => {
+        setMessage(defaultMessage);
+        setComposerOpen(true);
+      },
     });
 
   const toggleSave = () =>
@@ -146,20 +162,34 @@ export function ListingActions({
               Enquiring about {selectedRoom.label}
             </p>
           )}
-          <Textarea
-            placeholder={
-              selectedRoom
-                ? `Hi, I'm interested in ${selectedRoom.label}. Is it still available?`
-                : "Hi, I'm interested in this property. Is it still available?"
-            }
-            rows={3}
-          />
+          {sendError && (
+            <p className="mb-2 text-sm font-medium text-[var(--color-status-rejected)]" role="alert">
+              {sendError}
+            </p>
+          )}
+          <Textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} />
           <div className="mt-2 flex justify-end gap-2">
             <Button variant="secondary" size="dense" onClick={() => setComposerOpen(false)}>
               Cancel
             </Button>
-            <Button size="dense" onClick={() => setSent(true)}>
-              Send
+            <Button
+              size="dense"
+              disabled={sending || !message.trim()}
+              onClick={async () => {
+                setSendError(null);
+                setSending(true);
+                try {
+                  const conversation = await apiStartConversation({ listingId });
+                  await apiSendMessage(conversation.id, message.trim());
+                  setSent(true);
+                } catch (err) {
+                  setSendError(err instanceof Error ? err.message : "Couldn't send your message. Try again.");
+                } finally {
+                  setSending(false);
+                }
+              }}
+            >
+              {sending ? "Sending…" : "Send"}
             </Button>
           </div>
         </div>

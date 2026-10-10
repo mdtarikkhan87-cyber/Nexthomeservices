@@ -123,8 +123,17 @@ export function NavMenu({
     const onPointerDown = (e: PointerEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) close(false);
     };
+    // Escape also works at page level: a mouse click does not focus a button in
+    // every browser (Safari), so the menu may be open with focus elsewhere.
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close(rootRef.current?.contains(document.activeElement) ?? false);
+    };
     document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open, close]);
 
   useEffect(() => () => clearTimeout(hoverTimer.current), []);

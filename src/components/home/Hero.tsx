@@ -11,7 +11,8 @@ const PHOTO_MASK = [
 ].join(", ");
 
 // Static by design: no listing data, so it renders with zero listings or the
-// backend down. The photo is a PLACEHOLDER — Archidea X on Unsplash
+// backend down. The photo is a brand placeholder and is not a link.
+// The photo is a PLACEHOLDER — Archidea X on Unsplash
 // (unsplash.com/photos/QfIIsMOAuMM), cropped wide. Swap for client photography.
 export function Hero() {
   return (
@@ -57,7 +58,7 @@ export function Hero() {
       >
         <Image
           src="/images/hero-home.jpg"
-          alt=""
+          alt="A modern single-storey home with timber cladding and a white wing, set in a green garden"
           fill
           preload
           sizes="(min-width: 1600px) 1600px, 100vw"

@@ -1,0 +1,10 @@
+node_modules
+.env
+.env.*
+!.env.example
+uploads
+scripts/backups
+*.log
+.git
+Dockerfile
+.dockerignore

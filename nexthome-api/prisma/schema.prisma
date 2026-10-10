@@ -50,6 +50,14 @@ enum SubscriptionState {
   active
 }
 
+/// Whether the property itself is still on the market — independent of
+/// ContentItemState (Listing.status), which is admin moderation only.
+enum ListingAvailability {
+  available
+  rented
+  sold
+}
+
 enum ContentItemState {
   pending_review
   live
@@ -130,13 +138,21 @@ enum ComplaintStatus {
 // ---------------------------------------------------------------------------
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  phone        String?  @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String    @id @default(cuid())
+  name             String
+  email            String    @unique
+  phone            String?   @unique
+  passwordHash     String
+  motherMaidenName String?   // Basic Trust Layer — PRD §6.1, account recovery/fraud checks
+  emailVerifiedAt  DateTime?
+  phoneVerifiedAt  DateTime?
+  // Orthogonal to `roles` (UserRole) — never combined with the
+  // landlord/tenant-buyer/service-provider/advertiser role system, exactly
+  // like the frontend's AuthUser.isAdmin. No self-serve path sets this; an
+  // admin account is provisioned directly (e.g. via Prisma Studio/script).
+  isAdmin          Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   roles         UserRole[]
   listings      Listing[]         @relation("LandlordListings")
@@ -150,7 +166,14 @@ model User {
   ratingsGiven  Rating[]        @relation("RatingsGiven")
   ratingsReceived Rating[]      @relation("RatingsReceived")
   complaints    ComplaintTicket[]
+  feedback      Feedback[]
   payments      Payment[]
+  otpCodes      OtpCode[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  refreshTokens           RefreshToken[]
+  savedListings SavedListing[]
+  auditLogEntries AuditLogEntry[]
 
   @@map("users")
 }
@@ -167,11 +190,101 @@ model UserRole {
   state             RoleState          @default(role_added)
   subscriptionState SubscriptionState? // landlord only
   context           ListingType?       // tenant_buyer only: "rent" | "sale"
+  documentUrl         String?    // Basic Trust Layer — ID/utility bill, submitted by landlord/service-provider
+  documentSubmittedAt DateTime?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
   @@unique([userId, role])
   @@map("user_roles")
+}
+
+/// A one-time code sent by SMS, used to verify a phone number belongs to
+/// the account holder. Codes are hashed at rest — never stored plain.
+model OtpCode {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash   String
+  purpose    String    @default("phone_verification")
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("otp_codes")
+}
+
+/// The same one-time-SMS-code pattern as OtpCode, but for a phone number
+/// that doesn't have a User yet — registration no longer creates a real
+/// account until the entire flow (phone OTP + document upload, where
+/// required) completes, so this has to be keyed by phone, not userId, and
+/// carries no foreign key at all. See pre-register.routes.js.
+model PreRegistrationOtp {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([phone])
+  @@map("pre_registration_otps")
+}
+
+/// A one-time link token emailed to the account holder to confirm they
+/// control that email address. Tokens are hashed at rest.
+model EmailVerificationToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+/// A one-time link token emailed to an account holder who requested a
+/// password reset. Tokens are hashed at rest, same as EmailVerificationToken
+/// — the raw token only ever exists in the emailed link itself.
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+/// Server-side record of every refresh token issued. The raw token only ever
+/// lives in the client's httpOnly cookie; only its SHA-256 hash is stored.
+/// Tokens rotate on every use (the old row gets revokedAt + replacedById), and
+/// all rows sharing a familyId descend from one login — presenting an
+/// already-revoked token means it was stolen/replayed, so the whole family is
+/// revoked. Logout revokes the family too.
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String    @unique
+  familyId     String
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
 }
 
 // ---------------------------------------------------------------------------
@@ -202,6 +315,11 @@ model Listing {
 
   verified    Boolean           @default(false)
   status      ContentItemState  @default(pending_review)
+  availability ListingAvailability @default(available)
+  // Owner-controlled visibility, independent of moderation `status` (admin)
+  // and `availability` (rented/sold). A listing is publicly visible only when
+  // status = live AND availability = available AND isPublished.
+  isPublished  Boolean           @default(true)
   viewCount   Int               @default(0)
 
   occupancyType OccupancyType?  // absent/null = "entire"
@@ -211,6 +329,7 @@ model Listing {
   updatedAt   DateTime          @updatedAt
 
   conversations Conversation[]
+  savedBy       SavedListing[]
 
   @@index([state, type, status])
   @@map("listings")
@@ -363,6 +482,20 @@ model ComplaintTicket {
   @@map("complaint_tickets")
 }
 
+/// General product feedback, unlike ComplaintTicket: PRD §8.2 scopes this
+/// to "any logged-in user" — userId is required, no anonymous submission.
+/// No status/workflow — this is read-only signal for the team, not a
+/// ticket queue that gets worked through states.
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+
+  @@map("feedback")
+}
+
 model Payment {
   id            String        @id @default(cuid())
   userId        String
@@ -377,4 +510,43 @@ model Payment {
   updatedAt     DateTime      @updatedAt
 
   @@map("payments")
+}
+
+// ---------------------------------------------------------------------------
+// Saved homes — dashboard/saved previously stood in with hardcoded demo
+// data ("there is no persistence layer yet"); this is that layer. Any
+// authenticated user can save a listing, not just tenant-buyer, since the
+// UI surface (a save toggle on a property card) makes sense wherever a
+// signed-in visitor is browsing, regardless of their active role that day.
+// ---------------------------------------------------------------------------
+
+model SavedListing {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, listingId])
+  @@map("saved_listings")
+}
+
+// ---------------------------------------------------------------------------
+// Admin audit log — the Activity tab previously held this in-memory only
+// (React state, gone on every reload, never shared between admin sessions).
+// This is a real record, so it also lets an entry properly name WHO acted —
+// the client-only version's own comment said this couldn't be done ("no
+// real actor") only because there was nowhere durable to attribute it to.
+// ---------------------------------------------------------------------------
+
+model AuditLogEntry {
+  id        String   @id @default(cuid())
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  action    String
+  itemTitle String
+  createdAt DateTime @default(now())
+
+  @@map("audit_log_entries")
 }

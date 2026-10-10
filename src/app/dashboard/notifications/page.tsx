@@ -33,9 +33,11 @@ export default function NotificationsPage() {
         <div>
           <h1 className="u-heading text-2xl text-[var(--color-text-primary)] sm:text-3xl">Notifications</h1>
           <p className="u-ui mt-2 text-sm text-[var(--color-text-secondary)]">
-            {unreadCount > 0
-              ? `${unreadCount} unread update${unreadCount !== 1 ? "s" : ""} for this role.`
-              : "You're all caught up."}
+            {notifications.length === 0
+              ? "You have no notifications."
+              : unreadCount > 0
+                ? `${unreadCount} unread update${unreadCount !== 1 ? "s" : ""} for this role.`
+                : "You're all caught up."}
           </p>
         </div>
 
@@ -48,6 +50,7 @@ export default function NotificationsPage() {
 
       {/* All / Unread — a real radiogroup, and the reason the page has a
           genuine empty state to reach even when the feed is populated. */}
+      {notifications.length > 0 && (
       <div
         role="radiogroup"
         aria-label="Filter notifications"
@@ -69,6 +72,7 @@ export default function NotificationsPage() {
           </button>
         ))}
       </div>
+      )}
 
       <div className="mt-6">
         {visible.length === 0 ? (
@@ -89,7 +93,7 @@ export default function NotificationsPage() {
           ) : (
             <EmptyState
               title="No notifications yet"
-              description="Updates about your listings, enquiries and account will appear here as they happen."
+              description="When there is something new for you, it will show up here."
             />
           )
         ) : (

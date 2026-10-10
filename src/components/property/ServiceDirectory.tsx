@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Select } from "@/components/ui/Input";
 import { IconArrowRight } from "@/components/ui/icons";
-import { mockServices } from "@/lib/mock-data";
+import { ServiceListing } from "@/lib/types";
+import { apiSearchServices } from "@/lib/services-client";
+import { SERVICE_CATEGORIES } from "@/lib/service-categories";
 import {
   NIGERIAN_STATES,
-  coversLga,
   coversWholeState,
   formatCoverage,
   isLgaInState,
@@ -23,7 +24,7 @@ import {
 // (brand-primary when selected, dense surface on hover) rather than
 // introducing a new control.
 export function ServiceDirectory() {
-  const categories = useMemo(() => Array.from(new Set(mockServices.map((s) => s.category))).sort(), []);
+  const categories = SERVICE_CATEGORIES;
 
   // Seeded from the URL so the homepage Services search actually lands on a
   // filtered directory. Validated against the real category list — an
@@ -59,17 +60,36 @@ export function ServiceDirectory() {
 
   // The LGA test is "do you cover here?", not "are you based here?" — a
   // provider lists every LGA they will travel to, and a statewide provider
-  // matches every LGA in their state. See ServiceListing.lgas.
-  const results = useMemo(
-    () =>
-      mockServices.filter(
-        (s) =>
-          (!category || s.category === category) &&
-          (!state || s.state === state) &&
-          (!lga || coversLga(s.lgas, lga)),
-      ),
-    [category, state, lga],
-  );
+  // matches every LGA in their state. See ServiceListing.lgas. The backend
+  // applies this same coverage logic server-side, so the filters here are
+  // just passed straight through as query params.
+  const [results, setResults] = useState<ServiceListing[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Written as a promise callback (not synchronous code in the effect body)
+  // to satisfy React's "no setState directly in an effect" guidance — same
+  // pattern as listings-context.tsx's refetchMyListings effect.
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve().then(async () => {
+      if (!cancelled) setIsLoading(true);
+      try {
+        const res = await apiSearchServices({
+          category: category || undefined,
+          state: state || undefined,
+          lga: lga || undefined,
+        });
+        if (!cancelled) setResults(res.services);
+      } catch {
+        if (!cancelled) setResults([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [category, state, lga]);
 
   const FIELD_LABEL =
     "u-ui mb-2 block text-[13px] font-semibold text-[var(--color-text-primary)]";
@@ -136,15 +156,22 @@ export function ServiceDirectory() {
       </div>
 
       <p className="u-ui mt-6 text-[13px] font-semibold text-[var(--color-text-secondary)]">
-        <span className="u-numeric text-[var(--color-text-primary)]">{results.length}</span> provider{results.length !== 1 ? "s" : ""}
-        {state && <> covering {lga ? `${lga}, ${state}` : state}</>}
+        {isLoading ? (
+          "Loading providers…"
+        ) : (
+          <>
+            <span className="u-numeric text-[var(--color-text-primary)]">{results.length}</span> provider
+            {results.length !== 1 ? "s" : ""}
+            {state && <> covering {lga ? `${lga}, ${state}` : state}</>}
+          </>
+        )}
       </p>
 
       {/* A location filter can genuinely empty this directory — there are far
           fewer providers than LGAs. Saying so, and offering the way back, is
           the difference between "nothing here" and "nothing matches what you
           asked for". */}
-      {results.length === 0 && (
+      {!isLoading && results.length === 0 && (
         <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
           No providers match that filter yet.{" "}
           <button

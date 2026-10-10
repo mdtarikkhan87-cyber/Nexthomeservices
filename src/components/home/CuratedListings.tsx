@@ -5,8 +5,7 @@ import { useMemo, useState } from "react";
 import { PropertyCard } from "@/components/property/PropertyCard";
 import { Container } from "@/components/ui/Container";
 import { IconArrowRight } from "@/components/ui/icons";
-import { mockListings } from "@/lib/mock-data";
-import { ListingType } from "@/lib/types";
+import { ListingType, PropertyListing } from "@/lib/types";
 import { Eyebrow } from "./Eyebrow";
 import { Reveal } from "./Reveal";
 
@@ -17,15 +16,19 @@ import { Reveal } from "./Reveal";
 // The Rent/Buy control filters this preview in place — it is NOT a
 // substitute for the dedicated /listings route, which stays the real
 // destination (linked from "View all" beside it).
-export function CuratedListings() {
+//
+// `listings` comes from the homepage's single server-side fetch (see
+// app/(public)/page.tsx) — every entry is already "live", so only the
+// rent/sale split needs to happen here.
+export function CuratedListings({ listings }: { listings: PropertyListing[] }) {
   const [mode, setMode] = useState<ListingType>("rent");
 
-  const listings = useMemo(
-    () => mockListings.filter((l) => l.status === "live" && l.type === mode).slice(0, 5),
-    [mode]
+  const filtered = useMemo(
+    () => listings.filter((l) => l.type === mode).slice(0, 5),
+    [listings, mode]
   );
 
-  const [feature, ...supporting] = listings;
+  const [feature, ...supporting] = filtered;
   if (!feature) return null;
 
   return (

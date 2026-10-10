@@ -1,22 +1,36 @@
 "use client";
 
+import { useEffect } from "react";
+import { Loader } from "@/components/ui/Loader";
 import { PropertyCard } from "@/components/property/PropertyCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/lib/auth-context";
-import { demoSavedListingIds, mockListings } from "@/lib/mock-data";
+import { useListings } from "@/lib/listings-context";
 
 const contextCopy = { rent: "renting", sale: "buying" } as const;
 
 export default function SavedHomesPage() {
   const { roles, setTenantBuyerContext } = useAuth();
+  const { savedListings, isLoadingSavedListings, refetchSavedListings } = useListings();
   const current = roles.find((r) => r.role === "tenant-buyer");
   const context = current?.context ?? "rent";
 
-  // Demo: a small mixed set stands in for "saved" — there is no persistence
-  // layer yet (see final report). Filtered by the active Renting/Buying
-  // context so the switch (ROLE_EXPERIENCE_AUDIT.md §4 Option C) is
-  // functionally meaningful here, not just cosmetic.
-  const saved = mockListings.filter((l) => demoSavedListingIds.includes(l.id) && l.type === context);
+  // The listings-context toggle on a card (see PropertyCard.tsx) only knows
+  // the id it just saved, not the full record — refetch here for the real,
+  // full listings this page actually needs to render.
+  useEffect(() => {
+    refetchSavedListings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Filtered by the active Renting/Buying context so the switch
+  // (ROLE_EXPERIENCE_AUDIT.md §4 Option C) is functionally meaningful here,
+  // not just cosmetic.
+  const saved = savedListings.filter((l) => l.type === context);
+
+  if (isLoadingSavedListings && savedListings.length === 0) {
+    return <Loader label="Loading your saved homes…" />;
+  }
 
   return (
     <div>

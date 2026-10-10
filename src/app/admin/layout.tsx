@@ -2,7 +2,7 @@
 
 import { AdminGate } from "@/components/admin/AdminGate";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { AdminComplaintsProvider } from "@/lib/admin-mock-data";
+import { AdminComplaintsProvider } from "@/lib/admin-client";
 
 // Mirrors dashboard/layout.tsx's shell shape (shared frame, gate wraps
 // everything so every /admin/* child route is covered in one place) but
@@ -13,8 +13,10 @@ import { AdminComplaintsProvider } from "@/lib/admin-mock-data";
 // though it wouldn't matter either way today) because this layout is what
 // persists across navigation between sibling /admin/* routes — the page
 // components underneath it remount on every route change, so this is the
-// one place complaint-resolution state can actually survive going from
-// /admin/complaints back to /admin and having the Overview tile agree.
+// one place complaint-resolution state actually needs to survive going from
+// /admin/complaints back to /admin. The audit log no longer needs a
+// provider here at all — it's a real backend table now (GET
+// /admin/activity), so the Activity page just fetches it directly.
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <AdminGate>

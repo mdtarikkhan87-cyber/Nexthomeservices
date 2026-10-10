@@ -1,12 +1,69 @@
 const express = require("express");
+const jwt = require("jsonwebtoken");
 const { body, query, param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
+const { toListItem } = require("../lib/listing-view");
 const { authenticate, requireRole } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
+// Unlike `authenticate`, this NEVER rejects the request — it just attaches
+// req.user if a valid token happens to be present, and silently continues
+// otherwise. GET /:id is public, but the owning landlord (or an admin)
+// checking a pending/rejected listing should still see it, and — see
+// redactForAnonymous below — a signed-in visitor unlocks full detail while
+// a truly anonymous one gets only the public teaser fields.
+function optionalAuthenticate(req, res, next) {
+  const header = req.headers.authorization;
+  if (header && header.startsWith("Bearer ")) {
+    const token = header.slice("Bearer ".length);
+    try {
+      req.user = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    } catch {
+      // Invalid/expired token on an optional-auth route — proceed as an
+      // anonymous request rather than rejecting it.
+    }
+  }
+  next();
+}
+
+// Website Revision Spec §3B: anonymous visitors can browse listing cards but
+// "cannot open a full property detail page" — description, the rest of the
+// gallery, amenities, bathrooms, furnishing and shared-room facility detail
+// all stay behind registration. This used to be enforced only by the
+// frontend choosing not to render those fields (ListingDetailGate.tsx) while
+// this endpoint always returned everything to every caller regardless of
+// auth — meaning a direct request to this URL (curl, devtools, anything
+// that isn't the React app) bypassed the wall entirely. galleryUrls keeps
+// its true LENGTH (blanking every entry past the first) so the "N more
+// photos" count the wall shows stays accurate without leaking the URLs.
+function redactForAnonymous(listing) {
+  return {
+    ...listing,
+    description: "",
+    amenities: [],
+    bathrooms: null,
+    furnishing: null,
+    shared: null,
+    galleryUrls: listing.galleryUrls.map((url, i) => (i === 0 ? url : "")),
+  };
+}
+
+
+// Photos must be uploaded to S3 first (POST /uploads/presign) and referenced
+// by URL. Rejecting anything else — notably inline `data:` base64 images,
+// which is how photos used to be stored — keeps the database small and the
+// list endpoints fast.
+const PHOTO_URL_OPTIONS = { protocols: ["http", "https"], require_protocol: true, require_tld: false };
+const photoUrlRule = (field) => body(field).isString().isLength({ max: 2048 }).isURL(PHOTO_URL_OPTIONS);
+const galleryUrlsRules = [
+  body("galleryUrls").optional().isArray({ max: 20 }),
+  body("galleryUrls.*").isString().isLength({ max: 2048 }).isURL(PHOTO_URL_OPTIONS),
+];
+
 const LISTING_TYPES = ["rent", "sale"];
+const AVAILABILITIES = ["available", "rented", "sold"];
 const RENT_DURATIONS = ["short_term", "long_term"];
 const OCCUPANCY_TYPES = ["entire", "shared"];
 const BATHROOM_TYPES = ["private_bath", "shared_bath"];
@@ -57,8 +114,8 @@ router.post(
     body("furnishing").optional().isIn(FURNISHING_STATUSES),
     body("amenities").optional().isArray(),
     body("amenities.*").optional().isIn(AMENITIES),
-    body("photoUrl").isString().notEmpty(),
-    body("galleryUrls").optional().isArray(),
+    photoUrlRule("photoUrl"),
+    ...galleryUrlsRules,
     body("occupancyType").optional().isIn(OCCUPANCY_TYPES),
     // Only required/validated when occupancyType === "shared"
     body("shared").optional().isObject(),
@@ -143,6 +200,11 @@ router.get(
 
     const where = {
       status: "live",
+      // Rented/sold listings stay reachable by direct link (GET /listings/:id)
+      // and in the landlord's own list, but drop out of public browsing.
+      availability: "available",
+      // Owner can unpublish a listing without deleting it.
+      isPublished: true,
       ...(state && { state }),
       ...(type && { type }),
       ...(bedrooms && { bedrooms: parseInt(bedrooms) }),
@@ -161,7 +223,7 @@ router.get(
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { createdAt: "desc" },
-      }),
+      }).then((rows) => rows.map(toListItem)),
       prisma.listing.count({ where }),
     ]);
 
@@ -184,28 +246,60 @@ router.get("/mine", authenticate, requireRole("landlord"), async (req, res) => {
     include: { shared: { include: { rooms: true } } },
     orderBy: { createdAt: "desc" },
   });
-  res.json(listings);
+  res.json(listings.map(toListItem));
 });
 
 // -----------------------------------------------------------------------
-// GET /listings/:id — a single listing's full detail. Increments viewCount
-// on every fetch (simple MVP approach; refine later to avoid inflating
-// counts from the owner's own repeated visits, if that matters to you).
+// GET /listings/:id?count=false — full listing detail. Increments viewCount
+// by default. Pass ?count=false to read without counting a view — used by
+// ListingFullDetail.tsx's client-side fetch, since the server-rendered
+// teaser page (app/(public)/listing/[id]/page.tsx) already counted this
+// same visit once; without this, a signed-in visitor's page view would be
+// double-counted (teaser fetch + full-detail fetch) while an anonymous
+// visitor's (teaser only) counted once.
 // -----------------------------------------------------------------------
-router.get("/:id", [param("id").isString()], async (req, res) => {
-  if (!checkValidation(req, res)) return;
+router.get(
+  "/:id",
+  optionalAuthenticate,
+  [param("id").isString(), query("count").optional().isBoolean()],
+  async (req, res) => {
+    if (!checkValidation(req, res)) return;
 
-  const listing = await prisma.listing.update({
-    where: { id: req.params.id },
-    data: { viewCount: { increment: 1 } },
-    include: { shared: { include: { rooms: true } } },
-  }).catch(() => null);
+    const shouldCount = req.query.count !== "false";
 
-  if (!listing) {
-    return res.status(404).json({ message: "Listing not found." });
-  }
-  res.json(listing);
-});
+    const listing = shouldCount
+      ? await prisma.listing
+          .update({
+            where: { id: req.params.id },
+            data: { viewCount: { increment: 1 } },
+            include: { shared: { include: { rooms: true } } },
+          })
+          .catch(() => null)
+      : await prisma.listing
+          .findUnique({
+            where: { id: req.params.id },
+            include: { shared: { include: { rooms: true } } },
+          })
+          .catch(() => null);
+
+    if (!listing) {
+      return res.status(404).json({ message: "Listing not found." });
+    }
+
+    const isOwner = req.user && listing.landlordId === req.user.sub;
+    const isAdmin = req.user && req.user.isAdmin;
+    // Unpublished listings are hidden from everyone but the owner and admins,
+    // exactly like a listing that isn't live yet.
+    if ((listing.status !== "live" || !listing.isPublished) && !isOwner && !isAdmin) {
+      return res.status(404).json({ message: "Listing not found." });
+    }
+
+    if (listing.status === "live" && !req.user) {
+      return res.json(redactForAnonymous(listing));
+    }
+    res.json(listing);
+  },
+);
 
 // -----------------------------------------------------------------------
 // PATCH /listings/:id — update a listing. Only the owning landlord can.
@@ -221,8 +315,10 @@ router.patch(
     body("price").optional().isInt({ min: 0 }),
     body("bedrooms").optional().isInt({ min: 0 }),
     body("bathrooms").optional().isInt({ min: 0 }),
-    body("photoUrl").optional().isString().notEmpty(),
-    body("galleryUrls").optional().isArray(),
+    body("availability").optional().isIn(AVAILABILITIES),
+    body("isPublished").optional().isBoolean({ strict: true }),
+    photoUrlRule("photoUrl").optional(),
+    ...galleryUrlsRules,
   ],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
@@ -237,10 +333,24 @@ router.patch(
 
     // Only allow updating a fixed set of fields — never let the request
     // body silently overwrite landlordId, status, or viewCount.
-    const { title, description, price, bedrooms, bathrooms, photoUrl, galleryUrls } = req.body;
+    // `availability` ("is it still on the market") and `isPublished` ("does the
+    // owner want it shown") are owner-controlled; moderation `status` stays
+    // admin-only and is deliberately absent.
+    const { title, description, price, bedrooms, bathrooms, availability, isPublished, photoUrl, galleryUrls } = req.body;
+
+    // A rental can be "rented" and a sale can be "sold" — not the other way
+    // round. "available" is valid for both.
+    if (
+      (availability === "rented" && existing.type !== "rent") ||
+      (availability === "sold" && existing.type !== "sale")
+    ) {
+      return res.status(400).json({
+        message: existing.type === "rent" ? "A rental can only be marked as rented." : "A property for sale can only be marked as sold.",
+      });
+    }
     const updated = await prisma.listing.update({
       where: { id: req.params.id },
-      data: { title, description, price, bedrooms, bathrooms, photoUrl, galleryUrls },
+      data: { title, description, price, bedrooms, bathrooms, availability, isPublished, photoUrl, galleryUrls },
     });
 
     res.json(updated);
@@ -268,6 +378,66 @@ router.delete(
 
     await prisma.listing.delete({ where: { id: req.params.id } });
     res.status(204).send();
+  },
+);
+
+// -----------------------------------------------------------------------
+// PATCH /listings/:id/rooms/:roomId — mark a shared-listing room occupied
+// or available. Landlord-only, and only the listing's own landlord.
+//
+// "occupied" is an atomic conditional update (WHERE status = 'available'),
+// not a read-then-write — mirrors exactly what
+// src/lib/listings-context.tsx on the frontend already documents as the
+// eventual real-database behavior for this action.
+// -----------------------------------------------------------------------
+router.patch(
+  "/:id/rooms/:roomId",
+  authenticate,
+  requireRole("landlord"),
+  [
+    param("id").isString(),
+    param("roomId").isString(),
+    body("status").isIn(["available", "occupied"]),
+  ],
+  async (req, res) => {
+    if (!checkValidation(req, res)) return;
+
+    const listing = await prisma.listing.findUnique({
+      where: { id: req.params.id },
+      include: { shared: true },
+    });
+    if (!listing) return res.status(404).json({ message: "Listing not found." });
+    if (listing.landlordId !== req.user.sub) {
+      return res.status(403).json({ message: "You don't own this listing." });
+    }
+    if (!listing.shared) {
+      return res.status(400).json({ message: "This listing has no shared rooms." });
+    }
+
+    const room = await prisma.sharedRoom.findUnique({ where: { id: req.params.roomId } });
+    if (!room || room.sharedDetailsId !== listing.shared.id) {
+      return res.status(404).json({ message: "Room not found on this listing." });
+    }
+
+    const { status } = req.body;
+
+    if (status === "occupied") {
+      // Conditional update: only succeeds if the room is still "available"
+      // at the moment of the write, closing the same race a naive
+      // read-then-write would leave open.
+      const result = await prisma.sharedRoom.updateMany({
+        where: { id: room.id, status: "available" },
+        data: { status: "occupied" },
+      });
+      if (result.count === 0) {
+        return res.status(409).json({ message: "Room was already occupied." });
+      }
+    } else {
+      await prisma.sharedRoom.update({ where: { id: room.id }, data: { status: "available" } });
+    }
+
+    const updatedRoom = await prisma.sharedRoom.findUnique({ where: { id: room.id } });
+    res.json(updatedRoom);
   },
 );
 

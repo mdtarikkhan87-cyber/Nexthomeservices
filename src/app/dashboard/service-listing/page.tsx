@@ -1,22 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNotifications } from "@/lib/notification-context";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { StatusBadge, StatusKind } from "@/components/ui/StatusBadge";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select, Textarea } from "@/components/ui/Input";
 import { IconCheck } from "@/components/ui/icons";
 import { useAuth } from "@/lib/auth-context";
 import { NIGERIAN_STATES, lgasForState } from "@/lib/nigeria-locations";
+import { ServiceListing } from "@/lib/types";
+import {
+  apiCreateServiceListing,
+  apiFetchMyServiceListings,
+  apiUpdateServiceListing,
+} from "@/lib/services-client";
+import { SERVICE_CATEGORIES } from "@/lib/service-categories";
 
-const CATEGORIES = ["Electrician", "Plumber", "Mechanic", "Carpenter", "Painter"];
+const STATUS_TO_BADGE_KIND: Record<ServiceListing["status"], StatusKind> = {
+  "pending-review": "pending",
+  live: "live",
+  rejected: "rejected",
+};
 
 export default function ServiceListingPage() {
   const { roles } = useAuth();
   const providerRole = roles.find((r) => r.role === "service-provider");
-  const [submitted, setSubmitted] = useState(false);
 
+  // The provider's one listing, once loaded — this page manages a single
+  // listing per provider (a UI choice; the backend itself allows more).
+  // Null while loading or if none exists yet.
+  const [existing, setExisting] = useState<ServiceListing | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [category, setCategory] = useState(SERVICE_CATEGORIES[0]);
+  const [description, setDescription] = useState("");
   // COVERAGE AREA, not an address: the state this provider works in, plus
   // every LGA inside it they will travel to. Customers filter the directory
   // by LGA, so each ticked box is a search this provider can be found in.
@@ -27,6 +47,32 @@ export default function ServiceListingPage() {
   // `lgas` list — see ServiceListing.lgas.
   const [statewide, setStatewide] = useState(false);
   const { notify } = useNotifications();
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetchMyServiceListings()
+      .then((listings) => {
+        if (cancelled) return;
+        const mine = listings[0] ?? null;
+        setExisting(mine);
+        if (mine) {
+          setCategory(mine.category);
+          setDescription(mine.description);
+          setState(mine.state);
+          setLgas(mine.lgas);
+          setStatewide(mine.lgas.length === 0);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setError("Couldn't load your service listing. Try refreshing the page.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const available = lgasForState(state);
   const coverageInvalid = !!state && !statewide && lgas.length === 0;
@@ -49,36 +95,68 @@ export default function ServiceListingPage() {
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="max-w-xl">
+        <h1 className="mb-4 text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">My Service Listing</h1>
+        <p className="text-sm text-[var(--color-text-secondary)]">Loading…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-xl">
       <div className="mb-5 flex items-center gap-3">
         <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">My Service Listing</h1>
-        {submitted && <StatusBadge kind="pending" />}
+        {existing && <StatusBadge kind={STATUS_TO_BADGE_KIND[existing.status]} />}
       </div>
+
+      {error && (
+        <p className="mb-4 text-sm font-medium text-[var(--color-status-rejected)]" role="alert">
+          {error}
+        </p>
+      )}
 
       <form
         className="flex flex-col gap-4"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           // Submitting with a state but no areas would publish a listing that
           // matches no LGA search at all — worse than useless, because the
           // provider would believe they were listed.
           if (coverageInvalid) return; // the message under the fieldset says why
-          setSubmitted(true);
-          notify({
-            role: "service-provider",
-            kind: "content-status",
-            title: "Service listing submitted",
-            body: "Our team is reviewing your service listing before it appears in the directory.",
-            href: "/dashboard/service-listing",
-            status: "pending",
-          });
+          setError(null);
+          setIsSaving(true);
+          const payload = {
+            category,
+            description,
+            state,
+            lgas: statewide ? [] : lgas,
+          };
+          try {
+            const saved = existing
+              ? await apiUpdateServiceListing(existing.id, payload)
+              : await apiCreateServiceListing(payload);
+            setExisting(saved);
+            notify({
+              role: "service-provider",
+              kind: "content-status",
+              title: existing ? "Service listing updated" : "Service listing submitted",
+              body: "Our team is reviewing your service listing before it appears in the directory.",
+              href: "/dashboard/service-listing",
+              status: "pending",
+            });
+          } catch {
+            setError("Couldn't save your service listing. Please try again.");
+          } finally {
+            setIsSaving(false);
+          }
         }}
       >
         <div>
           <Label htmlFor="category">Category</Label>
-          <Select id="category" required>
-            {CATEGORIES.map((c) => (
+          <Select id="category" required value={category} onChange={(e) => setCategory(e.target.value)}>
+            {SERVICE_CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
@@ -201,14 +279,25 @@ export default function ServiceListingPage() {
 
         <div>
           <Label htmlFor="svc-desc">Description</Label>
-          <Textarea id="svc-desc" required rows={4} placeholder="Describe your services and coverage area" />
+          <Textarea
+            id="svc-desc"
+            required
+            rows={4}
+            placeholder="Describe your services and coverage area"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
         </div>
         <div>
           <Label htmlFor="svc-contact">Contact details</Label>
+          {/* Not sent anywhere yet — the backend's ServiceListing has no
+              contact field; customers reach a provider through Messaging
+              instead. Kept in the UI pending a product decision on whether
+              this should be stored, shown publicly, or dropped. */}
           <Input id="svc-contact" required placeholder="Phone number customers can reach you on" />
         </div>
-        <Button type="submit" className="self-start">
-          {submitted ? "Resubmit" : "Submit for review"}
+        <Button type="submit" className="self-start" disabled={isSaving || coverageInvalid}>
+          {isSaving ? "Saving…" : existing ? "Resubmit" : "Submit for review"}
         </Button>
       </form>
     </div>

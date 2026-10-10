@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
-import { Button } from "@/components/ui/Button";
 import { CONTAINER_CLASS } from "@/components/ui/Container";
 import { IconArrowLeft, IconBell, IconChevronDown, IconClose, IconMenu } from "@/components/ui/icons";
 import { FOCUS_RING } from "@/components/ui/SelectField";
@@ -20,20 +19,18 @@ import {
 } from "@/components/shared/nav-content";
 import { RoleSwitcher } from "@/components/shared/RoleSwitcher";
 import { useAuth } from "@/lib/auth-context";
-import { DEMO_LANDLORD_RENTER } from "@/lib/demo-accounts";
 import { useNotifications } from "@/lib/notification-context";
 
 // ===========================================================================
 // NAV (Website Revision Spec §3A, 24 Aug 2026)
 // ===========================================================================
-// The client's rule: the top-level nav is Listings, Log in, Register (plus the
-// existing demo shortcut). Rent, Buy, Services and Help are NOT top-level
-// items, and nothing here adds them.
+// The client's rule: the top-level nav is Listings, Log in, Register. Rent,
+// Buy, Services and Help are NOT top-level items, and nothing here adds them.
 //
 // What changed in the redesign is what sits UNDER those items, not the list:
 //
-//   Listings ▾   a menu, not a link — Rent / Buy, the landing page's locations,
-//                short- and long-term rentals (all existing /listings URLs).
+//   Listings ▾   a menu, not a link — Rent / Buy, a link to the landing page's
+//                location cards, short- and long-term rentals (existing URLs).
 //   Menu         secondary links (How it works, Verified listings, FAQs).
 //   Account ▾    when signed in: Dashboard, Switch role, Profile, Log out.
 //
@@ -87,7 +84,7 @@ const navItem =
   "inline-flex min-h-11 items-center gap-1.5 px-3 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] aria-expanded:bg-[var(--color-surface-base)]";
 
 export function Header() {
-  const { user, isAuthenticated, activeRole, login } = useAuth();
+  const { user, isAuthenticated, activeRole } = useAuth();
   const { unreadCount } = useNotifications();
   const pathname = usePathname();
   const sheet = useMenuState();
@@ -329,24 +326,6 @@ export function Header() {
               >
                 Register
               </Link>
-              {/* Demo shortcut only — no real credential flow exists yet
-                  (IMPLEMENTATION_NOTES.md #9). Signs in as the two-role demo
-                  account, so the role switcher and the role-gated "List Your
-                  Property" item are reachable in one click. The single-role
-                  accounts live on /login. Wrapped, not given `hidden
-                  lg:inline-flex` directly: `cn` is a plain join with no
-                  tailwind-merge, so that class fought the Button base's own
-                  `inline-flex` and lost — leaving it visible on phones. */}
-              <span className="hidden lg:inline-flex">
-                <Button
-                  variant="text"
-                  size="dense"
-                  onClick={() => login(DEMO_LANDLORD_RENTER)}
-                  title="Demo: simulate login as a multi-role user"
-                >
-                  (demo login)
-                </Button>
-              </span>
             </>
           ) : (
             <NavMenu
@@ -355,7 +334,7 @@ export function Header() {
               triggerClassName="inline-flex min-h-12 items-center gap-2 border border-[var(--color-dark-blue)] px-3 md:min-h-11 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] aria-expanded:bg-[var(--color-surface-base)]"
               trigger={({ open }) => (
                 <>
-                  <Avatar name="Account" size={22} className="ring-0" />
+                  <Avatar name={user?.name ?? "Account"} size={22} className="ring-0" />
                   <IconChevronDown
                     aria-hidden
                     className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`}

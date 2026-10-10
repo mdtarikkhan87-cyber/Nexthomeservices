@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusBadge, statusBadgeColor, StatusKind } from "@/components/ui/StatusBadge";
-import { AdminListingRow, useAdminComplaints, useAdminListings, useAdminUsers } from "@/lib/admin-mock-data";
+import { AdminListingRow, useAdminComplaints, useAdminListings, useAdminUsers } from "@/lib/admin-client";
 import { ROLE_LABELS } from "@/lib/roles";
 import { RoleName } from "@/lib/types";
 
@@ -98,11 +98,11 @@ export default function AdminOverviewPage() {
   const pendingBreakdown = `${pluralize(byKind(pending, "property"), "property", "properties")}, ${pluralize(
     byKind(pending, "service"),
     "service"
-  )}`;
+  )}, ${pluralize(byKind(pending, "advertisement"), "ad", "ads")}`;
   const liveBreakdown = `${pluralize(byKind(liveListings, "property"), "property", "properties")}, ${pluralize(
     byKind(liveListings, "service"),
     "service"
-  )}`;
+  )}, ${pluralize(byKind(liveListings, "advertisement"), "ad", "ads")}`;
 
   // No rejected caption on Pending users: unlike listings, RoleState
   // (lib/types.ts) has no "rejected" state — rejecting a role's document

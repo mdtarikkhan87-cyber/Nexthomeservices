@@ -3,17 +3,19 @@ import Link from "next/link";
 import { IconArrowRight, IconClock, IconShield } from "@/components/ui/icons";
 import { Container } from "@/components/ui/Container";
 import { browseFacets } from "@/lib/browse-facets";
+import type { PropertyListing } from "@/lib/types";
 import { Eyebrow } from "./Eyebrow";
 import { Reveal } from "./Reveal";
 
 // "Browse by": the states that actually have rentals, as photo cards, plus the
-// two stay-length facets as quiet pills. The facets come from lib/browse-facets,
-// the same source the header's Listings menu reads, so the two always agree.
-export function FacetGrid() {
-  const { states, durations } = browseFacets();
+// two stay-length facets as quiet pills. The facets are computed by lib/browse-facets from
+// the homepage's single server-side fetch (see page.tsx): every listing passed
+// in is already "live".
+export function FacetGrid({ listings }: { listings: PropertyListing[] }) {
+  const { states, durations } = browseFacets(listings);
 
   return (
-    <section className="bg-[var(--color-surface-base)] pb-20 pt-14 md:pb-24 md:pt-16 lg:pb-28 lg:pt-20">
+    <section id="browse-by" className="bg-[var(--color-surface-base)] pb-20 pt-14 md:pb-24 md:pt-16 lg:pb-28 lg:pt-20">
       <Container>
         <Reveal>
           <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
@@ -41,13 +43,15 @@ export function FacetGrid() {
                 href={href}
                 className="group relative block aspect-[4/5] overflow-hidden rounded-2xl bg-[var(--color-surface-dense)] shadow-[var(--elevation-card)] transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[var(--elevation-card-hover)]"
               >
-                <Image
-                  src={photoUrl}
-                  alt=""
-                  fill
-                  sizes="(max-width: 1024px) 50vw, 25vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                />
+                {photoUrl && (
+                  <Image
+                    src={photoUrl}
+                    alt=""
+                    fill
+                    sizes="(max-width: 1024px) 50vw, 25vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                )}
                 <div
                   aria-hidden
                   className="absolute inset-0"

@@ -1,8 +1,7 @@
-import { mockListings } from "@/lib/mock-data";
+import type { PropertyListing } from "@/lib/types";
 
-// The "browse by" facets, computed once from the live catalog. The landing
-// page's "Where you're looking" cards and the Listings mega-menu in the header
-// both read this, so the two can never show different locations or counts.
+// The landing page's "browse by" facets, computed from the live listings the
+// homepage fetches (every listing passed in is already "live").
 //
 // NextHome has no property-type taxonomy (see lib/types.ts), so every facet is
 // built from data the catalog really has — state and rent duration — and links
@@ -13,7 +12,8 @@ export interface StateFacet {
   key: string;
   label: string;
   count: number;
-  /** A real listing's photo from that state, for the landing-page cards. */
+  /** A real listing's photo from that state, for the landing-page cards
+      (empty if none of that state's listings has one). */
   photoUrl: string;
   href: string;
 }
@@ -25,8 +25,11 @@ export interface DurationFacet {
   href: string;
 }
 
-export function browseFacets(maxStates = 4): { states: StateFacet[]; durations: DurationFacet[] } {
-  const liveRentals = mockListings.filter((l) => l.status === "live" && l.type === "rent");
+export function browseFacets(
+  listings: PropertyListing[],
+  maxStates = 4
+): { states: StateFacet[]; durations: DurationFacet[] } {
+  const liveRentals = listings.filter((l) => l.type === "rent");
 
   const states = Array.from(new Set(liveRentals.map((l) => l.state)))
     .map((state) => {
@@ -35,7 +38,7 @@ export function browseFacets(maxStates = 4): { states: StateFacet[]; durations: 
         key: state,
         label: state,
         count: inState.length,
-        photoUrl: inState[0].photoUrl,
+        photoUrl: inState.find((l) => l.photoUrl)?.photoUrl ?? "",
         href: `/listings?mode=rent&state=${encodeURIComponent(state)}`,
       };
     })

@@ -2,13 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { IconArrowRight, IconBath, IconBed, IconCheck, IconStar } from "@/components/ui/icons";
 import { useAuthGate } from "@/components/shared/AuthGate";
+import { useListings } from "@/lib/listings-context";
 import { PropertyListing } from "@/lib/types";
-import { isShared } from "@/lib/shared-property";
+import { isShared, unavailableLabel } from "@/lib/shared-property";
 import { formatLocation } from "@/lib/nigeria-locations";
 
 function formatPrice(listing: PropertyListing) {
@@ -68,13 +68,21 @@ export function PropertyCard({
   featured?: boolean;
 }) {
   const { requireAuth } = useAuthGate();
-  const [saved, setSaved] = useState(false);
+  // Real persistence (see saved.routes.js) — this used to be local
+  // component state (`useState(false)`), which looked like a working save
+  // button but reset to unsaved on every render and never actually
+  // persisted anywhere, for anyone.
+  const { savedListingIds, saveListing, unsaveListing } = useListings();
+  const saved = savedListingIds.has(listing.id);
 
   const toggleSave = () => {
     requireAuth({
       actionLabel: `Log in to save "${listing.title}"`,
       suggestedRole: "tenant-buyer",
-      onResume: () => setSaved((v) => !v),
+      onResume: () => {
+        if (saved) unsaveListing(listing.id);
+        else saveListing(listing.id);
+      },
     });
   };
 
@@ -83,7 +91,15 @@ export function PropertyCard({
   if (variant === "dashboard") {
     return (
       <div className="flex items-center gap-4 rounded-[var(--radius-card)] border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] px-4 py-3.5 shadow-[var(--elevation-xs)] transition-shadow duration-[var(--motion-duration-standard)] hover:shadow-[var(--elevation-sm)]">
-        <StatusBadge kind={listing.status === "live" ? "live" : listing.status === "rejected" ? "rejected" : "pending"} dense />
+        {listing.isPublished === false && listing.status === "live" ? (
+          <StatusBadge kind="unavailable" label="Unpublished" dense />
+        ) : (
+          <>
+            <StatusBadge kind={listing.status === "live" ? "live" : listing.status === "rejected" ? "rejected" : "pending"} dense />
+            {listing.isPublished === false && <StatusBadge kind="unavailable" label="Unpublished" dense />}
+          </>
+        )}
+        {unavailableLabel(listing) && <StatusBadge kind="unavailable" label={unavailableLabel(listing)!} dense />}
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 truncate font-bold text-[var(--color-text-primary)]">
             <span className="truncate">{listing.title}</span>
@@ -132,6 +148,11 @@ export function PropertyCard({
         />
         <div className="pointer-events-none absolute left-0 right-0 top-0 flex items-center gap-2 p-5 sm:p-7">
           {listing.verified && <VerifiedPill />}
+          {unavailableLabel(listing) && (
+            <span className="rounded-full bg-[var(--color-surface-raised)]">
+              <StatusBadge kind="unavailable" label={unavailableLabel(listing)!} />
+            </span>
+          )}
           {isShared(listing) && (
             <span className="u-label rounded-full bg-white/15 px-3 py-1.5 text-white backdrop-blur-sm">
               Shared Property
@@ -186,16 +207,27 @@ export function PropertyCard({
             alt={listing.title}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            className={`object-cover transition-transform duration-300 group-hover:scale-105 ${unavailableLabel(listing) ? "opacity-60" : ""}`}
           />
 
           {listing.verified && <VerifiedPill className="absolute left-3 top-3" />}
 
-          {/* Derived from real listing facts, never a marketing claim. */}
-          {tag && (
-            <span className="u-label absolute bottom-3 left-3 rounded-full bg-[var(--color-dark-blue)]/70 px-3 py-1.5 text-white backdrop-blur-sm">
-              {tag}
-            </span>
+          {/* Bottom-left: off the market (rented/sold) and the listing tag, side by
+              side when both apply. Derived from real listing facts, never a
+              marketing claim. */}
+          {(tag || unavailableLabel(listing)) && (
+            <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-2">
+              {unavailableLabel(listing) && (
+                <span className="rounded-full bg-[var(--color-surface-raised)]">
+                  <StatusBadge kind="unavailable" label={unavailableLabel(listing)!} />
+                </span>
+              )}
+              {tag && (
+                <span className="u-label rounded-full bg-[var(--color-dark-blue)]/70 px-3 py-1.5 text-white backdrop-blur-sm">
+                  {tag}
+                </span>
+              )}
+            </div>
           )}
 
           {/* Reveal-on-hover affordance. Hover is an enhancement only — the
