@@ -63,6 +63,13 @@ router.get("/activity", async (req, res) => {
 
 // -----------------------------------------------------------------------
 // GET /admin/users — every non-admin account and the roles it holds.
+//
+// `hasDocument` is derived from documentUrl here and the raw value is
+// dropped before the response goes out — the admin UI needs to know
+// whether a role has *something* on file (to decide whether "Review
+// document" shows at all for a role-added/role-verified row), but the raw
+// S3 key itself should never reach the client, same principle as the
+// signed-URL document route below.
 // -----------------------------------------------------------------------
 router.get("/users", async (req, res) => {
   const users = await prisma.user.findMany({
@@ -70,11 +77,16 @@ router.get("/users", async (req, res) => {
     select: {
       id: true,
       name: true,
-      roles: { select: { role: true, state: true, subscriptionState: true } },
+      roles: { select: { role: true, state: true, subscriptionState: true, documentUrl: true } },
     },
     orderBy: { createdAt: "asc" },
   });
-  res.json(users);
+  res.json(
+    users.map((u) => ({
+      ...u,
+      roles: u.roles.map(({ documentUrl, ...role }) => ({ ...role, hasDocument: Boolean(documentUrl) })),
+    })),
+  );
 });
 
 // -----------------------------------------------------------------------
@@ -331,6 +343,111 @@ router.get(
     } catch (err) {
       console.error(`[admin] Failed to load ad review for ${req.params.id}:`, err);
       res.status(500).json({ message: "Couldn't load that advertisement." });
+    }
+  },
+);
+
+// -----------------------------------------------------------------------
+// GET /admin/listings/:kind/:id/review — kind: property|service. Full
+// detail for the review dialog, same "fetched only on open" reasoning as
+// the ad route above. Advertisement keeps its own dedicated route (image
+// handling is different enough — public URL vs this route's photo array —
+// that folding it in here wouldn't actually simplify anything).
+//
+// photos is built from photoUrl + galleryUrls (property) or just photoUrl
+// (service, which has no gallery) — de-duplicated, since photoUrl usually
+// repeats galleryUrls[0] (see scripts/migrate-listing-photos.js). All
+// public by design (lib/s3.js PUBLIC_PURPOSES), so passed through
+// unsigned, same as ad images; isPlaceholder flags a dead dev-mode URL.
+//
+// ownerVerificationState is the owner's OWN UserRole.state for the role
+// that actually submitted this listing (landlord for a property,
+// service_provider for a service) — i.e. "is this a verified landlord?",
+// not the listing's own `verified` flag (which is also returned
+// separately, and is always false before an admin's first approval).
+// -----------------------------------------------------------------------
+const REVIEWABLE_LISTING_KIND = {
+  property: "landlord",
+  service: "service_provider",
+};
+
+function photosFromUrls(urls) {
+  const unique = [...new Set(urls.filter(Boolean))];
+  return unique.map((url) => ({ url, isPlaceholder: url.includes("/dev-fake-file/") }));
+}
+
+router.get(
+  "/listings/:kind/:id/review",
+  [param("kind").isIn(Object.keys(REVIEWABLE_LISTING_KIND)), param("id").isString()],
+  async (req, res) => {
+    if (!checkValidation(req, res)) return;
+    res.set("Cache-Control", "no-store");
+
+    const { kind, id } = req.params;
+    const ownerRole = REVIEWABLE_LISTING_KIND[kind];
+
+    try {
+      if (kind === "property") {
+        const listing = await prisma.listing.findUnique({
+          where: { id },
+          select: {
+            title: true,
+            description: true,
+            status: true,
+            verified: true,
+            createdAt: true,
+            photoUrl: true,
+            galleryUrls: true,
+            landlord: {
+              select: { name: true, roles: { where: { role: ownerRole }, select: { state: true } } },
+            },
+          },
+        });
+        if (!listing) {
+          return res.status(404).json({ message: "Listing not found." });
+        }
+        return res.json({
+          title: listing.title,
+          description: listing.description,
+          status: listing.status,
+          verified: listing.verified,
+          submittedAt: listing.createdAt,
+          ownerName: listing.landlord.name,
+          ownerVerificationState: listing.landlord.roles[0]?.state ?? null,
+          photos: photosFromUrls([listing.photoUrl, ...listing.galleryUrls]),
+        });
+      }
+
+      const service = await prisma.serviceListing.findUnique({
+        where: { id },
+        select: {
+          category: true,
+          description: true,
+          status: true,
+          verified: true,
+          createdAt: true,
+          photoUrl: true,
+          provider: {
+            select: { name: true, roles: { where: { role: ownerRole }, select: { state: true } } },
+          },
+        },
+      });
+      if (!service) {
+        return res.status(404).json({ message: "Service listing not found." });
+      }
+      res.json({
+        title: service.category,
+        description: service.description,
+        status: service.status,
+        verified: service.verified,
+        submittedAt: service.createdAt,
+        ownerName: service.provider.name,
+        ownerVerificationState: service.provider.roles[0]?.state ?? null,
+        photos: photosFromUrls([service.photoUrl]),
+      });
+    } catch (err) {
+      console.error(`[admin] Failed to load ${kind} review for ${id}:`, err);
+      res.status(500).json({ message: "Couldn't load that listing." });
     }
   },
 );
