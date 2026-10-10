@@ -118,6 +118,11 @@ export interface AdminUserRoleRow {
   state: "role-added" | "pending-admin-document-review" | "role-verified";
   /** landlord only — null/undefined for every other role. */
   subscriptionState?: FrontendSubscriptionState;
+  /** Whether a document exists on file for this role, in ANY state — not
+      just while pending. Used to decide whether "Review document" shows at
+      all for a role-added (previously rejected) or role-verified row. The
+      raw key is never sent down for this; see admin.routes.js. */
+  hasDocument: boolean;
 }
 
 export interface AdminUser {
@@ -129,7 +134,12 @@ export interface AdminUser {
 interface BackendAdminUser {
   id: string;
   name: string;
-  roles: { role: BackendRoleName; state: BackendRoleState; subscriptionState: BackendSubscriptionState | null }[];
+  roles: {
+    role: BackendRoleName;
+    state: BackendRoleState;
+    subscriptionState: BackendSubscriptionState | null;
+    hasDocument: boolean;
+  }[];
 }
 
 export function useAdminUsers() {
@@ -145,6 +155,7 @@ export function useAdminUsers() {
           role: ROLE_TO_FRONTEND[r.role],
           state: ROLE_STATE_TO_FRONTEND[r.state],
           subscriptionState: r.subscriptionState ? SUBSCRIPTION_STATE_TO_FRONTEND[r.subscriptionState] : undefined,
+          hasDocument: r.hasDocument,
         })),
       })),
     );
@@ -303,6 +314,55 @@ interface BackendAdReview {
 export async function fetchAdReview(adId: string): Promise<AdminAdReview> {
   const result = await apiAuthedRequest<BackendAdReview>(`/admin/listings/advertisement/${adId}/review`);
   return { ...result, status: STATUS_TO_FRONTEND[result.status] };
+}
+
+export interface AdminListingReviewPhoto {
+  url: string;
+  isPlaceholder: boolean;
+}
+
+export interface AdminListingReview {
+  title: string;
+  description: string;
+  status: ContentItemState;
+  /** The listing's own moderation flag — true only after an admin has
+      approved it at least once. Separate from ownerVerificationState. */
+  verified: boolean;
+  submittedAt: string;
+  ownerName: string;
+  /** The OWNER's own identity-verification state (landlord/service_provider
+      role), not the listing's `verified` flag — null if, somehow, the owner
+      no longer holds that role at all. */
+  ownerVerificationState: AdminUserRoleRow["state"] | null;
+  photos: AdminListingReviewPhoto[];
+}
+
+interface BackendListingReview {
+  title: string;
+  description: string;
+  status: BackendContentItemState;
+  verified: boolean;
+  submittedAt: string;
+  ownerName: string;
+  ownerVerificationState: BackendRoleState | null;
+  photos: AdminListingReviewPhoto[];
+}
+
+// Plain on-demand fetch, same reasoning as fetchAdReview above. kind is
+// "property" | "service" only — advertisement keeps fetchAdReview/its own
+// route (see admin.routes.js).
+export async function fetchListingReview(
+  kind: "property" | "service",
+  id: string,
+): Promise<AdminListingReview> {
+  const result = await apiAuthedRequest<BackendListingReview>(`/admin/listings/${kind}/${id}/review`);
+  return {
+    ...result,
+    status: STATUS_TO_FRONTEND[result.status],
+    ownerVerificationState: result.ownerVerificationState
+      ? ROLE_STATE_TO_FRONTEND[result.ownerVerificationState]
+      : null,
+  };
 }
 
 // ---- Complaints -------------------------------------------------------------

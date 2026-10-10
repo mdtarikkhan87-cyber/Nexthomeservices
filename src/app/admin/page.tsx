@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { ReactNode, useState } from "react";
+import { AdReviewDialog } from "@/components/admin/AdReviewDialog";
+import { DocumentReviewDialog } from "@/components/admin/DocumentReviewDialog";
+import { ListingReviewDialog } from "@/components/admin/ListingReviewDialog";
 import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -83,6 +86,9 @@ export default function AdminOverviewPage() {
   const { users, verifyUserRole, rejectUserRole } = useAdminUsers();
   const { listings, pending, approveListing, rejectListing } = useAdminListings();
   const { complaints } = useAdminComplaints();
+  const [reviewing, setReviewing] = useState<AttentionItem | null>(null);
+  const [verifying, setVerifying] = useState<{ userId: string; userName: string; role: RoleName } | null>(null);
+  const [approving, setApproving] = useState<AdminListingRow | null>(null);
   const [rejecting, setRejecting] = useState<AttentionItem | null>(null);
 
   const pendingUsers = users.filter((user) =>
@@ -187,11 +193,8 @@ export default function AdminOverviewPage() {
                     <p className="min-w-0 flex-1 truncate text-sm font-bold text-[var(--color-text-primary)]">
                       {item.userName} — {ROLE_LABELS[item.role]}
                     </p>
-                    <Button variant="secondary" size="dense" onClick={() => verifyUserRole(item.userId, item.role)}>
-                      Verify
-                    </Button>
-                    <Button variant="destructive" size="dense" onClick={() => setRejecting(item)}>
-                      Reject
+                    <Button variant="secondary" size="dense" onClick={() => setReviewing(item)}>
+                      Review
                     </Button>
                   </li>
                 );
@@ -207,11 +210,8 @@ export default function AdminOverviewPage() {
                   <p className="min-w-0 flex-1 truncate text-sm font-bold text-[var(--color-text-primary)]">
                     {row.title}
                   </p>
-                  <Button variant="secondary" size="dense" onClick={() => approveListing(row.id)}>
-                    Approve
-                  </Button>
-                  <Button variant="destructive" size="dense" onClick={() => setRejecting(item)}>
-                    Reject
+                  <Button variant="secondary" size="dense" onClick={() => setReviewing(item)}>
+                    Review
                   </Button>
                 </li>
               );
@@ -219,6 +219,98 @@ export default function AdminOverviewPage() {
           </ul>
         )}
       </div>
+
+      {/* Every "Needs your attention" item is, by construction, in a
+          pending state — a user-role item is always pending-admin-
+          document-review, a listing item is always pending-review — so
+          these dialogs never need a status/mode decision the way the
+          Users and Listings pages do; it's always the fully-actionable
+          variant. Reusing the exact same dialog components as those pages
+          (not copies) means Verify/Approve now go through the same
+          ConfirmationDialog + audit-log path as everywhere else, which
+          Overview's old inline buttons never did — they fired immediately
+          with no confirmation step at all. */}
+      {reviewing &&
+        (reviewing.source === "user-role" ? (
+          <DocumentReviewDialog
+            open={reviewing !== null}
+            userId={reviewing.userId}
+            userName={reviewing.userName}
+            role={reviewing.role}
+            roleLabel={ROLE_LABELS[reviewing.role]}
+            onClose={() => setReviewing(null)}
+            mode={{
+              kind: "actionable",
+              onVerify: () => {
+                setVerifying(reviewing);
+                setReviewing(null);
+              },
+              onReject: () => {
+                setRejecting(reviewing);
+                setReviewing(null);
+              },
+            }}
+          />
+        ) : reviewing.row.kind === "advertisement" ? (
+          <AdReviewDialog
+            open={reviewing !== null}
+            adId={reviewing.row.id}
+            status={reviewing.row.status}
+            fallbackTitle={reviewing.row.title}
+            onClose={() => setReviewing(null)}
+            onApprove={() => {
+              setApproving(reviewing.row);
+              setReviewing(null);
+            }}
+            onReject={() => {
+              setRejecting(reviewing);
+              setReviewing(null);
+            }}
+          />
+        ) : (
+          <ListingReviewDialog
+            open={reviewing !== null}
+            kind={reviewing.row.kind}
+            id={reviewing.row.id}
+            status={reviewing.row.status}
+            fallbackTitle={reviewing.row.title}
+            onClose={() => setReviewing(null)}
+            onApprove={() => {
+              setApproving(reviewing.row);
+              setReviewing(null);
+            }}
+            onReject={() => {
+              setRejecting(reviewing);
+              setReviewing(null);
+            }}
+          />
+        ))}
+
+      <ConfirmationDialog
+        open={verifying !== null}
+        title={verifying ? `Verify ${ROLE_LABELS[verifying.role]} for ${verifying.userName}?` : ""}
+        description="Their document review passes and the role becomes verified."
+        confirmLabel="Verify"
+        destructive={false}
+        onCancel={() => setVerifying(null)}
+        onConfirm={() => {
+          if (verifying) verifyUserRole(verifying.userId, verifying.role);
+          setVerifying(null);
+        }}
+      />
+
+      <ConfirmationDialog
+        open={approving !== null}
+        title={approving ? `Approve "${approving.title}"?` : ""}
+        description="It becomes visible to the public immediately."
+        confirmLabel="Approve"
+        destructive={false}
+        onCancel={() => setApproving(null)}
+        onConfirm={() => {
+          if (approving) approveListing(approving.id);
+          setApproving(null);
+        }}
+      />
 
       <ConfirmationDialog
         open={rejecting !== null}

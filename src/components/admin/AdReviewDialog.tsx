@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Overlay } from "@/components/ui/Overlay";
-import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
+import { ReviewDialogShell } from "./ReviewDialogShell";
+import { useAdminReview } from "@/lib/use-admin-review";
 import { AdminAdReview, fetchAdReview } from "@/lib/admin-client";
-
-type LoadState = { status: "loading" } | { status: "error" } | { status: "loaded"; review: AdminAdReview };
+import { ContentItemState } from "@/lib/types";
 
 // Unlike the document dialog, a broken/placeholder ad image does NOT block
 // Approve/Reject — the headline and link are still fully reviewable text,
@@ -16,6 +15,7 @@ type LoadState = { status: "loading" } | { status: "error" } | { status: "loaded
 export function AdReviewDialog({
   open,
   adId,
+  status,
   fallbackTitle,
   onClose,
   onApprove,
@@ -23,6 +23,11 @@ export function AdReviewDialog({
 }: {
   open: boolean;
   adId: string;
+  /** The row's current status — drives which action(s) the footer offers:
+      pending shows both, live shows Reject only, rejected shows Approve
+      only. Taken from the row, not the fetched detail, same reasoning as
+      ListingReviewDialog. */
+  status: ContentItemState;
   /** The combined "{headline} — {advertiser}" title already known from the
       list row — shown immediately, before the real detail finishes loading. */
   fallbackTitle: string;
@@ -30,76 +35,34 @@ export function AdReviewDialog({
   onApprove: () => void;
   onReject: () => void;
 }) {
-  useBodyScrollLock(open);
-  const [state, setState] = useState<LoadState>({ status: "loading" });
+  const { state, reload } = useAdminReview<AdminAdReview>(() => fetchAdReview(adId));
   const [imageFailed, setImageFailed] = useState(false);
 
-  const load = () => {
-    setState({ status: "loading" });
+  const handleReload = () => {
     setImageFailed(false);
-    fetchAdReview(adId)
-      .then((review) => setState({ status: "loaded", review }))
-      .catch(() => setState({ status: "error" }));
+    reload();
   };
 
-  // Fetches once per mount — the parent always mounts a fresh instance per
-  // open (`{reviewing && <AdReviewDialog .../>}`), so the initial "loading"
-  // state above already covers it. Re-fetch on every open rather than
-  // reusing a prior result.
-  useEffect(() => {
-    let cancelled = false;
-    fetchAdReview(adId)
-      .then((review) => {
-        if (!cancelled) setState({ status: "loaded", review });
-      })
-      .catch(() => {
-        if (!cancelled) setState({ status: "error" });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [adId]);
-
-  if (!open) return null;
-
-  const review = state.status === "loaded" ? state.review : null;
-  const imageUnavailable = !review || review.isPlaceholder || imageFailed;
+  const review = state.status === "loaded" ? state.data : null;
 
   return (
-    <Overlay onDismiss={onClose} labelledBy="ad-review-title" maxWidth="max-w-xl">
-      <h2 id="ad-review-title" className="text-lg font-bold text-[var(--color-text-primary)]">
-        {review?.headline ?? fallbackTitle}
-      </h2>
-
-      <div className="mt-4">
-        {state.status === "loading" && (
-          <div className="flex items-center justify-center rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-dense)]/50 py-14">
-            <span
-              aria-hidden
-              className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-brand-primary)] border-t-transparent"
-            />
-          </div>
-        )}
-
-        {state.status === "error" && (
-          <EmptyState
-            title="Couldn't load this ad"
-            description="Something went wrong asking for it."
-            action={
-              <Button variant="secondary" size="dense" onClick={load}>
-                Reload
-              </Button>
-            }
-          />
-        )}
-
-        {state.status === "loaded" && (
+    <ReviewDialogShell
+      open={open}
+      titleId="ad-review-title"
+      title={review?.headline ?? fallbackTitle}
+      state={state}
+      errorTitle="Couldn't load this ad"
+      onReload={handleReload}
+      onClose={onClose}
+      renderBody={(data) => {
+        const imageUnavailable = data.isPlaceholder || imageFailed;
+        return (
           <div className="flex flex-col gap-3">
             {imageUnavailable ? (
               <EmptyState
                 title="Image unavailable"
                 description={
-                  review!.isPlaceholder
+                  data.isPlaceholder
                     ? "This was submitted before cloud storage was configured, so no real image was ever saved."
                     : "The image link is broken or the upload may not have finished — the text below is still accurate."
                 }
@@ -108,8 +71,8 @@ export function AdReviewDialog({
               // A public S3 URL, not a static asset next/image can optimize.
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={review!.imageUrl}
-                alt={review!.headline}
+                src={data.imageUrl}
+                alt={data.headline}
                 className="max-h-[360px] w-full rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] object-contain"
                 onError={() => setImageFailed(true)}
               />
@@ -120,29 +83,34 @@ export function AdReviewDialog({
                 Link
               </p>
               <a
-                href={review!.linkUrl}
+                href={data.linkUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="break-all text-sm font-bold text-[var(--color-brand-primary)] hover:underline"
               >
-                {review!.linkUrl}
+                {data.linkUrl}
               </a>
             </div>
           </div>
-        )}
-      </div>
-
-      <div className="mt-6 flex justify-end gap-3">
-        <Button variant="secondary" size="dense" onClick={onClose}>
-          Close
-        </Button>
-        <Button variant="destructive" size="dense" onClick={onReject}>
-          Reject
-        </Button>
-        <Button variant="primary" size="dense" onClick={onApprove}>
-          Approve
-        </Button>
-      </div>
-    </Overlay>
+        );
+      }}
+      footer={
+        <>
+          <Button variant="secondary" size="dense" onClick={onClose}>
+            Close
+          </Button>
+          {status !== "rejected" && (
+            <Button variant="destructive" size="dense" onClick={onReject}>
+              Reject
+            </Button>
+          )}
+          {status !== "live" && (
+            <Button variant="primary" size="dense" onClick={onApprove}>
+              Approve
+            </Button>
+          )}
+        </>
+      }
+    />
   );
 }

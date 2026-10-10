@@ -1,17 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Overlay } from "@/components/ui/Overlay";
-import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
+import { ReviewDialogShell } from "./ReviewDialogShell";
+import { useAdminReview } from "@/lib/use-admin-review";
 import { AdminDocumentReview, fetchUserDocument } from "@/lib/admin-client";
 import { RoleName } from "@/lib/types";
-
-type LoadState =
-  | { status: "loading" }
-  | { status: "error" }
-  | { status: "loaded"; review: AdminDocumentReview };
 
 const REASON_COPY: Record<NonNullable<AdminDocumentReview["reason"]>, string> = {
   "no-document": "No document on file.",
@@ -20,186 +15,161 @@ const REASON_COPY: Record<NonNullable<AdminDocumentReview["reason"]>, string> = 
   "not-found": "File not found in storage; it may have been uploaded before storage was set up.",
 };
 
-// Verifying without actually seeing the document defeats the point of this
-// dialog, so Verify stays disabled until a document is confirmed viewable —
-// Reject stays enabled either way (a missing/broken document is itself a
-// legitimate reason to reject).
+// Three ways this dialog can be opened:
+//  - "actionable" (role in pending-admin-document-review): Verify + Reject,
+//    Verify disabled until the document is confirmed viewable.
+//  - "previous" (role-added, but a document from a PRIOR, already-rejected
+//    submission is still on file): view-only, deliberately relabeled so an
+//    admin doesn't mistake a stale file for a new pending one.
+//  - "verified" (role-verified): view-only — the backend's reject route has
+//    no state restriction, so this is viewable only by this UI's own
+//    choice not to expose Reject here, not a backend limitation.
+export type DocumentReviewMode =
+  | { kind: "actionable"; onVerify: () => void; onReject: () => void }
+  | { kind: "view-only"; variant: "previous" | "verified" };
+
 export function DocumentReviewDialog({
   open,
   userId,
   userName,
   role,
   roleLabel,
+  mode,
   onClose,
-  onVerify,
-  onReject,
 }: {
   open: boolean;
   userId: string;
   userName: string;
   role: RoleName;
   roleLabel: string;
+  mode: DocumentReviewMode;
   onClose: () => void;
-  onVerify: () => void;
-  onReject: () => void;
 }) {
-  useBodyScrollLock(open);
-  const [state, setState] = useState<LoadState>({ status: "loading" });
+  const { state, reload } = useAdminReview<AdminDocumentReview>(() => fetchUserDocument(userId, role));
   const [previewFailed, setPreviewFailed] = useState(false);
 
-  const load = () => {
-    setState({ status: "loading" });
+  const handleReload = () => {
     setPreviewFailed(false);
-    fetchUserDocument(userId, role)
-      .then((review) => setState({ status: "loaded", review }))
-      .catch(() => setState({ status: "error" }));
+    reload();
   };
 
-  // Fetches once per mount — the parent always mounts a fresh instance per
-  // open (`{reviewing && <DocumentReviewDialog .../>}`), so the initial
-  // "loading" state above already covers it; this effect never needs to
-  // reset state mid-mount. Re-fetch on every open rather than reusing a
-  // prior result, since the signed URL is only good for 5 minutes.
-  useEffect(() => {
-    let cancelled = false;
-    fetchUserDocument(userId, role)
-      .then((review) => {
-        if (!cancelled) setState({ status: "loaded", review });
-      })
-      .catch(() => {
-        if (!cancelled) setState({ status: "error" });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, role]);
-
-  if (!open) return null;
-
-  const review = state.status === "loaded" ? state.review : null;
+  const review = state.status === "loaded" ? state.data : null;
   const canVerify = review?.available === true && !previewFailed;
+  const isPrevious = mode.kind === "view-only" && mode.variant === "previous";
 
   return (
-    <Overlay onDismiss={onClose} labelledBy="document-review-title" maxWidth="max-w-xl">
-      <h2 id="document-review-title" className="text-lg font-bold text-[var(--color-text-primary)]">
-        {roleLabel} document — {userName}
-      </h2>
-      {review?.submittedAt && (
-        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Submitted {new Date(review.submittedAt).toLocaleString()}
-        </p>
-      )}
-
-      <div className="mt-4">
-        {state.status === "loading" && (
-          <div className="flex items-center justify-center rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-dense)]/50 py-14">
-            <span
-              aria-hidden
-              className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-brand-primary)] border-t-transparent"
-            />
-          </div>
-        )}
-
-        {state.status === "error" && (
-          <EmptyState
-            title="Couldn't load this document"
-            description="Something went wrong asking for it."
-            action={
-              <Button variant="secondary" size="dense" onClick={load}>
-                Reload
-              </Button>
-            }
-          />
-        )}
-
-        {state.status === "loaded" && !review!.available && (
-          <EmptyState
-            title="Document unavailable"
-            description={REASON_COPY[review!.reason ?? "not-found"]}
-            action={
-              review!.reason === "not-found" ? (
-                <Button variant="secondary" size="dense" onClick={load}>
-                  Reload
-                </Button>
-              ) : undefined
-            }
-          />
-        )}
-
-        {state.status === "loaded" && review!.available && review!.url && (
-          <div>
-            {previewFailed ? (
-              <EmptyState
-                title="Couldn't display this file"
-                description="The link may have expired."
-                action={
-                  <Button variant="secondary" size="dense" onClick={load}>
+    <ReviewDialogShell
+      open={open}
+      titleId="document-review-title"
+      title={isPrevious ? "Previous document" : `${roleLabel} document — ${userName}`}
+      subtitle={
+        isPrevious
+          ? `${roleLabel} — ${userName}`
+          : review?.submittedAt
+            ? `Submitted ${new Date(review.submittedAt).toLocaleString()}`
+            : undefined
+      }
+      state={state}
+      errorTitle="Couldn't load this document"
+      onReload={handleReload}
+      onClose={onClose}
+      renderBody={(data) => (
+        <div className="flex flex-col gap-3">
+          {isPrevious && (
+            <p className="text-sm font-bold text-[var(--color-text-secondary)]">
+              Waiting for the user to submit a document.
+            </p>
+          )}
+          {!data.available ? (
+            <EmptyState
+              title="Document unavailable"
+              description={REASON_COPY[data.reason ?? "not-found"]}
+              action={
+                data.reason === "not-found" ? (
+                  <Button variant="secondary" size="dense" onClick={handleReload}>
                     Reload
                   </Button>
-                }
-              />
-            ) : review!.kind === "image" ? (
-              // A signed S3 URL, not a static asset next/image can optimize.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={review!.url}
-                alt={review!.fileName ?? "Submitted document"}
-                className="max-h-[480px] w-full rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] object-contain"
+                ) : undefined
+              }
+            />
+          ) : previewFailed ? (
+            <EmptyState
+              title="Couldn't display this file"
+              description="The link may have expired."
+              action={
+                <Button variant="secondary" size="dense" onClick={handleReload}>
+                  Reload
+                </Button>
+              }
+            />
+          ) : data.kind === "image" ? (
+            // A signed S3 URL, not a static asset next/image can optimize.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={data.url}
+              alt={data.fileName ?? "Submitted document"}
+              className="max-h-[480px] w-full rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] object-contain"
+              onError={() => setPreviewFailed(true)}
+            />
+          ) : data.kind === "pdf" ? (
+            <div className="flex flex-col gap-2">
+              <iframe
+                src={data.url}
+                title={data.fileName ?? "Submitted document"}
+                className="h-[480px] w-full rounded-[var(--radius-card)] border border-[var(--color-border-hairline)]"
                 onError={() => setPreviewFailed(true)}
               />
-            ) : review!.kind === "pdf" ? (
-              <div className="flex flex-col gap-2">
-                <iframe
-                  src={review!.url}
-                  title={review!.fileName ?? "Submitted document"}
-                  className="h-[480px] w-full rounded-[var(--radius-card)] border border-[var(--color-border-hairline)]"
-                  onError={() => setPreviewFailed(true)}
-                />
+              <a
+                href={data.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="self-start text-sm font-bold text-[var(--color-brand-primary)] hover:underline"
+              >
+                Open in new tab
+              </a>
+            </div>
+          ) : (
+            <EmptyState
+              title="Unsupported file type"
+              description={data.fileName ?? "This file can't be previewed here."}
+              action={
                 <a
-                  href={review!.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="self-start text-sm font-bold text-[var(--color-brand-primary)] hover:underline"
+                  href={data.url}
+                  download={data.fileName}
+                  className="text-sm font-bold text-[var(--color-brand-primary)] hover:underline"
                 >
-                  Open in new tab
+                  Download
                 </a>
-              </div>
-            ) : (
-              <EmptyState
-                title="Unsupported file type"
-                description={review!.fileName ?? "This file can't be previewed here."}
-                action={
-                  <a
-                    href={review!.url}
-                    download={review!.fileName}
-                    className="text-sm font-bold text-[var(--color-brand-primary)] hover:underline"
-                  >
-                    Download
-                  </a>
-                }
-              />
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-6 flex justify-end gap-3">
-        <Button variant="secondary" size="dense" onClick={onClose}>
-          Close
-        </Button>
-        <Button variant="destructive" size="dense" onClick={onReject}>
-          Reject
-        </Button>
-        <Button
-          variant="primary"
-          size="dense"
-          disabled={!canVerify}
-          title={!canVerify ? "The document must be visible before you can verify it." : undefined}
-          onClick={onVerify}
-        >
-          Verify
-        </Button>
-      </div>
-    </Overlay>
+              }
+            />
+          )}
+        </div>
+      )}
+      footer={
+        mode.kind === "view-only" ? (
+          <Button variant="secondary" size="dense" onClick={onClose}>
+            Close
+          </Button>
+        ) : (
+          <>
+            <Button variant="secondary" size="dense" onClick={onClose}>
+              Close
+            </Button>
+            <Button variant="destructive" size="dense" onClick={mode.onReject}>
+              Reject
+            </Button>
+            <Button
+              variant="primary"
+              size="dense"
+              disabled={!canVerify}
+              title={!canVerify ? "The document must be visible before you can verify it." : undefined}
+              onClick={mode.onVerify}
+            >
+              Verify
+            </Button>
+          </>
+        )
+      }
+    />
   );
 }

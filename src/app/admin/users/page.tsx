@@ -22,11 +22,13 @@ const SUBSCRIPTION_BADGE: Record<"inactive" | "pending-confirmation" | "active",
   inactive: { kind: "rejected", label: "Not Subscribed" },
 };
 
+type ReviewTarget = { userId: string; userName: string; role: RoleName; mode: "actionable" | "previous" | "verified" };
+
 export default function AdminUsersPage() {
   const { users, verifyUserRole, rejectUserRole, activateSubscription, deactivateSubscription } = useAdminUsers();
   const [rejecting, setRejecting] = useState<{ userId: string; userName: string; role: RoleName } | null>(null);
   const [verifying, setVerifying] = useState<{ userId: string; userName: string; role: RoleName } | null>(null);
-  const [reviewing, setReviewing] = useState<{ userId: string; userName: string; role: RoleName } | null>(null);
+  const [reviewing, setReviewing] = useState<ReviewTarget | null>(null);
   const [subscriptionAction, setSubscriptionAction] = useState<{
     userId: string;
     userName: string;
@@ -70,20 +72,45 @@ export default function AdminUsersPage() {
                         <Button
                           variant="secondary"
                           size="dense"
-                          onClick={() => setReviewing({ userId: user.id, userName: user.name, role: row.role })}
+                          onClick={() =>
+                            setReviewing({ userId: user.id, userName: user.name, role: row.role, mode: "actionable" })
+                          }
+                        >
+                          Review document
+                        </Button>
+                      ) : row.state === "role-verified" ? (
+                        // View-only: the backend's reject route has no state
+                        // restriction, but this UI deliberately doesn't offer
+                        // Reject on an already-verified role from here.
+                        row.hasDocument ? (
+                          <Button
+                            variant="secondary"
+                            size="dense"
+                            onClick={() =>
+                              setReviewing({ userId: user.id, userName: user.name, role: row.role, mode: "verified" })
+                            }
+                          >
+                            Review document
+                          </Button>
+                        ) : (
+                          <p className="text-sm text-[var(--color-text-secondary)]">No document on file</p>
+                        )
+                      ) : // role-added: no standalone Verify any more. A document here, if
+                      // any, is a PRIOR (already-rejected) submission — view-only, and
+                      // deliberately relabeled inside the dialog so it isn't mistaken
+                      // for a new pending one.
+                      row.hasDocument ? (
+                        <Button
+                          variant="secondary"
+                          size="dense"
+                          onClick={() =>
+                            setReviewing({ userId: user.id, userName: user.name, role: row.role, mode: "previous" })
+                          }
                         >
                           Review document
                         </Button>
                       ) : (
-                        row.state !== "role-verified" && (
-                          <Button
-                            variant="secondary"
-                            size="dense"
-                            onClick={() => setVerifying({ userId: user.id, userName: user.name, role: row.role })}
-                          >
-                            Verify
-                          </Button>
-                        )
+                        <p className="text-sm text-[var(--color-text-secondary)]">Waiting for document</p>
                       )}
                       {/* Subscription isn't wired to real payments yet — this is the
                           manual stand-in until Stripe/Paystack exists. Landlord-only,
@@ -131,14 +158,21 @@ export default function AdminUsersPage() {
           role={reviewing.role}
           roleLabel={ROLE_LABELS[reviewing.role]}
           onClose={() => setReviewing(null)}
-          onVerify={() => {
-            setVerifying(reviewing);
-            setReviewing(null);
-          }}
-          onReject={() => {
-            setRejecting(reviewing);
-            setReviewing(null);
-          }}
+          mode={
+            reviewing.mode === "actionable"
+              ? {
+                  kind: "actionable",
+                  onVerify: () => {
+                    setVerifying(reviewing);
+                    setReviewing(null);
+                  },
+                  onReject: () => {
+                    setRejecting(reviewing);
+                    setReviewing(null);
+                  },
+                }
+              : { kind: "view-only", variant: reviewing.mode }
+          }
         />
       )}
 
