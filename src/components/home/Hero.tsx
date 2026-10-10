@@ -28,8 +28,8 @@ export function Hero() {
           </h1>
 
           <p className="mt-5 max-w-[30ch] text-base text-[var(--color-text-secondary)] lg:mt-3 lg:shrink-0">
-            Verified landlords and <span className="whitespace-nowrap">admin-reviewed</span> listings across
-            Nigeria, all in one place.
+            Connect with verified landlords, explore property listings, and manage your enquiries, saved
+            properties, and conversations all in one convenient place.
           </p>
         </div>
 

@@ -208,7 +208,7 @@ export function FilterPanel({
               <>
                 <div>
                   <label className={FIELD_LABEL} htmlFor="f-duration">
-                    Rental duration
+                    Rental Period
                   </label>
                   <Select id="f-duration" value={filters.duration} onChange={(e) => set("duration", e.target.value)}>
                     <option value="">Any</option>
