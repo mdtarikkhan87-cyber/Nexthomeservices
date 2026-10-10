@@ -125,8 +125,11 @@ export function RoleSwitcher({ variant = "header" }: { variant?: "header" | "dra
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex h-9 items-center gap-2 rounded-full border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] pl-2.5 pr-2 text-[13px] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-deep-blue)] sm:pl-3"
+        // 44px tall touch target; the visible 36px pill is the inner span, so the
+        // control looks exactly as before.
+        className="group flex h-11 items-center rounded-full focus-visible:rounded-full!"
       >
+        <span className="flex h-9 items-center gap-2 rounded-full border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] pl-2.5 pr-2 text-[13px] transition-colors duration-[var(--motion-duration-short)] group-hover:border-[var(--color-deep-blue)] sm:pl-3">
         {/* A live dot, not a decorative one: it says this control reflects
             current state, which is the whole job of "Viewing as". */}
         <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-brand-primary)]" />
@@ -161,6 +164,7 @@ export function RoleSwitcher({ variant = "header" }: { variant?: "header" | "dra
         />
         <span className="sr-only">
           Currently viewing as {activeHeld ? roleDisplay(activeHeld.role, activeHeld.context) : ""}. Change role.
+        </span>
         </span>
       </button>
 
