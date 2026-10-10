@@ -1,15 +1,32 @@
 import type { Metadata, Viewport } from "next";
-import { Quicksand } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 
 // Brand Guidelines p.9: Quicksand Bold (headings) / Quicksand Medium (body).
-// next/font only exposes numeric weights — 500 (Medium) and 700 (Bold) map
-// directly to the two brand weights, no other weights are loaded.
-const quicksand = Quicksand({
+//
+// SELF-HOSTED on purpose. This used to be `next/font/google`, which downloads
+// the font from Google at BUILD time — and when that step failed (CI run:
+// Turbopack "Can't resolve …/internal/font/google/font"), the whole build
+// failed, even though nothing in our code was wrong. Loading the same font
+// from our own repo removes the network dependency from the build entirely.
+//
+// The two files are Google's official Quicksand (variable) font cut at exactly
+// Medium 500 and Bold 700 and converted to WOFF2, with no glyph changes — all
+// glyphs the site needs, incl. ₦ and the accents in Yoruba/Igbo names.
+// License: SIL OFL 1.1 — src/fonts/OFL.txt must stay alongside them.
+//
+// Deliberately TWO static weights, not one variable font: globals.css relies
+// on only 500 and 700 existing, so the browser maps body text (400) to Medium
+// and semibold (600) to Bold. A variable font would render true Regular and
+// SemiBold and quietly lighten the whole site.
+const quicksand = localFont({
+  src: [
+    { path: "../fonts/Quicksand-Medium.woff2", weight: "500", style: "normal" },
+    { path: "../fonts/Quicksand-Bold.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-quicksand",
-  subsets: ["latin"],
-  weight: ["500", "700"],
+  display: "swap",
 });
 
 // BRAND COMPLIANCE (Website Revision Spec §3E, 24 Aug 2026): the previous
