@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { CONTAINER_CLASS } from "@/components/ui/Container";
@@ -83,10 +83,43 @@ function NavLabel({ active, children }: { active: boolean; children: React.React
 const navItem =
   "inline-flex min-h-11 items-center gap-1.5 px-3 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] aria-expanded:bg-[var(--color-surface-base)]";
 
+// Where the back arrow goes when there is no earlier page on this site to
+// return to (a shared link opened directly, a new tab).
+const BACK_FALLBACK = "/listings";
+
+// Subset of the Navigation API (Chromium, Safari) that the back arrow needs.
+type NavigationLike = {
+  canGoBack: boolean;
+  currentEntry: { index: number } | null;
+  entries(): { url: string | null }[];
+};
+
+/**
+ * Whether the entry before this one is a page of THIS site: true/false when
+ * the Navigation API can tell, null when the browser doesn't have it.
+ *
+ * The API only exposes same-origin entries, so an external page the visitor
+ * came from (a chat app, a search result) is simply not "previous" — which is
+ * exactly what stops the arrow from ever leaving the site.
+ */
+function previousEntryIsOnSite(): boolean | null {
+  const nav = (window as unknown as { navigation?: NavigationLike }).navigation;
+  if (!nav || typeof nav.canGoBack !== "boolean") return null;
+  if (!nav.canGoBack || !nav.currentEntry) return false;
+  const prev = nav.entries()[nav.currentEntry.index - 1];
+  if (!prev?.url) return false;
+  try {
+    return new URL(prev.url).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 export function Header() {
   const { user, isAuthenticated, activeRole } = useAuth();
   const { unreadCount } = useNotifications();
   const pathname = usePathname();
+  const router = useRouter();
   const sheet = useMenuState();
   const headerRef = useRef<HTMLElement>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -127,13 +160,46 @@ export function Header() {
   // switching to Landlord is what puts this control in the bar.
   const canListProperty = isAuthenticated && activeRole === "landlord";
 
-  // BACK-TO-HOME ARROW. The logo has been the only route home since the nav
-  // reduction, and an unlabelled logo is an *implicit* affordance. This adds
-  // the explicit one, on every route except the homepage itself. It is a Link
-  // to "/", not router.back(): browser history is frequently not this site's
-  // homepage at all. Deliberately icon-only — a labelled "Home" control would
-  // re-introduce the exact top-level item spec §3A removed.
+  // BACK ARROW, on every route except the homepage. It returns to the page the
+  // visitor came from (browser history), and only when that page is on this
+  // site; otherwise it follows its own href to the Listings page. The logo
+  // remains the way home. Deliberately icon-only — a labelled control would
+  // re-introduce a top-level item spec §3A removed.
   const isHome = pathname === "/";
+
+  // Fallback for browsers without the Navigation API (Firefox, older Safari):
+  // count this tab's in-app page changes. An earlier on-site page exists only
+  // if one happened, and after a browser back/forward (popstate) the position
+  // in history is no longer known, so it is not trusted until the next load.
+  const inAppNavs = useRef(0);
+  const lastPath = useRef<string | null>(null);
+  const sawPopState = useRef(false);
+  useEffect(() => {
+    if (lastPath.current !== null && lastPath.current !== pathname) inAppNavs.current += 1;
+    lastPath.current = pathname;
+  }, [pathname]);
+  useEffect(() => {
+    const onPop = () => {
+      sawPopState.current = true;
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const onBackClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // Let "open in new tab" gestures follow the href as normal.
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const onSite =
+      previousEntryIsOnSite() ?? (inAppNavs.current > 0 && !sawPopState.current && window.history.length > 1);
+    if (onSite) {
+      e.preventDefault();
+      router.back();
+    }
+  };
+
+  // On a phone, the property detail header is the most crowded one, so Log in
+  // and Register live in the menu there instead — never in both places.
+  const authInMenuOnly = pathname.startsWith("/listing/");
 
   const listingsActive = isListingsSection(pathname);
 
@@ -170,13 +236,14 @@ export function Header() {
 
           {!isHome && (
             <Link
-              href="/"
-              aria-label="Back to homepage"
-              title="Back to homepage"
+              href={BACK_FALLBACK}
+              onClick={onBackClick}
+              aria-label="Back to previous page"
+              title="Back"
               // Bordered rather than bare: it sits directly beside the logo,
               // which is also a link to "/", so it has to read as a control in
               // its own right instead of as part of the mark.
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-default)] text-[var(--color-text-secondary)] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-brand-primary)] hover:bg-[var(--color-surface-dense)] hover:text-[var(--color-brand-primary)] md:h-11 md:w-11"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-default)] text-[var(--color-text-secondary)] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-brand-primary)] hover:bg-[var(--color-surface-dense)] hover:text-[var(--color-brand-primary)]"
             >
               <IconArrowLeft className="h-[18px] w-[18px]" />
             </Link>
@@ -203,7 +270,7 @@ export function Header() {
               width={2267}
               height={2958}
               priority
-              className="h-12 w-auto sm:h-14"
+              className="h-14 w-auto"
             />
           </Link>
 
@@ -314,15 +381,19 @@ export function Header() {
                   outlined Dark Blue button, so "Register" stays the primary
                   path without a filled control competing with the hero CTA.
                   Both are 44px tall — on a phone they are most of the nav. */}
+              {/* On the property detail page these two are phone-hidden and
+                  live in the hamburger menu instead (see authInMenuOnly). A
+                  full class swap, not an added `hidden`: there is no
+                  tailwind-merge, so `flex` would win against it. */}
               <Link
                 href="/login"
-                className={`u-ui flex min-h-12 items-center rounded-xl! px-3 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] md:min-h-11 ${FOCUS_RING}`}
+                className={`u-ui ${authInMenuOnly ? "hidden md:flex" : "flex"} min-h-11 items-center rounded-xl! px-3 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
               >
                 Log in
               </Link>
               <Link
                 href="/register"
-                className={`u-ui flex min-h-12 items-center rounded-xl! border border-[var(--color-dark-blue)] px-4 md:min-h-11 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-dark-blue)] hover:text-white ${FOCUS_RING}`}
+                className={`u-ui ${authInMenuOnly ? "hidden md:flex" : "flex"} min-h-11 items-center rounded-xl! border border-[var(--color-dark-blue)] px-3 md:px-4 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-dark-blue)] hover:text-white ${FOCUS_RING}`}
               >
                 Register
               </Link>
@@ -367,20 +438,22 @@ export function Header() {
             pathname={pathname}
             isAuthenticated={isAuthenticated}
             loggedOutActions={
-              <div className="flex flex-col gap-2 px-0 pb-2">
-                <Link
-                  href="/register"
-                  className={`flex min-h-12 items-center justify-center rounded-xl! border border-[var(--color-dark-blue)] text-[15px] font-bold text-[var(--color-dark-blue)] hover:bg-[var(--color-dark-blue)] hover:text-white ${FOCUS_RING}`}
-                >
-                  Register
-                </Link>
-                <Link
-                  href="/login"
-                  className={`flex min-h-12 items-center justify-center rounded-xl! text-[15px] font-bold text-[var(--color-dark-blue)] hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
-                >
-                  Log in
-                </Link>
-              </div>
+              authInMenuOnly ? (
+                <div className="flex flex-col gap-2 px-0 pb-2">
+                  <Link
+                    href="/register"
+                    className={`flex min-h-12 items-center justify-center rounded-xl! border border-[var(--color-dark-blue)] text-[15px] font-bold text-[var(--color-dark-blue)] hover:bg-[var(--color-dark-blue)] hover:text-white ${FOCUS_RING}`}
+                  >
+                    Register
+                  </Link>
+                  <Link
+                    href="/login"
+                    className={`flex min-h-12 items-center justify-center rounded-xl! text-[15px] font-bold text-[var(--color-dark-blue)] hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
+                  >
+                    Log in
+                  </Link>
+                </div>
+              ) : null
             }
           />
         </div>
