@@ -311,6 +311,8 @@ export async function apiPreRegisterVerifyOtp(phone: string, code: string): Prom
 export async function apiPreRegisterPresignDocument(input: {
   fileName: string;
   fileType: string;
+  /** Bytes. Checked against the server-side limit and signed into the upload URL. */
+  fileSize: number;
   phoneVerificationToken: string;
 }): Promise<PresignedUpload> {
   return request("/auth/pre-register/presign-document", {
@@ -330,6 +332,8 @@ export async function apiGetPresignedUpload(input: {
   purpose: "listing-photo" | "trust-document" | "ad-image";
   fileName: string;
   fileType: string;
+  /** Bytes. Checked against the server-side limit and signed into the upload URL. */
+  fileSize: number;
 }): Promise<PresignedUpload> {
   return authedRequest("/uploads/presign", {
     method: "POST",

@@ -141,12 +141,14 @@ export function TrustLayerVerification({
           ? await apiPreRegisterPresignDocument({
               fileName: selectedFile.name,
               fileType: selectedFile.type,
+              fileSize: selectedFile.size,
               phoneVerificationToken: phoneVerificationToken!,
             })
           : await apiGetPresignedUpload({
               purpose: "trust-document",
               fileName: selectedFile.name,
               fileType: selectedFile.type,
+              fileSize: selectedFile.size,
             });
 
       const upload = await fetch(presigned.uploadUrl, {
@@ -224,9 +226,11 @@ export function TrustLayerVerification({
         <input
           id="doc"
           type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
           onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
           className="block w-full rounded-[var(--radius-control)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-3 text-sm"
         />
+        <p className="mt-2 text-sm text-[var(--color-text-secondary)]">An image (JPG, PNG, WebP, GIF) or a PDF, up to 10 MB.</p>
         {documentError && <p className="mt-2 text-sm font-bold text-red-600">{documentError}</p>}
       </div>
 

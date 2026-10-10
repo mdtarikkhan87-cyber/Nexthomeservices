@@ -2,6 +2,8 @@ const { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } = requ
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { v4: uuidv4 } = require("uuid");
 
+const { extensionForType } = require("./upload-policy");
+
 // Lazily created — NOT at module load time. Building this eagerly (the
 // previous version of this file) crashes the whole server on startup if
 // AWS_REGION isn't set yet, since the AWS SDK treats an empty string
@@ -53,12 +55,17 @@ function getClient() {
 const PUBLIC_PURPOSES = ["listing-photo", "ad-image"];
 const FOLDER_BY_PURPOSE = { "trust-document": "documents", "ad-image": "ads" };
 
-async function getPresignedUploadUrl({ purpose, fileName, fileType, userId, baseUrl }) {
+async function getPresignedUploadUrl({ purpose, fileName, fileType, fileSize, userId, baseUrl }) {
   const folder = FOLDER_BY_PURPOSE[purpose] || "listings";
   // fileName is user-supplied: keep only a safe basename so it can't add path
   // segments to the key (or odd characters to the public URL).
-  const safeName = String(fileName).split(/[\\/]/).pop().replace(/[^A-Za-z0-9._-]/g, "_").slice(-100) || "file";
-  const key = `${folder}/${userId}/${uuidv4()}-${safeName}`;
+  const baseName = String(fileName).split(/[\\/]/).pop().replace(/\.[^.]*$/, "").replace(/[^A-Za-z0-9._-]/g, "_").slice(-90) || "file";
+  // The extension comes from the validated MIME type (see upload-policy.js),
+  // not from the user's file name, so the key can never claim a type the
+  // upload isn't. A caller that skipped validation gets no extension rather
+  // than a trusted-looking one.
+  const ext = extensionForType(fileType);
+  const key = `${folder}/${userId}/${uuidv4()}-${baseName}${ext ? "." + ext : ""}`;
   const isPublic = PUBLIC_PURPOSES.includes(purpose);
 
   if (!isConfigured()) {
@@ -86,13 +93,23 @@ async function getPresignedUploadUrl({ purpose, fileName, fileType, userId, base
   // this project's README/setup guide), which works regardless of Object
   // Ownership setting and doesn't require "Block Public Access" disabled
   // for ACLs at all — only for bucket policies.
+  // ContentLength is part of the signature: S3 rejects a PUT whose body isn't
+  // exactly the size the (already limit-checked) request declared, so the
+  // size cap can't be bypassed by uploading something bigger to the URL.
   const command = new PutObjectCommand({
     Bucket: process.env.AWS_S3_BUCKET,
     Key: key,
     ContentType: fileType,
+    ContentLength: fileSize,
   });
 
-  const uploadUrl = await getSignedUrl(getClient(), command, { expiresIn: 300 }); // 5 minutes
+  // signableHeaders makes the Content-Type part of the signature as well:
+  // by default the SDK leaves it out, which would let a client declare
+  // "image/png" to pass validation and then upload text/html to the URL.
+  const uploadUrl = await getSignedUrl(getClient(), command, {
+    expiresIn: 300, // 5 minutes
+    signableHeaders: new Set(["content-type", "content-length"]),
+  });
 
   const publicUrl = isPublic
     ? `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`

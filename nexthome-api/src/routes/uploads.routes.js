@@ -2,6 +2,7 @@ const express = require("express");
 const { body, validationResult } = require("express-validator");
 const { authenticate } = require("../middleware/auth.middleware");
 const { getPresignedUploadUrl } = require("../lib/s3");
+const { validateUpload } = require("../lib/upload-policy");
 
 const router = express.Router();
 
@@ -24,11 +25,18 @@ router.post(
     body("purpose").isIn(["listing-photo", "trust-document", "ad-image"]),
     body("fileName").isString().notEmpty(),
     body("fileType").isString().notEmpty(),
+    // Declared size in bytes — validated against the per-purpose limit below
+    // and signed into the upload URL, so S3 enforces it too.
+    body("fileSize").isInt({ min: 1 }),
   ],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
 
     const { purpose, fileName, fileType } = req.body;
+    const fileSize = Number(req.body.fileSize);
+
+    const problem = validateUpload({ purpose, fileType, fileSize });
+    if (problem) return res.status(400).json({ message: problem });
     // Railway terminates TLS at its edge and forwards over plain HTTP, so
     // req.protocol alone would report "http" even though the site is served
     // over https — x-forwarded-proto is what actually reflects that.
@@ -38,6 +46,7 @@ router.post(
       purpose,
       fileName,
       fileType,
+      fileSize,
       userId: req.user.sub,
       baseUrl,
     });

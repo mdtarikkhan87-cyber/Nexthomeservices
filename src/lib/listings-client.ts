@@ -188,6 +188,7 @@ export async function uploadListingPhoto(objectUrl: string, index: number): Prom
     purpose: "listing-photo",
     fileName: `photo-${index + 1}.${EXTENSION_BY_TYPE[fileType] ?? "jpg"}`,
     fileType,
+    fileSize: blob.size,
   });
   const res = await fetch(presigned.uploadUrl, {
     method: "PUT",

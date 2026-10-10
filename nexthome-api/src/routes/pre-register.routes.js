@@ -6,6 +6,7 @@ const { body, validationResult } = require("express-validator");
 const prisma = require("../lib/prisma");
 const { sendSms } = require("../lib/sms");
 const { getPresignedUploadUrl } = require("../lib/s3");
+const { validateUpload } = require("../lib/upload-policy");
 
 const router = express.Router();
 
@@ -145,12 +146,17 @@ router.post(
   [
     body("fileName").isString().notEmpty(),
     body("fileType").isString().notEmpty(),
+    body("fileSize").isInt({ min: 1 }),
     body("phoneVerificationToken").isString().notEmpty(),
   ],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
 
     const { fileName, fileType, phoneVerificationToken } = req.body;
+    const fileSize = Number(req.body.fileSize);
+
+    const problem = validateUpload({ purpose: "trust-document", fileType, fileSize });
+    if (problem) return res.status(400).json({ message: problem });
 
     let payload;
     try {
@@ -177,6 +183,7 @@ router.post(
       purpose: "trust-document",
       fileName,
       fileType,
+      fileSize,
       userId: `pending-${phoneHash}`,
       baseUrl,
     });

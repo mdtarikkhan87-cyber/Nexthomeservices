@@ -87,7 +87,7 @@ router.patch(
   [param("userId").isString(), param("role").isIn(VALID_ROLES)],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
-    await setUserRoleState(req, res, "role_verified");
+    await reviewUserRole(req, res, "verify");
   },
 );
 
@@ -96,26 +96,69 @@ router.patch(
   [param("userId").isString(), param("role").isIn(VALID_ROLES)],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
-    await setUserRoleState(req, res, "role_added");
+    await reviewUserRole(req, res, "reject");
   },
 );
 
-async function setUserRoleState(req, res, state) {
+const PENDING_REVIEW = "pending_admin_document_review";
+
+// Both decisions are only valid for a role that is actually awaiting document
+// review, and verifying additionally requires a document on file — an admin
+// can't approve what was never submitted. The transition is a conditional
+// update (the checks are in the WHERE clause), so two admins acting at once,
+// or a request racing the user's own resubmission, can't both succeed.
+async function reviewUserRole(req, res, action) {
   const { userId, role } = req.params;
+  const verifying = action === "verify";
   try {
-    const updated = await prisma.userRole.update({
+    const existing = await prisma.userRole.findUnique({
       where: { userId_role: { userId, role } },
-      data: { state },
       include: { user: { select: { name: true } } },
     });
+    if (!existing) {
+      return res.status(404).json({ message: "That user doesn't hold this role." });
+    }
+
+    const claimed = await prisma.userRole.updateMany({
+      where: {
+        userId,
+        role,
+        state: PENDING_REVIEW,
+        ...(verifying ? { documentUrl: { not: null } } : {}),
+      },
+      data: verifying
+        ? { state: "role_verified" }
+        : // Rejecting sends the role back to "role_added" AND clears the stored
+          // document: it must not linger looking like a submission awaiting
+          // review, and the user has to upload a fresh one. (The S3 object is
+          // left in place — the app's IAM user can't delete — and its key is
+          // recorded in the audit entry below.)
+          { state: "role_added", documentUrl: null, documentSubmittedAt: null },
+    });
+
+    if (claimed.count === 0) {
+      if (existing.state !== PENDING_REVIEW) {
+        return res.status(409).json({
+          message:
+            existing.state === "role_verified"
+              ? "This role is already verified."
+              : "This role isn't awaiting document review — the user hasn't submitted a document yet.",
+        });
+      }
+      return res.status(409).json({ message: "No document is on file for this role, so it can't be verified." });
+    }
+
+    const updated = await prisma.userRole.findUnique({ where: { userId_role: { userId, role } } });
+    const subject = `${existing.user.name} — ${ROLE_LABELS[role]}`;
     await logAudit(
       req,
-      state === "role_verified" ? "Verified user role" : "Rejected user role",
-      `${updated.user.name} — ${ROLE_LABELS[role]}`,
+      verifying ? "Verified user role" : "Rejected user role",
+      verifying || !existing.documentUrl ? subject : `${subject} (cleared document: ${existing.documentUrl})`,
     );
     res.json(updated);
-  } catch {
-    res.status(404).json({ message: "That user doesn't hold this role." });
+  } catch (err) {
+    console.error(`[admin] Failed to ${action} role ${role} for user ${userId}:`, err);
+    res.status(500).json({ message: "Couldn't update that role." });
   }
 }
 
@@ -143,7 +186,7 @@ router.get(
     try {
       const userRole = await prisma.userRole.findUnique({
         where: { userId_role: { userId, role } },
-        select: { documentUrl: true, documentSubmittedAt: true },
+        select: { documentUrl: true, documentSubmittedAt: true, user: { select: { name: true } } },
       });
 
       if (!userRole) {
@@ -171,6 +214,12 @@ router.get(
       if (!exists) {
         return res.json({ available: false, reason: "not-found", kind, fileName, submittedAt });
       }
+
+      // An ID document is sensitive, so every time one is actually opened is
+      // recorded against the admin who did it. Logged BEFORE the link is
+      // handed out, and a failure to log aborts the request (the catch below
+      // returns a 500): no access without a trail.
+      await logAudit(req, "Viewed user document", `${userRole.user.name} — ${ROLE_LABELS[role]}`);
 
       const url = await getSignedReadUrl({
         key: userRole.documentUrl,

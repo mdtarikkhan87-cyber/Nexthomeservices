@@ -62,12 +62,14 @@ export default function SubmitAdvertisementPage() {
               purpose: "ad-image",
               fileName: selectedFile.name,
               fileType: selectedFile.type,
+              fileSize: selectedFile.size,
             });
-            await fetch(presigned.uploadUrl, {
+            const upload = await fetch(presigned.uploadUrl, {
               method: "PUT",
               headers: { "Content-Type": selectedFile.type },
               body: selectedFile,
             });
+            if (!upload.ok) throw new Error(`Image upload failed (${upload.status}). Try again.`);
             const imageUrl = presigned.publicUrl || presigned.key;
 
             await apiCreateAdvertisement({ headline, linkUrl, imageUrl });
