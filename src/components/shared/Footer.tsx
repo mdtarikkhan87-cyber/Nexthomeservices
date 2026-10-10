@@ -1,5 +1,9 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { CONTAINER_CLASS } from "@/components/ui/Container";
 
 // REDESIGN PASS: a single centered row read as an afterthought on a
 // premium marketplace. Structured as logo+promise / link groups / legal
@@ -47,9 +51,12 @@ const LINK_GROUPS: { title: string; links: { href: string; label: string }[] }[]
 ];
 
 export function Footer() {
+  // Same rule as the header: the landing page uses the shared 1280px container,
+  // every other route keeps its own 6xl.
+  const isHome = usePathname() === "/";
   return (
     <footer className="mt-20 border-t border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)]">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <div className={`py-12 ${isHome ? CONTAINER_CLASS : "mx-auto max-w-6xl px-4 sm:px-6"}`}>
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[1.3fr_repeat(3,1fr)]">
           <div>
             <Image src="/brand/nexthome-logo-primary.png" alt="NextHome" width={2267} height={2958} className="h-10 w-auto" />

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
-import { IconArrowRight, IconStar } from "@/components/ui/icons";
+import { IconArrowRight, IconBath, IconBed, IconCheck, IconStar } from "@/components/ui/icons";
 import { useAuthGate } from "@/components/shared/AuthGate";
 import { PropertyListing } from "@/lib/types";
 import { isShared } from "@/lib/shared-property";
@@ -21,14 +21,25 @@ function formatPrice(listing: PropertyListing) {
   return `${listing.currency === "NGN" ? "₦" : "$"}${amount}${suffix}`;
 }
 
-/** The card's one tag slot, in priority order.
-    §11's "one tag maximum" is kept — Shared simply outranks the others,
-    because it changes what is being let rather than describing it. */
-function cardTag(listing: PropertyListing): string | null {
+/** The secondary tag on the photo, in priority order. Verified is its own
+    pill now, so this covers only what is being let: Shared outranks the
+    duration, because it changes what is being let rather than describing it. */
+function secondaryTag(listing: PropertyListing): string | null {
   if (isShared(listing)) return "Shared Property";
   if (listing.rentDuration) return listing.rentDuration === "short-term" ? "Short-Term" : "Long-Term";
-  if (listing.verified) return "Verified";
   return null;
+}
+
+/** White pill, readable on any photograph (the tinted StatusBadge is not). */
+function VerifiedPill({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full bg-[var(--color-surface-raised)]/95 px-3 py-1.5 text-xs font-bold text-[var(--color-deep-blue)] shadow-[var(--elevation-xs)] backdrop-blur-sm ${className}`}
+    >
+      <IconCheck className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
+      Verified
+    </span>
+  );
 }
 
 // DESIGN_SYSTEM.md §11: same card anatomy (status → facts → action) in both
@@ -101,15 +112,14 @@ export function PropertyCard({
 
   if (featured) {
     return (
-      <div className="group relative h-full min-h-[420px] overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-dark-blue)] shadow-[var(--elevation-sm)] ring-1 ring-white/10 transition-shadow duration-[var(--motion-duration-standard)] hover:shadow-[var(--elevation-lg)]">
+      <div className="group relative h-full min-h-[420px] overflow-hidden rounded-2xl bg-[var(--color-dark-blue)] shadow-[var(--elevation-card)] transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[var(--elevation-card-hover)]">
         <Link href={`/listing/${listing.id}`} className="absolute inset-0">
           <Image
             src={listing.photoUrl}
             alt={listing.title}
             fill
             sizes="(max-width: 1024px) 100vw, 66vw"
-            className="object-cover transition-transform duration-[var(--motion-duration-rich)] group-hover:scale-[1.04]"
-            priority
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         </Link>
         <div
@@ -121,7 +131,7 @@ export function PropertyCard({
           }}
         />
         <div className="pointer-events-none absolute left-0 right-0 top-0 flex items-center gap-2 p-5 sm:p-7">
-          {listing.verified && <StatusBadge kind="verified" />}
+          {listing.verified && <VerifiedPill />}
           {isShared(listing) && (
             <span className="u-label rounded-full bg-white/15 px-3 py-1.5 text-white backdrop-blur-sm">
               Shared Property
@@ -157,56 +167,65 @@ export function PropertyCard({
     );
   }
 
-  // EDITORIAL REDESIGN — the public card drops its container chrome
-  // entirely: no border, no surface fill, no resting shadow. The photograph
-  // is the card. Metadata sits directly on the page ground beneath it, the
-  // way a print property book sets a plate over a caption.
+  // PUBLIC CARD. A white rounded-2xl surface with a layered shadow instead of
+  // a border; on hover it lifts 4px and the photo zooms inside its own clip.
+  // The §11 floor (status, price, location, bedrooms) is all present: the
+  // Verified pill sits on the photo, price leads the text block in Deep Blue,
+  // and the facts row carries the counts with icons.
   //
-  // This is the single change that most removes the "template" read — a
-  // grid of bordered, shadowed, rounded boxes is the generic pattern; a grid
-  // of photographs with quiet captions is the editorial one. The §11 floor
-  // (status, price, location, bedrooms all present) is unchanged.
+  // Only facts the data has are shown: bathrooms are optional on the type and
+  // there is no floor-area field, so neither an area nor a placeholder for it
+  // is rendered.
+  const tag = secondaryTag(listing);
   return (
-    <div className="group relative">
+    <div className="group relative h-full overflow-hidden rounded-2xl bg-[var(--color-surface-raised)] shadow-[var(--elevation-card)] transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[var(--elevation-card-hover)]">
       <Link href={`/listing/${listing.id}`} className="block">
-        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-surface-dense)]">
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--color-surface-dense)]">
           <Image
             src={listing.photoUrl}
             alt={listing.title}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-            className="object-cover transition-transform duration-[var(--motion-duration-rich)] ease-[var(--motion-easing-warm)] group-hover:scale-[1.03]"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
 
-          {/* One tag maximum, top-left — derived from real listing facts,
-              never a marketing claim. See cardTag() for the priority order. */}
-          {cardTag(listing) && (
-            <span className="u-label absolute left-3 top-3 rounded-full bg-[var(--color-surface-raised)]/92 px-3 py-1.5 text-[var(--color-text-primary)] shadow-[var(--elevation-xs)] backdrop-blur-sm">
-              {cardTag(listing)}
+          {listing.verified && <VerifiedPill className="absolute left-3 top-3" />}
+
+          {/* Derived from real listing facts, never a marketing claim. */}
+          {tag && (
+            <span className="u-label absolute bottom-3 left-3 rounded-full bg-[var(--color-dark-blue)]/70 px-3 py-1.5 text-white backdrop-blur-sm">
+              {tag}
             </span>
           )}
 
-          {/* Reveal-on-hover affordance, pinned bottom-right of the plate.
-              Hover is an enhancement only — the whole plate is already a
-              link, so nothing here is hover-dependent for access. */}
-          <span className="pointer-events-none absolute bottom-3 right-3 inline-flex translate-y-1 items-center gap-1.5 rounded-full bg-[var(--color-surface-raised)] px-3 py-1.5 text-xs font-bold text-[var(--color-text-primary)] opacity-0 shadow-[var(--elevation-sm)] transition-[opacity,transform] duration-[var(--motion-duration-standard)] ease-[var(--motion-easing-warm)] group-hover:translate-y-0 group-hover:opacity-100">
+          {/* Reveal-on-hover affordance. Hover is an enhancement only — the
+              whole card is already a link, so nothing here is hover-dependent
+              for access. */}
+          <span className="pointer-events-none absolute bottom-3 right-3 inline-flex translate-y-1 items-center gap-1.5 rounded-full bg-[var(--color-surface-raised)] px-3 py-1.5 text-xs font-bold text-[var(--color-text-primary)] opacity-0 shadow-[var(--elevation-sm)] transition-[opacity,transform] duration-300 ease-[var(--motion-easing-warm)] group-hover:translate-y-0 group-hover:opacity-100">
             View
             <IconArrowRight className="h-3 w-3" />
           </span>
         </div>
 
-        {/* Caption block. Title in the brand face; every number in the UI
-            face with tabular figures so prices align down the column. */}
-        <div className="mt-3.5 flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="truncate font-bold leading-snug text-[var(--color-text-primary)]">{listing.title}</p>
-            <p className="u-ui mt-1 truncate text-[13px] text-[var(--color-text-secondary)]">
-              {formatLocation(listing.state, listing.lga)} · {listing.bedrooms} bd · {listing.viewCount} views
-            </p>
-          </div>
-          <p className="u-numeric shrink-0 text-[15px] font-bold text-[var(--color-text-primary)]">
-            {formatPrice(listing)}
+        <div className="p-5">
+          <p className="truncate font-bold leading-snug text-[var(--color-text-primary)]">{listing.title}</p>
+          <p className="u-ui mt-1 truncate text-sm text-[var(--color-text-body)]">
+            {formatLocation(listing.state, listing.lga)} · {listing.viewCount} views
           </p>
+          <p className="u-numeric mt-3 text-xl font-bold text-[var(--color-deep-blue)]">{formatPrice(listing)}</p>
+
+          <ul className="u-ui mt-4 flex items-center gap-5 border-t border-[var(--color-border-hairline)] pt-4 text-sm text-[var(--color-text-body)]">
+            <li className="inline-flex items-center gap-2">
+              <IconBed className="h-[18px] w-[18px] text-[var(--color-deep-blue)]" />
+              {listing.bedrooms} bed{listing.bedrooms !== 1 ? "s" : ""}
+            </li>
+            {listing.bathrooms !== undefined && (
+              <li className="inline-flex items-center gap-2">
+                <IconBath className="h-[18px] w-[18px] text-[var(--color-deep-blue)]" />
+                {listing.bathrooms} bath{listing.bathrooms !== 1 ? "s" : ""}
+              </li>
+            )}
+          </ul>
         </div>
       </Link>
 

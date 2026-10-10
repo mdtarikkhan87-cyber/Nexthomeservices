@@ -30,8 +30,15 @@ export function Providers({ children }: { children: ReactNode }) {
                 and that guard renders inside the gated tree. */}
             <RoleSwitchNoticeProvider>
               <AuthGateProvider>
-                <Header />
-                {children}
+                {/* The page, capped at 1600px and centred. Beyond that width
+                    (a 2K/4K monitor, or the browser zoomed out) the body's
+                    Off-white shows either side, so the margins read as
+                    intentional instead of the layout stretching. Same ground
+                    colour as the body, so nothing changes below 1600px. */}
+                <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col bg-[var(--color-surface-base)]">
+                  <Header />
+                  {children}
+                </div>
                 {/* The conditional "how do you want to act today?" prompt.
                     Mounted at the root, not per page, because a session starts
                     wherever the user happens to be — and because mounting it
