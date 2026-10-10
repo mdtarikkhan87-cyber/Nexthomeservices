@@ -629,7 +629,7 @@ export default function PostPropertyPage() {
           {draft.type === "rent" && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <Label htmlFor="duration">Rental duration</Label>
+                <Label htmlFor="duration">Rental Period</Label>
                 <Select
                   id="duration"
                   value={draft.rentDuration}
@@ -811,7 +811,7 @@ export default function PostPropertyPage() {
               { k: "Bathrooms", v: draft.bathrooms || "—" },
               ...(draft.type === "rent"
                 ? [
-                    { k: "Duration", v: draft.rentDuration === "short-term" ? "Short-Term" : "Long-Term" },
+                    { k: "Rental Period", v: draft.rentDuration === "short-term" ? "Short-Term" : "Long-Term" },
                     {
                       k: "Furnishing",
                       v: draft.furnishing ? FURNISHING_LABELS[draft.furnishing] : "Not specified",

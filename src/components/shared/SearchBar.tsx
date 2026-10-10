@@ -44,7 +44,7 @@ const BEDROOM_OPTIONS = [
 ];
 
 const DURATION_OPTIONS = [
-  { value: "", label: "Any duration" },
+  { value: "", label: "Any rental period" },
   { value: "short-term", label: "Short-Term" },
   { value: "long-term", label: "Long-Term" },
 ];
@@ -268,7 +268,7 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
 
           {mode === "rent" && (
             <div className={`${cell} col-span-2 lg:col-span-1`}>
-              <SelectField label="Duration" value={duration} options={DURATION_OPTIONS} onChange={setDuration} />
+              <SelectField label="Rental Period" value={duration} options={DURATION_OPTIONS} onChange={setDuration} />
             </div>
           )}
         </div>
