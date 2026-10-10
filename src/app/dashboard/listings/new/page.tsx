@@ -187,7 +187,6 @@ export default function PostPropertyPage() {
 
       const input: CreateListingInput = {
         type: draft.type,
-        title: draft.title.trim(),
         description: draft.description.trim(),
         // On a shared listing this is the per-room rent — the number the
         // renter actually pays, and therefore the honest one to filter and
@@ -289,7 +288,7 @@ export default function PostPropertyPage() {
         </span>
         <h1 className="u-heading mt-4 text-2xl text-[var(--color-text-primary)]">Listing submitted</h1>
         <p className="mt-2 text-[var(--color-text-secondary)]">
-          &ldquo;{draft.title.trim()}&rdquo; is pending admin review. We&apos;ll notify you once it&apos;s approved and live.
+          Your listing is pending admin review. We&apos;ll notify you once it&apos;s approved and live.
         </p>
         <div className="mt-5 flex flex-wrap gap-2.5">
           <Button onClick={() => router.push("/dashboard/listings")}>Back to My Listings</Button>
@@ -396,18 +395,6 @@ export default function PostPropertyPage() {
               {errors.occupancyType && <FieldError error={errors.occupancyType} />}
             </div>
           )}
-
-          <div>
-            <Label htmlFor="title">Listing title</Label>
-            <Input
-              id="title"
-              value={draft.title}
-              onChange={(e) => set("title", e.target.value)}
-              error={errors.title}
-              hint='What a renter sees first — e.g. "2-Bedroom Flat, Lekki Phase 1".'
-              placeholder="2-Bedroom Flat, Lekki Phase 1"
-            />
-          </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
@@ -799,7 +786,6 @@ export default function PostPropertyPage() {
               ...(draft.type === "rent"
                 ? [{ k: "Let as", v: isSharedDraft(draft) ? "Shared Property" : "Entire Property" }]
                 : []),
-              { k: "Title", v: draft.title.trim() || "—" },
               { k: "Type", v: draft.propertyType ? PROPERTY_TYPE_LABELS[draft.propertyType] : "—" },
               { k: "State", v: draft.state || "—" },
               { k: "LGA", v: draft.lga || "—" },
