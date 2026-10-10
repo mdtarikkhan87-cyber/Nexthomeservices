@@ -206,7 +206,6 @@ export async function uploadListingPhoto(objectUrl: string, index: number): Prom
 
 export interface CreateListingInput {
   type: ListingType;
-  title: string;
   description: string;
   price: number;
   currency?: string;
@@ -305,7 +304,7 @@ export async function apiFetchMyListings(): Promise<PropertyListing[]> {
 
 export async function apiUpdateListing(
   id: string,
-  patch: Partial<Pick<CreateListingInput, "title" | "description" | "price" | "bedrooms" | "bathrooms" | "photoUrl" | "galleryUrls"> & { availability: ListingAvailability; isPublished: boolean }>,
+  patch: Partial<Pick<CreateListingInput, "description" | "price" | "bedrooms" | "bathrooms" | "photoUrl" | "galleryUrls"> & { availability: ListingAvailability; isPublished: boolean }>,
 ): Promise<PropertyListing> {
   const result = await apiAuthedRequest<BackendListing>(`/listings/${id}`, {
     method: "PATCH",

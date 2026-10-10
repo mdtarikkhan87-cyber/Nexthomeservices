@@ -36,7 +36,6 @@ export interface DraftImage {
 
 export interface ListingDraft {
   type: ListingType;
-  title: string;
   propertyType: PropertyType | "";
   /** Whole unit, or room by room. Rentals only — see validateStep. */
   occupancyType: OccupancyType;
@@ -62,7 +61,6 @@ export interface ListingDraft {
 
 export const EMPTY_DRAFT: ListingDraft = {
   type: "rent",
-  title: "",
   propertyType: "",
   // "entire" is the default everywhere: the field is optional on the model,
   // absent means entire, and the wizard starts on the form that already
@@ -92,7 +90,6 @@ export const LISTING_STATES = NIGERIAN_STATES;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const MAX_IMAGES = 8;
 export const MIN_DESCRIPTION = 40;
-export const MIN_TITLE = 8;
 
 /** Bounds on a shared let. Not arbitrary: past these the listing is a hostel
     or a hotel, which is a different product with different licensing, and a
@@ -134,9 +131,6 @@ export function validateStep(step: StepId, d: ListingDraft): DraftErrors {
   const e: DraftErrors = {};
 
   if (step === "basics") {
-    if (!d.title.trim()) e.title = "Give your listing a title.";
-    else if (d.title.trim().length < MIN_TITLE)
-      e.title = `Use at least ${MIN_TITLE} characters so renters know what this is.`;
     if (!d.propertyType) e.propertyType = "Choose the property type.";
     // Belt and braces against a draft edited out of order: the wizard only
     // offers the shared option on a rent listing and resets it when the

@@ -4,6 +4,7 @@ const { body, query, param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
 const { toListItem } = require("../lib/listing-view");
+const { deriveListingTitle } = require("../lib/listing-title");
 const { authenticate, requireRole } = require("../middleware/auth.middleware");
 
 const router = express.Router();
@@ -101,7 +102,6 @@ router.post(
   requireRole("landlord"),
   [
     body("type").isIn(LISTING_TYPES),
-    body("title").isString().isLength({ min: 3 }),
     body("description").isString().isLength({ min: 10 }),
     body("price").isInt({ min: 0 }),
     body("currency").optional().isString(),
@@ -130,14 +130,16 @@ router.post(
     if (!checkValidation(req, res)) return;
 
     const {
-      type, title, description, price, currency, state, lga, bedrooms,
+      type, description, price, currency, state, lga, bedrooms,
       bathrooms, rentDuration, propertyType, furnishing, amenities,
       photoUrl, galleryUrls, occupancyType, shared,
     } = req.body;
 
     const data = {
       landlordId: req.user.sub,
-      type, title, description, price,
+      type, description, price,
+      // Derived, never taken from the request — see lib/listing-title.js.
+      title: deriveListingTitle({ bedrooms, propertyType, occupancyType }),
       currency: currency || "NGN",
       state, lga, bedrooms, bathrooms, rentDuration, propertyType,
       furnishing,
@@ -310,7 +312,6 @@ router.patch(
   requireRole("landlord"),
   [
     param("id").isString(),
-    body("title").optional().isString().isLength({ min: 3 }),
     body("description").optional().isString().isLength({ min: 10 }),
     body("price").optional().isInt({ min: 0 }),
     body("bedrooms").optional().isInt({ min: 0 }),
@@ -336,7 +337,7 @@ router.patch(
     // `availability` ("is it still on the market") and `isPublished` ("does the
     // owner want it shown") are owner-controlled; moderation `status` stays
     // admin-only and is deliberately absent.
-    const { title, description, price, bedrooms, bathrooms, availability, isPublished, photoUrl, galleryUrls } = req.body;
+    const { description, price, bedrooms, bathrooms, availability, isPublished, photoUrl, galleryUrls } = req.body;
 
     // A rental can be "rented" and a sale can be "sold" — not the other way
     // round. "available" is valid for both.
@@ -348,6 +349,14 @@ router.patch(
         message: existing.type === "rent" ? "A rental can only be marked as rented." : "A property for sale can only be marked as sold.",
       });
     }
+    // The title is re-derived on every edit (not only when bedrooms changes),
+    // so a row saved before titles were derived is corrected the next time
+    // its owner touches it.
+    const title = deriveListingTitle({
+      bedrooms: bedrooms ?? existing.bedrooms,
+      propertyType: existing.propertyType,
+      occupancyType: existing.occupancyType,
+    });
     const updated = await prisma.listing.update({
       where: { id: req.params.id },
       data: { title, description, price, bedrooms, bathrooms, availability, isPublished, photoUrl, galleryUrls },

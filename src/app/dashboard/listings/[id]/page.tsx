@@ -29,7 +29,7 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
 
   // Edit mode — form values are strings so a field can be cleared while typing.
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", price: "", bedrooms: "" });
+  const [form, setForm] = useState({ description: "", price: "", bedrooms: "" });
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
@@ -128,7 +128,6 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
 
   const startEdit = () => {
     setForm({
-      title: listing.title,
       description: listing.description ?? "",
       price: String(listing.price),
       bedrooms: String(listing.bedrooms),
@@ -139,13 +138,11 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
 
   const saveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const title = form.title.trim();
     const description = form.description.trim();
-    if (title.length < 3) return setEditError("Title must be at least 3 characters.");
     if (description.length < 10) return setEditError("Description must be at least 10 characters.");
     // A shared listing's price and bedroom count are derived from its rooms
     // (see the create wizard), so they aren't editable here.
-    const patch: { title: string; description: string; price?: number; bedrooms?: number } = { title, description };
+    const patch: { description: string; price?: number; bedrooms?: number } = { description };
     if (!shared) {
       const price = Number(form.price);
       const bedrooms = Number(form.bedrooms);
@@ -157,10 +154,12 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
     setEditError(null);
     setSaving(true);
     try {
-      await apiUpdateListing(listing.id, patch);
+      const updated = await apiUpdateListing(listing.id, patch);
       // Merge rather than replace: the PATCH response doesn't include the
-      // shared-room details this page also renders.
-      setListing((prev) => (prev ? { ...prev, ...patch } : prev));
+      // shared-room details this page also renders. The title comes from the
+      // response because the server derives it (e.g. a new bedroom count
+      // changes it).
+      setListing((prev) => (prev ? { ...prev, ...patch, title: updated.title } : prev));
       void refetchMyListings();
       setEditing(false);
     } catch (err) {
@@ -265,10 +264,6 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
 
       {editing ? (
         <form onSubmit={saveEdit} className="mt-6 flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-5 shadow-[var(--elevation-xs)]">
-          <div>
-            <Label htmlFor="edit-title">Listing title</Label>
-            <Input id="edit-title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-          </div>
           {!shared && (
             <div className="grid grid-cols-2 gap-4">
               <div>
