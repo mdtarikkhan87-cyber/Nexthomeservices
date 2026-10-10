@@ -2,16 +2,19 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { isValidPhoneNumber } from "react-phone-number-input";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { PhoneNumberField } from "@/components/ui/PhoneNumberField";
+import { PasswordRequirements } from "@/components/ui/PasswordRequirements";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { IconCheck } from "@/components/ui/icons";
 import { consumeAuthReturnTo } from "@/components/shared/AuthGate";
 import { TrustLayerVerification } from "@/components/shared/TrustLayerVerification";
 import { useAuth } from "@/lib/auth-context";
+import { passwordMeetsRules } from "@/lib/password-rules";
 import { ROLE_BLURBS, ROLE_LABELS, roleLandingHref } from "@/lib/roles";
 import { RoleName } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -183,6 +186,10 @@ function RegisterFlow() {
       setError("That doesn't look like a valid number for the selected country.");
       return;
     }
+    if (!passwordMeetsRules(password)) {
+      setError("Your password doesn't meet the requirements listed under the password field.");
+      return;
+    }
     setError(null);
 
     if (needsTrustLayer) {
@@ -300,6 +307,10 @@ function RegisterFlow() {
               <p className="mt-1 text-[var(--color-text-secondary)]">What brings you to NextHome?</p>
             )}
             <p className="u-ui mt-3 text-sm text-[var(--color-text-secondary)]">
+              A NextHome account lets you open full listing details, save homes and message landlords and
+              service providers — and, once verified, list your own property, service or ad.
+            </p>
+            <p className="u-ui mt-3 text-sm text-[var(--color-text-secondary)]">
               Pick as many as apply — you can be a Renter <em>and</em> a Landlord on one account, and add
               more later without registering again.
             </p>
@@ -399,10 +410,13 @@ function RegisterFlow() {
                 <Input
                   id="reg-password"
                   type="password"
-                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                  aria-describedby="reg-password-rules"
+                  placeholder="Choose a password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <PasswordRequirements id="reg-password-rules" password={password} />
               </div>
               {needsTrustLayer && (
                 <div>
@@ -424,6 +438,17 @@ function RegisterFlow() {
             <Button className="mt-6" loading={submitting} onClick={completeBasicInfo}>
               Continue
             </Button>
+            <p className="u-ui mt-4 text-xs text-[var(--color-text-secondary)]">
+              By continuing you agree to our{" "}
+              <Link href="/terms" className="font-bold text-[var(--color-brand-primary)] hover:underline">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="font-bold text-[var(--color-brand-primary)] hover:underline">
+                Privacy Policy
+              </Link>
+              .
+            </p>
           </>
         )}
 
