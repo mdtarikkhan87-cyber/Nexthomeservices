@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useNotifications } from "@/lib/notification-context";
+import { useLiveEvent, type ServiceUpdatedEvent } from "@/lib/live-events";
 import { StatusBadge, StatusKind } from "@/components/ui/StatusBadge";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { Button } from "@/components/ui/Button";
@@ -47,6 +48,21 @@ export default function ServiceListingPage() {
   // `lgas` list — see ServiceListing.lgas.
   const [statewide, setStatewide] = useState(false);
   const { notify } = useNotifications();
+
+  // Live updates: an admin approving/rejecting this listing (or it changing in
+  // another tab). Only the review STATUS is patched — never the form fields,
+  // which may hold what the provider is in the middle of typing.
+  useLiveEvent<ServiceUpdatedEvent>("service:updated", (e) => {
+    setExisting((prev) => {
+      if (!prev || prev.id !== e.id) return prev;
+      if (e.removed) return null;
+      return {
+        ...prev,
+        ...(e.status && { status: ({ pending_review: "pending-review", live: "live", rejected: "rejected" } as const)[e.status] }),
+        ...(e.verified !== undefined && { verified: e.verified }),
+      };
+    });
+  });
 
   useEffect(() => {
     let cancelled = false;

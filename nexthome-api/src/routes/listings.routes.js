@@ -4,6 +4,7 @@ const { body, query, param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
 const { toListItem } = require("../lib/listing-view");
+const { ACTOR, getSaverIds, publishListingChange, publishListingRemoved, publishAdminQueueChange } = require("../lib/realtime");
 const { deriveListingTitle } = require("../lib/listing-title");
 const { authenticate, requireRole } = require("../middleware/auth.middleware");
 
@@ -171,6 +172,10 @@ router.post(
       data,
       include: { shared: { include: { rooms: true } } },
     });
+
+    // Committed. Owner's other tabs see the new listing; admins' review queue refreshes.
+    await publishListingChange(listing, ACTOR.SELF);
+    publishAdminQueueChange("listing");
 
     res.status(201).json(listing);
   },
@@ -362,6 +367,10 @@ router.patch(
       data: { title, description, price, bedrooms, bathrooms, availability, isPublished, photoUrl, galleryUrls },
     });
 
+    // Committed. Covers rented/sold, unpublish/republish and edits: the owner's
+    // other tabs update, and anyone who saved it is told to refresh their Saved list.
+    await publishListingChange(updated, ACTOR.SELF);
+
     res.json(updated);
   },
 );
@@ -385,7 +394,10 @@ router.delete(
       return res.status(403).json({ message: "You don't own this listing." });
     }
 
+    // Read who saved it first: the delete cascades to their saved-list rows.
+    const saverIds = await getSaverIds(existing.id);
     await prisma.listing.delete({ where: { id: req.params.id } });
+    await publishListingRemoved(existing, ACTOR.SELF, saverIds);
     res.status(204).send();
   },
 );
@@ -446,6 +458,8 @@ router.patch(
     }
 
     const updatedRoom = await prisma.sharedRoom.findUnique({ where: { id: room.id } });
+    // A room's occupancy is part of the listing the owner is looking at.
+    await publishListingChange(listing, ACTOR.SELF);
     res.json(updatedRoom);
   },
 );

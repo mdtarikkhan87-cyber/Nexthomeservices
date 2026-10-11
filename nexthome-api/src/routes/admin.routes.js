@@ -3,6 +3,14 @@ const { param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
 const { authenticate, requireAdmin } = require("../middleware/auth.middleware");
+const {
+  ACTOR,
+  publishRoleChange,
+  publishListingChange,
+  publishServiceChange,
+  publishAdChange,
+  publishAdminQueueChange,
+} = require("../lib/realtime");
 const { isConfigured, kindFromKey, fileNameFromKey, objectExists, getSignedReadUrl } = require("../lib/s3");
 
 const router = express.Router();
@@ -161,6 +169,10 @@ async function reviewUserRole(req, res, action) {
     }
 
     const updated = await prisma.userRole.findUnique({ where: { userId_role: { userId, role } } });
+    // The change is committed — tell the user's open tabs so a "documents under
+    // review" banner turns into "verified" (or back to "add documents") live.
+    publishRoleChange(userId, updated, ACTOR.ADMIN);
+    publishAdminQueueChange("user-role"); // other admins' open queues drop/refresh this row
     const subject = `${existing.user.name} — ${ROLE_LABELS[role]}`;
     await logAudit(
       req,
@@ -283,6 +295,7 @@ async function setUserSubscriptionState(req, res, subscriptionState) {
       data: { subscriptionState },
       include: { user: { select: { name: true } } },
     });
+    publishRoleChange(userId, updated, ACTOR.ADMIN);
     await logAudit(
       req,
       subscriptionState === "active" ? "Activated subscription" : "Deactivated subscription",
@@ -548,6 +561,12 @@ router.patch(
 
     try {
       const updated = await model.update({ where: { id }, data });
+      // Committed — push the new status to the owner (and, for a property, to
+      // anyone who saved it) so their dashboard updates without a refresh.
+      if (kind === "property") await publishListingChange(updated, ACTOR.ADMIN);
+      else if (kind === "service") publishServiceChange(updated, ACTOR.ADMIN);
+      else publishAdChange(updated, ACTOR.ADMIN);
+      publishAdminQueueChange("listing");
       const itemTitle = kind === "property" ? updated.title : kind === "service" ? updated.category : updated.headline;
       await logAudit(req, action === "approve" ? "Approved listing" : "Rejected listing", itemTitle);
       res.json(updated);
@@ -578,6 +597,7 @@ router.patch("/complaints/:id/resolve", [param("id").isString()], async (req, re
       where: { id: req.params.id },
       data: { status: "resolved" },
     });
+    publishAdminQueueChange("complaint");
     await logAudit(req, "Resolved complaint", updated.subject);
     res.json(updated);
   } catch {

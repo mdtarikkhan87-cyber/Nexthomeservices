@@ -79,6 +79,10 @@ interface AuthContextValue extends AuthState {
       Submit button on a listing draft — doesn't have to wait a render
       cycle for the context to catch up before checking it. */
   refreshUser: () => Promise<HeldRole[] | null>;
+  /** Patches one held role in place (live updates). No-op if the role isn't held. */
+  applyRoleUpdate: (role: RoleName, patch: Partial<Pick<HeldRole, "state" | "subscriptionState">>) => void;
+  /** Patches the signed-in user's own account fields in place (live updates). */
+  applyUserPatch: (patch: Partial<AuthUser>) => void;
   setActiveRole: (role: RoleName) => void;
   addRole: (role: RoleName) => Promise<void>;
   addRoles: (roles: RoleName[]) => Promise<void>;
@@ -286,9 +290,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...prev,
       isAuthenticated: true,
       user,
-      roles: result.heldRoles,
+      // The Renting/Buying toggle is client-side view state the backend doesn't
+      // store yet (see setTenantBuyerContext) — a refresh, including the one
+      // that runs after every live-update reconnect, must not reset it.
+      roles: result.heldRoles.map((h) => ({
+        ...h,
+        context: h.context ?? prev.roles.find((p) => p.role === h.role)?.context,
+      })),
     }));
     return result.heldRoles;
+  }, []);
+
+  const applyRoleUpdate = useCallback<AuthContextValue["applyRoleUpdate"]>((role, patch) => {
+    setState((prev) => {
+      if (!prev.roles.some((r) => r.role === role)) return prev;
+      return { ...prev, roles: prev.roles.map((r) => (r.role === role ? { ...r, ...patch } : r)) };
+    });
+  }, []);
+
+  const applyUserPatch = useCallback<AuthContextValue["applyUserPatch"]>((patch) => {
+    setState((prev) => (prev.user ? { ...prev, user: { ...prev.user, ...patch } } : prev));
   }, []);
 
   const setTenantBuyerContext = useCallback((context: TenantBuyerContext) => {
@@ -313,8 +334,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       addRoles,
       setTenantBuyerContext,
       refreshUser,
+      applyRoleUpdate,
+      applyUserPatch,
     }),
-    [state, login, register, logout, setActiveRole, chooseSessionRole, clearRolePreference, addRole, addRoles, setTenantBuyerContext, refreshUser],
+    [state, login, register, logout, setActiveRole, chooseSessionRole, clearRolePreference, addRole, addRoles, setTenantBuyerContext, refreshUser, applyRoleUpdate, applyUserPatch],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useLiveEvent, type AdminQueueChangedEvent } from "./live-events";
 import { authedRequest as apiAuthedRequest } from "./backend-client";
 import { ContentItemState, RoleName } from "./types";
 
@@ -91,6 +92,11 @@ export function useAdminActivity() {
     }
   }, []);
 
+  // Live: every admin action writes an audit entry.
+  useLiveEvent<AdminQueueChangedEvent>("admin:queue-changed", () => {
+    refetch().catch(() => {});
+  });
+
   useEffect(() => {
     let cancelled = false;
     Promise.resolve().then(async () => {
@@ -160,6 +166,11 @@ export function useAdminUsers() {
       })),
     );
   }, []);
+
+  // Live: a user submitted documents (or another admin acted) — re-read the queue.
+  useLiveEvent<AdminQueueChangedEvent>("admin:queue-changed", (e) => {
+    if (e.kind === "user-role") refetch().catch(() => {});
+  });
 
   // Written as a promise callback (not synchronous code in the effect body)
   // to satisfy React's "no setState directly in an effect" guidance — same
@@ -250,6 +261,11 @@ export function useAdminListings() {
     const result = await apiAuthedRequest<BackendAdminListingRow[]>("/admin/listings");
     setListings(result.map((row) => ({ ...row, status: STATUS_TO_FRONTEND[row.status] })));
   }, []);
+
+  // Live: a listing/service/ad was submitted (or another admin acted).
+  useLiveEvent<AdminQueueChangedEvent>("admin:queue-changed", (e) => {
+    if (e.kind === "listing") refetch().catch(() => {});
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -409,6 +425,11 @@ const AdminComplaintsContext = createContext<AdminComplaintsContextValue | null>
 // is the one piece of admin state that actually needs to live there.
 export function AdminComplaintsProvider({ children }: { children: ReactNode }) {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
+  // Bumped by a live "admin:queue-changed" (kind "complaint") to re-read the list.
+  const [reloadKey, setReloadKey] = useState(0);
+  useLiveEvent<AdminQueueChangedEvent>("admin:queue-changed", (e) => {
+    if (e.kind === "complaint") setReloadKey((k) => k + 1);
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -423,7 +444,7 @@ export function AdminComplaintsProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const resolveComplaint = useCallback((id: string) => {
     apiAuthedRequest(`/admin/complaints/${id}/resolve`, { method: "PATCH" })

@@ -8,6 +8,7 @@ import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { apiFetchListingById, apiSetRoomStatus, apiUpdateListing } from "@/lib/listings-client";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { useListings } from "@/lib/listings-context";
+import { useLiveEvent, type ListingRemovedEvent, type ListingUpdatedEvent } from "@/lib/live-events";
 import { ListingAvailability, PropertyListing, SharedRoom } from "@/lib/types";
 import { isShared, roomAvailabilityLabel, roomsOf, unavailableLabel } from "@/lib/shared-property";
 import { formatLocation } from "@/lib/nigeria-locations";
@@ -34,6 +35,31 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
   const [editError, setEditError] = useState<string | null>(null);
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+
+  // Live updates for THIS listing (an admin approved/rejected it, or it changed
+  // in another tab). The event patches the headline fields instantly; a quiet
+  // refetch then brings in everything else (rooms, price, description).
+  useLiveEvent<ListingUpdatedEvent>("listing:updated", (e) => {
+    if (e.id !== id) return;
+    setListing((prev) =>
+      prev
+        ? {
+            ...prev,
+            title: e.title,
+            status: ({ pending_review: "pending-review", live: "live", rejected: "rejected" } as const)[e.status],
+            availability: e.availability,
+            isPublished: e.isPublished,
+            verified: e.verified,
+          }
+        : prev,
+    );
+    apiFetchListingById(id, { countView: false })
+      .then((fresh) => setListing(fresh))
+      .catch(() => {});
+  });
+  useLiveEvent<ListingRemovedEvent>("listing:removed", (e) => {
+    if (e.id === id) setNotFoundState(true);
+  });
 
   useEffect(() => {
     let cancelled = false;

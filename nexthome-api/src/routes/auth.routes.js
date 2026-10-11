@@ -21,6 +21,7 @@ const {
   clearRefreshCookie,
   readRefreshCookie,
 } = require("../lib/refresh-tokens");
+const { ACTOR, publishRoleChange, publishAccountChange } = require("../lib/realtime");
 
 const router = express.Router();
 
@@ -341,6 +342,13 @@ router.patch(
 
     const user = await prisma.user.update({ where: { id: existing.id }, data, include: { roles: true } });
 
+    // Keep the user's other tabs (and the header's name/email) in step.
+    publishAccountChange(user.id, {
+      name: user.name,
+      phone: user.phone,
+      phoneVerified: Boolean(user.phoneVerifiedAt),
+    });
+
     res.json(toPublicUser(user));
   },
 );
@@ -372,6 +380,8 @@ router.post(
       // than resetting their verification progress.
       update: {},
     });
+
+    publishRoleChange(userId, result, ACTOR.SELF);
 
     res.json(result);
   },

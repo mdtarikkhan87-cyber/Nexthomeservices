@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const { body, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
+const { publishAdminQueueChange } = require("../lib/realtime");
 const { authenticate } = require("../middleware/auth.middleware");
 
 const router = express.Router();
@@ -58,6 +59,8 @@ router.post(
         body: complaintBody,
       },
     });
+
+    publishAdminQueueChange("complaint"); // an admin with Complaints open sees it appear
 
     res.status(201).json(complaint);
   },

@@ -16,6 +16,7 @@ const CORS_ORIGINS = require("./cors-origins");
 //                              message's preview/unread count) that should
 //                              reach a participant regardless of whether
 //                              they currently have that conversation open.
+//   `admins`                — admin accounts only; review-queue changes.
 //   `conversation:<id>`     — joined on demand (see join-conversation
 //                              below) by whoever has that thread open, so
 //                              the message itself can stream in live.
@@ -45,7 +46,13 @@ function initSocket(httpServer) {
   });
 
   io.on("connection", (socket) => {
+    // Both rooms are decided HERE from the verified token — the client has no
+    // say, and no event lets it join an arbitrary room — so a user can only ever
+    // receive what is addressed to their own id (see lib/realtime.js).
     socket.join(`user:${socket.user.sub}`);
+    // Admins also get a shared room for review-queue changes (new submissions).
+    // `isAdmin` is a claim in the signed token, never client-supplied.
+    if (socket.user.isAdmin === true) socket.join("admins");
 
     // Authorization check on join, not just on the initial REST fetch —
     // a socket that only ever proved it's SOME authenticated user has no
