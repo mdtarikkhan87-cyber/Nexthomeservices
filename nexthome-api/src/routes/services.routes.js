@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const { body, query, param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
+const { ACTOR, EVENTS, emitToUser, publishServiceChange, publishAdminQueueChange } = require("../lib/realtime");
 const { authenticate, requireRole } = require("../middleware/auth.middleware");
 
 const router = express.Router();
@@ -66,6 +67,10 @@ router.post(
         photoUrl,
       },
     });
+
+    // Committed: owner's other tabs update; admins' review queue refreshes.
+    publishServiceChange(service, ACTOR.SELF);
+    publishAdminQueueChange("listing");
 
     res.status(201).json(service);
   },
@@ -185,6 +190,8 @@ router.patch(
       data: { category, description, state, lgas, photoUrl },
     });
 
+    publishServiceChange(updated, ACTOR.SELF);
+
     res.json(updated);
   },
 );
@@ -209,6 +216,7 @@ router.delete(
     }
 
     await prisma.serviceListing.delete({ where: { id: req.params.id } });
+    emitToUser(req.user.sub, EVENTS.SERVICE_UPDATED, { id: req.params.id, removed: true, actor: ACTOR.SELF });
     res.status(204).send();
   },
 );

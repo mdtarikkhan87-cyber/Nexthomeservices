@@ -6,6 +6,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { NotificationProvider } from "@/lib/notification-context";
 import { ListingsProvider } from "@/lib/listings-context";
 import { SocketProvider } from "@/lib/socket-context";
+import { LiveUpdates } from "@/components/shared/LiveUpdates";
 import { AuthGateProvider } from "@/components/shared/AuthGate";
 import { Header } from "@/components/shared/Header";
 import { RoleSessionPrompt } from "@/components/shared/RoleSessionPrompt";
@@ -29,6 +30,9 @@ export function Providers({ children }: { children: ReactNode }) {
         <SocketProvider>
           <NotificationProvider>
             <ListingsProvider>
+              {/* Turns server-pushed events into live state updates; renders
+                  nothing. Inside Auth/Listings/Notification so it can patch all three. */}
+              <LiveUpdates />
               {/* Above AuthGateProvider because the dashboard's role guard
                   (RoleScoped) announces automatic role switches through it,
                   and that guard renders inside the gated tree. */}

@@ -2,6 +2,7 @@ const express = require("express");
 const { param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
+const { ACTOR, EVENTS, emitToUser } = require("../lib/realtime");
 const { toListItem } = require("../lib/listing-view");
 const { authenticate } = require("../middleware/auth.middleware");
 
@@ -52,6 +53,8 @@ router.put("/:listingId", authenticate, [param("listingId").isString()], async (
     create: { userId: req.user.sub, listingId: req.params.listingId },
     update: {},
   });
+  // Saving in one tab updates the Saved list (and star) in the user's other tabs.
+  emitToUser(req.user.sub, EVENTS.SAVED_LISTING_UPDATED, { id: req.params.listingId, actor: ACTOR.SELF });
   res.status(204).send();
 });
 
@@ -65,6 +68,7 @@ router.delete("/:listingId", authenticate, [param("listingId").isString()], asyn
   await prisma.savedListing.deleteMany({
     where: { userId: req.user.sub, listingId: req.params.listingId },
   });
+  emitToUser(req.user.sub, EVENTS.SAVED_LISTING_UPDATED, { id: req.params.listingId, actor: ACTOR.SELF });
   res.status(204).send();
 });
 

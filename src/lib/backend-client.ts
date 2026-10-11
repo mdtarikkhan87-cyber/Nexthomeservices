@@ -57,6 +57,18 @@ const SUBSCRIPTION_TO_FRONTEND: Record<BackendSubscriptionState, NonNullable<Hel
   active: "active",
 };
 
+// Exported for live updates (lib/LiveUpdates): a socket event carries the
+// backend's vocabulary, which is translated here, once, like everything else.
+export function toFrontendRoleName(role: string): RoleName | null {
+  return ROLE_TO_FRONTEND[role as BackendRoleName] ?? null;
+}
+export function toFrontendRoleState(state: BackendRoleState): HeldRole["state"] {
+  return STATE_TO_FRONTEND[state];
+}
+export function toFrontendSubscriptionState(s: BackendSubscriptionState | null): HeldRole["subscriptionState"] {
+  return s ? SUBSCRIPTION_TO_FRONTEND[s] : undefined;
+}
+
 function toFrontendRoles(backendRoles: BackendUserRole[]): HeldRole[] {
   return backendRoles.map((r) => ({
     role: ROLE_TO_FRONTEND[r.role],

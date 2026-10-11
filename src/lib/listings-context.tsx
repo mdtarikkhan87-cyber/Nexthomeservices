@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from "react";
 import { PropertyListing } from "./types";
 import {
   apiFetchMyListings,
@@ -47,6 +47,11 @@ interface ListingsContextValue {
   /** Creates a real listing via the backend, adds it to myListings, and
       returns the server-assigned listing (with its real id and status). */
   createListing: (input: CreateListingInput) => Promise<PropertyListing>;
+  /** Live updates: patches one of the landlord's own listings in place (no
+      refetch). Returns false if it isn't in the list, so the caller can refetch. */
+  patchMyListing: (id: string, patch: Partial<PropertyListing>) => boolean;
+  /** Live updates: drops a deleted listing from the landlord's own list. */
+  removeMyListing: (id: string) => void;
 
   /** Any signed-in user's saved listings — not role-restricted, unlike
       myListings, since saving is a card-level toggle meaningful to anyone
@@ -167,6 +172,24 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     };
   }, [isAuthenticated]);
 
+  // Live updates (see components/shared/LiveUpdates.tsx). `myListingsRef` lets
+  // patchMyListing report synchronously whether it knew the listing, without
+  // making its identity change on every list update.
+  const myListingsRef = useRef(myListings);
+  useEffect(() => {
+    myListingsRef.current = myListings;
+  }, [myListings]);
+
+  const patchMyListing = useCallback((id: string, patch: Partial<PropertyListing>) => {
+    if (!myListingsRef.current.some((l) => l.id === id)) return false;
+    setMyListings((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+    return true;
+  }, []);
+
+  const removeMyListing = useCallback((id: string) => {
+    setMyListings((prev) => prev.filter((l) => l.id !== id));
+  }, []);
+
   const savedListingIds = useMemo(() => new Set(savedListings.map((l) => l.id)), [savedListings]);
 
   // Optimistic: the toggle button needs to flip instantly, not after a
@@ -203,6 +226,8 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
       isLoadingMyListings,
       refetchMyListings,
       createListing,
+      patchMyListing,
+      removeMyListing,
       savedListings,
       savedListingIds,
       isLoadingSavedListings,
@@ -215,6 +240,8 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
       isLoadingMyListings,
       refetchMyListings,
       createListing,
+      patchMyListing,
+      removeMyListing,
       savedListings,
       savedListingIds,
       isLoadingSavedListings,

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Advertisement } from "@/lib/types";
 import { apiFetchMyAds } from "@/lib/ads-client";
+import { useLiveEvent, type AdUpdatedEvent } from "@/lib/live-events";
 
 export default function MyAdvertisementsPage() {
   const [ads, setAds] = useState<Advertisement[]>([]);
@@ -15,6 +16,11 @@ export default function MyAdvertisementsPage() {
   // Written as a promise callback (not synchronous code in the effect body)
   // to satisfy React's "no setState directly in an effect" guidance — same
   // pattern as listings-context.tsx's refetchMyListings effect.
+  // Bumped by a live "ad:updated" event (an admin approved/rejected one of
+  // these ads, or it changed in another tab) to re-read the list.
+  const [reloadKey, setReloadKey] = useState(0);
+  useLiveEvent<AdUpdatedEvent>("ad:updated", () => setReloadKey((k) => k + 1));
+
   useEffect(() => {
     let cancelled = false;
     Promise.resolve().then(async () => {
@@ -30,7 +36,7 @@ export default function MyAdvertisementsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   return (
     <div>

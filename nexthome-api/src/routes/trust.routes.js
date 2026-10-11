@@ -6,6 +6,7 @@ const prisma = require("../lib/prisma");
 const { authenticate } = require("../middleware/auth.middleware");
 const { startVerification, checkVerification, respondWithVerifyError } = require("../lib/twilio");
 const { sendEmail } = require("../lib/email");
+const { ACTOR, publishRoleChange, publishAccountChange, publishAdminQueueChange } = require("../lib/realtime");
 
 const router = express.Router();
 
@@ -83,6 +84,7 @@ router.post(
     if (!approved) return res.status(400).json({ message: "Incorrect code." });
 
     await prisma.user.update({ where: { id: user.id }, data: { phoneVerifiedAt: new Date() } });
+    publishAccountChange(user.id, { phoneVerified: true });
     res.json({ verified: true });
   },
 );
@@ -137,6 +139,10 @@ router.get("/email/verify", [query("token").isString().notEmpty()], async (req, 
     prisma.user.update({ where: { id: record.userId }, data: { emailVerifiedAt: new Date() } }),
   ]);
 
+  // The link is usually opened in a different tab or on a different device
+  // from the one the account page is open on — this is what flips its
+  // "Email not verified" badge without a refresh.
+  publishAccountChange(record.userId, { emailVerified: true });
   res.json({ verified: true });
 });
 
@@ -175,6 +181,11 @@ router.post(
         state: userRole.state === "role_verified" ? userRole.state : "pending_admin_document_review",
       },
     });
+
+    // Committed: the user's other tabs show "documents under review", and an
+    // admin with the review queue open sees the new submission appear.
+    publishRoleChange(req.user.sub, updated, ACTOR.SELF);
+    publishAdminQueueChange("user-role");
 
     res.json(updated);
   },

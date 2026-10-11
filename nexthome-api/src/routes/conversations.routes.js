@@ -4,6 +4,7 @@ const { body, param, validationResult } = require("express-validator");
 const prisma = require("../lib/prisma");
 const { authenticate } = require("../middleware/auth.middleware");
 const { getIO } = require("../lib/socket");
+const { emitToUser } = require("../lib/realtime");
 
 const router = express.Router();
 
@@ -242,6 +243,10 @@ router.patch(
       },
       data: { readAt: new Date() },
     });
+
+    // Reading in one tab clears the unread dot in the user's other tabs too.
+    // Reuses the event the inbox already listens for (it just refetches).
+    if (result.count > 0) emitToUser(req.user.sub, "conversation-updated", { conversationId: conversation.id });
 
     res.json({ markedRead: result.count });
   },
