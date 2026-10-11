@@ -4,6 +4,7 @@
 // 500 on the first upload, or a silent fallback to ephemeral storage.
 
 const S3_VARS = ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_S3_BUCKET"];
+const TWILIO_VARS = ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_VERIFY_SERVICE_SID"];
 
 function assertEnv(env = process.env) {
   const isProd = env.NODE_ENV === "production";
@@ -28,6 +29,20 @@ function assertEnv(env = process.env) {
     );
   }
 
+  // Twilio is all-or-nothing too, and the IDs have a fixed shape — a pasted
+  // value with a stray space or the wrong kind of SID fails here, at boot,
+  // instead of as a confusing 503 the first time someone registers.
+  const twilioSet = TWILIO_VARS.filter((n) => !missing(n));
+  if (twilioSet.length > 0 && twilioSet.length < TWILIO_VARS.length) {
+    problems.push(`Twilio is only partly configured — also set: ${TWILIO_VARS.filter((n) => missing(n)).join(", ")} (or unset the rest).`);
+  }
+  if (!missing("TWILIO_ACCOUNT_SID") && !/^AC[0-9a-f]{32}$/.test(env.TWILIO_ACCOUNT_SID)) {
+    problems.push("TWILIO_ACCOUNT_SID must look like AC followed by 32 hex characters.");
+  }
+  if (!missing("TWILIO_VERIFY_SERVICE_SID") && !/^VA[0-9a-f]{32}$/.test(env.TWILIO_VERIFY_SERVICE_SID)) {
+    problems.push("TWILIO_VERIFY_SERVICE_SID must look like VA followed by 32 hex characters (a Verify Service, not the Account SID).");
+  }
+
   if (isProd) {
     if (!missing("JWT_ACCESS_SECRET") && env.JWT_ACCESS_SECRET.length < 32) {
       problems.push("JWT_ACCESS_SECRET must be at least 32 characters in production.");
@@ -38,6 +53,10 @@ function assertEnv(env = process.env) {
       problems.push(
         `S3 is not configured (${S3_VARS.join(", ")}) — required in production, since local-disk uploads are lost on every deploy.`,
       );
+    }
+    // Phone OTP goes through Twilio Verify; without it no one can verify a phone.
+    for (const name of TWILIO_VARS) {
+      if (missing(name)) problems.push(`${name} is not set (required in production for phone verification via Twilio Verify).`);
     }
     for (const name of ["BREVO_API_KEY", "EMAIL_FROM"]) {
       if (missing(name)) problems.push(`${name} is not set (required in production to send verification and reset emails).`);

@@ -295,10 +295,10 @@ router.get("/me", authenticate, async (req, res) => {
 // flow rather than a silent field edit — a request that includes it is
 // rejected with a clear message instead of being ignored.
 //
-// Changing the phone clears phoneVerifiedAt (the new number is unproven) and
-// cancels any outstanding OTP — the verify route matches a code to the USER,
-// not to a number, so without this a code texted to the OLD number could be
-// used to mark the NEW one verified.
+// Changing the phone clears phoneVerifiedAt (the new number is unproven). A
+// code texted to the OLD number can't verify the new one: Twilio Verify keys
+// every verification by phone number, and /trust/phone/verify-otp always checks
+// against the number currently on the account.
 // -----------------------------------------------------------------------
 router.patch(
   "/me",
@@ -339,12 +339,7 @@ router.patch(
       data.phoneVerifiedAt = null;
     }
 
-    const [user] = await prisma.$transaction([
-      prisma.user.update({ where: { id: existing.id }, data, include: { roles: true } }),
-      ...(phoneChanged
-        ? [prisma.otpCode.updateMany({ where: { userId: existing.id, consumedAt: null }, data: { consumedAt: new Date() } })]
-        : []),
-    ]);
+    const user = await prisma.user.update({ where: { id: existing.id }, data, include: { roles: true } });
 
     res.json(toPublicUser(user));
   },

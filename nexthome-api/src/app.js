@@ -72,8 +72,8 @@ app.use(cookieParser());
 app.use(globalLimiter);
 
 // Stricter per-route limits, registered before the routers they guard.
-// Login: brute force. OTP/email sends: every one costs real money (Termii
-// SMS credit) or sender reputation, and the per-phone 60s cooldown alone
+// Login: brute force. OTP/email sends: every one costs real money (Twilio
+// Verify) or sender reputation, and the per-phone 60s cooldown alone
 // doesn't stop an attacker rotating phone numbers.
 app.use("/auth/login", loginLimiter);
 app.use("/auth/register", authWriteLimiter);

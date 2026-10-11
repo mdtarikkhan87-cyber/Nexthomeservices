@@ -4,13 +4,11 @@ const { body, query, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
 const { authenticate } = require("../middleware/auth.middleware");
-const { sendSms } = require("../lib/sms");
+const { startVerification, checkVerification, respondWithVerifyError } = require("../lib/twilio");
 const { sendEmail } = require("../lib/email");
 
 const router = express.Router();
 
-const OTP_TTL_MINUTES = 10;
-const OTP_MAX_ATTEMPTS = 5;
 const EMAIL_TOKEN_TTL_HOURS = 24;
 const ROLES_NEEDING_TRUST_LAYER = ["landlord", "tenant_buyer", "service_provider", "advertiser"];
 
@@ -27,12 +25,12 @@ function hashValue(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-function generateOtpCode() {
-  return String(crypto.randomInt(100000, 999999)); // 6 digits
-}
-
 // -----------------------------------------------------------------------
 // POST /trust/phone/send-otp
+// Texts a verification code (Twilio Verify) to the signed-in user's own phone
+// number — always the one on their account, never one supplied by the client.
+// Limits: the per-IP limiter in app.js, plus Twilio's own per-number limits
+// (surfaced as 429s by lib/twilio.js).
 // -----------------------------------------------------------------------
 router.post("/phone/send-otp", authenticate, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.user.sub } });
@@ -44,70 +42,47 @@ router.post("/phone/send-otp", authenticate, async (req, res) => {
     return res.status(400).json({ message: "Phone is already verified." });
   }
 
-  const code = generateOtpCode();
-  const otp = await prisma.otpCode.create({
-    data: {
-      userId: user.id,
-      codeHash: hashValue(code),
-      purpose: "phone_verification",
-      expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
-    },
-  });
-
   try {
-    await sendSms(user.phone, `Your NextHome verification code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`);
+    await startVerification(user.phone);
   } catch (err) {
-    // sendSms throws in production when the relevant provider isn't
-    // configured (see sms.js) — same fix as pre-register.routes.js's
-    // send-otp: a clean, controlled error instead of an unhandled 500, and
-    // the undeliverable row removed so it doesn't count as "already sent".
-    await prisma.otpCode.delete({ where: { id: otp.id } }).catch(() => {});
-    console.error("Failed to send phone verification OTP:", err);
-    return res.status(503).json({ message: "We couldn't send a verification code right now. Please try again shortly." });
+    return respondWithVerifyError(res, err);
   }
-
   res.json({ sent: true });
 });
 
 // -----------------------------------------------------------------------
 // POST /trust/phone/verify-otp
 // Body: { code }
+// Checks the code with Twilio against the account's own phone number and, only
+// if Twilio approves it, marks that phone verified. Twilio keys a verification
+// by number, so a code texted to a previous number can never verify a new one.
 // -----------------------------------------------------------------------
 router.post(
   "/phone/verify-otp",
   authenticate,
-  [body("code").isString().isLength({ min: 6, max: 6 })],
+  [body("code").isString()],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
-
-    const otp = await prisma.otpCode.findFirst({
-      where: {
-        userId: req.user.sub,
-        purpose: "phone_verification",
-        consumedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!otp) {
-      return res.status(400).json({ message: "No active code found. Request a new one." });
-    }
-    if (otp.attempts >= OTP_MAX_ATTEMPTS) {
-      return res.status(429).json({ message: "Too many incorrect attempts. Request a new code." });
+    if (!/^\d{6}$/.test(String(req.body.code))) {
+      return res.status(400).json({ message: "Enter the 6-digit code we texted you." });
     }
 
-    const matches = hashValue(req.body.code) === otp.codeHash;
-    if (!matches) {
-      await prisma.otpCode.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
-      return res.status(400).json({ message: "Incorrect code." });
+    const user = await prisma.user.findUnique({ where: { id: req.user.sub } });
+    if (!user) return res.status(401).json({ message: "Account not found." });
+    if (!user.phone) {
+      return res.status(400).json({ message: "No phone number on file for this account." });
     }
+    if (user.phoneVerifiedAt) return res.json({ verified: true });
 
-    await prisma.$transaction([
-      prisma.otpCode.update({ where: { id: otp.id }, data: { consumedAt: new Date() } }),
-      prisma.user.update({ where: { id: req.user.sub }, data: { phoneVerifiedAt: new Date() } }),
-    ]);
+    let approved;
+    try {
+      approved = await checkVerification(user.phone, req.body.code);
+    } catch (err) {
+      return respondWithVerifyError(res, err);
+    }
+    if (!approved) return res.status(400).json({ message: "Incorrect code." });
 
+    await prisma.user.update({ where: { id: user.id }, data: { phoneVerifiedAt: new Date() } });
     res.json({ verified: true });
   },
 );

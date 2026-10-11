@@ -34,7 +34,7 @@ src/
     env.js           boot-time env validation
     refresh-tokens.js  refresh-token issue / rotate / revoke + cookie helpers
     rate-limit.js    express-rate-limit presets
-    s3.js, email.js, sms.js, socket.js, cors-origins.js
+    s3.js, email.js, twilio.js (phone OTP via Twilio Verify), socket.js, cors-origins.js
 prisma/            schema.prisma and migrations
 ```
 
