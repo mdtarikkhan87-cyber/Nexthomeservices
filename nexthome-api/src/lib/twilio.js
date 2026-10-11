@@ -91,6 +91,15 @@ function mapTwilioError(err, action) {
         return new VerifyError(400, "That code has expired or was already used. Please request a new one.");
       }
       break;
+    // Our Verify service itself is misconfigured: SMS is switched off on it. Not
+    // the user's fault and not fixable by retrying, so it must not read as a
+    // "bad number" — and it must be loud in the logs for whoever runs the account.
+    case 60223:
+      console.error(
+        "[twilio] CONFIGURATION PROBLEM: the SMS channel is disabled on the Verify service " +
+          "(error 60223). Enable SMS in Twilio Console > Verify > Services > this service.",
+      );
+      return new VerifyError(503, "Phone verification is temporarily unavailable. Please try again later.");
     // Blocked by Twilio (fraud protection / geo permissions / unverified trial number).
     case 60410:
     case 60605:
