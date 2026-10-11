@@ -5,10 +5,10 @@ import { FacetGrid } from "@/components/home/FacetGrid";
 import { CuratedListings } from "@/components/home/CuratedListings";
 import { TrustEditorial } from "@/components/home/TrustEditorial";
 import { ServicesBand } from "@/components/home/ServicesBand";
-import { AdBanner } from "@/components/home/AdBanner";
+import { AdCarousel } from "@/components/home/AdCarousel";
 import { Container } from "@/components/ui/Container";
 import { apiSearchListings } from "@/lib/listings-client";
-import type { PropertyListing } from "@/lib/types";
+import type { Advertisement, PropertyListing } from "@/lib/types";
 import { apiSearchAds } from "@/lib/ads-client";
 
 // Forces this page to render per-request instead of being statically
@@ -58,13 +58,13 @@ export default async function HomePage() {
   // The one ad slot that exists today. Caught separately from the listings
   // fetch above: an ad is decorative, not core content, so a flaky ads
   // endpoint should never take the whole homepage down with it — worst case
-  // is AdBanner renders nothing, same as when there's genuinely no live ad.
-  let bannerAd = null;
+  // is AdCarousel renders nothing, same as when there's genuinely no live ad.
+  let bannerAds: Advertisement[] = [];
   try {
-    const { ads } = await apiSearchAds({ placement: "homepage-banner", limit: 1 });
-    bannerAd = ads[0] ?? null;
+    const { ads } = await apiSearchAds({ placement: "homepage-banner", limit: 10 });
+    bannerAds = ads;
   } catch {
-    bannerAd = null;
+    bannerAds = [];
   }
 
   return (
@@ -93,11 +93,11 @@ export default async function HomePage() {
           </Container>
         </div>
 
-        {/* The one ad slot on the site — renders nothing when there's no live
+        {/* The one ad slot on the site (every live ad for it, as a carousel) — renders nothing when there's no live
             ad for this placement, so it costs nothing when empty. */}
-        {bannerAd && (
+        {bannerAds.length > 0 && (
           <div className="pb-8 lg:pb-10">
-            <AdBanner ad={bannerAd} />
+            <AdCarousel ads={bannerAds} />
           </div>
         )}
       </div>

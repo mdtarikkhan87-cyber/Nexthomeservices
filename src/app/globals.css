@@ -389,3 +389,14 @@ body {
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-dark-blue) 20%, transparent);
   border-radius: var(--radius-control);
 }
+
+/* Homepage ad carousel (AdCarousel.tsx): the progress bar along the active
+   card. Finishing it is what advances the carousel. */
+@keyframes ad-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
