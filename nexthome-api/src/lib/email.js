@@ -27,7 +27,7 @@ function parseFrom(raw) {
 
 async function sendEmail({ to, subject, html }) {
   if (!process.env.BREVO_API_KEY) {
-    // NODE_ENV-gated for the same reason as sms.js's dev fallbacks: this
+    // NODE_ENV-gated, like the dev fallback in lib/twilio.js: this
     // email's html can carry a raw verification/reset token in its link,
     // and this fallback logs the full html. Never let that reach
     // production logs — fail loudly instead if Brevo isn't configured there.

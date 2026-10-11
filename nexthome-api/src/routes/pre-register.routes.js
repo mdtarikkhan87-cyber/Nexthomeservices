@@ -4,19 +4,18 @@ const jwt = require("jsonwebtoken");
 const { body, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
-const { sendSms } = require("../lib/sms");
+const { startVerification, checkVerification, respondWithVerifyError, E164 } = require("../lib/twilio");
 const { getPresignedUploadUrl } = require("../lib/s3");
 const { validateUpload } = require("../lib/upload-policy");
 
 const router = express.Router();
 
-// Same shape as trust.routes.js's phone-OTP flow (OTP_TTL_MINUTES,
-// OTP_MAX_ATTEMPTS, hashValue, generateOtpCode) — this is the identical
-// pattern, just keyed by phone instead of userId, since there is no
-// account yet for these three endpoints to attach to. See PreRegistrationOtp
-// in schema.prisma for why.
+// Codes are generated, texted, expired and checked by Twilio Verify (see
+// lib/twilio.js). There is no account yet for these endpoints to attach to, so
+// they are keyed by phone number. PreRegistrationOtp is now only a short send
+// log: its rows power the per-number resend cooldown below, which protects
+// SMS spend (Twilio separately caps sends per number, and app.js limits per IP).
 const OTP_TTL_MINUTES = 10;
-const OTP_MAX_ATTEMPTS = 5;
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 const PHONE_TOKEN_TTL = "30m";
 
@@ -33,19 +32,20 @@ function hashValue(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
-function generateOtpCode() {
-  return String(crypto.randomInt(100000, 999999)); // 6 digits
-}
-
 // -----------------------------------------------------------------------
-// POST /auth/pre-register/send-otp — body: { phone }
-// Unauthenticated: there is no account yet. Abuse protection is a 60s
-// resend cooldown per phone, same idea as any OTP flow.
+// POST /auth/pre-register/send-otp — body: { phone }  (E.164, e.g. +2348012345678)
+// Unauthenticated: there is no account yet. Abuse protection: the per-IP limiter
+// in app.js, a 60s resend cooldown per phone, and Twilio's own per-number limits.
 // -----------------------------------------------------------------------
 router.post("/send-otp", [body("phone").isString().notEmpty()], async (req, res) => {
   if (!checkValidation(req, res)) return;
 
-  const { phone } = req.body;
+  const phone = req.body.phone.trim();
+  if (!E164.test(phone)) {
+    return res.status(400).json({
+      message: "That phone number doesn't look valid. Use international format, for example +2348012345678.",
+    });
+  }
 
   // Sending a real code to an already-registered number just wastes an SMS
   // credit — that phone's registration would 409 at the final /auth/register
@@ -63,26 +63,21 @@ router.post("/send-otp", [body("phone").isString().notEmpty()], async (req, res)
     return res.status(429).json({ message: "Please wait a minute before requesting another code." });
   }
 
-  const code = generateOtpCode();
-  const otp = await prisma.preRegistrationOtp.create({
+  const log = await prisma.preRegistrationOtp.create({
     data: {
       phone,
-      codeHash: hashValue(code),
+      codeHash: "twilio-verify", // placeholder: Twilio owns the code; we never see it
       expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
     },
   });
 
   try {
-    await sendSms(phone, `Your NextHome verification code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`);
+    await startVerification(phone);
   } catch (err) {
-    // sendSms throws in production when the relevant provider (Termii for
-    // Nigerian numbers, Twilio otherwise) isn't configured — see sms.js.
-    // Delete the row rather than leave it: an undeliverable code would
-    // otherwise still count against the 60s resend cooldown above, blocking
-    // a retry once the provider IS configured, for no benefit to anyone.
-    await prisma.preRegistrationOtp.delete({ where: { id: otp.id } }).catch(() => {});
-    console.error("Failed to send pre-registration OTP:", err);
-    return res.status(503).json({ message: "We couldn't send a verification code right now. Please try again shortly." });
+    // An undeliverable request must not count against the resend cooldown, or a
+    // user who typed a bad number would be locked out of retrying for a minute.
+    await prisma.preRegistrationOtp.delete({ where: { id: log.id } }).catch(() => {});
+    return respondWithVerifyError(res, err);
   }
 
   res.json({ sent: true });
@@ -90,38 +85,30 @@ router.post("/send-otp", [body("phone").isString().notEmpty()], async (req, res)
 
 // -----------------------------------------------------------------------
 // POST /auth/pre-register/verify-otp — body: { phone, code }
-// On success, returns a short-lived signed JWT proving THIS phone number
-// was verified — not a login token (no account exists to log into yet).
-// POST /auth/register and this file's own /presign-document both verify it
-// before trusting anything it claims.
+// Twilio checks the code. On success, returns a short-lived signed JWT proving
+// THIS phone number was verified — not a login token (no account exists to log
+// into yet). POST /auth/register and this file's own /presign-document both
+// verify it before trusting anything it claims.
 // -----------------------------------------------------------------------
 router.post(
   "/verify-otp",
-  [body("phone").isString().notEmpty(), body("code").isString().isLength({ min: 6, max: 6 })],
+  [body("phone").isString().notEmpty(), body("code").isString()],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
-
-    const { phone, code } = req.body;
-
-    const otp = await prisma.preRegistrationOtp.findFirst({
-      where: { phone, consumedAt: null, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!otp) {
-      return res.status(400).json({ message: "No active code found. Request a new one." });
-    }
-    if (otp.attempts >= OTP_MAX_ATTEMPTS) {
-      return res.status(429).json({ message: "Too many incorrect attempts. Request a new code." });
+    if (!/^\d{6}$/.test(String(req.body.code))) {
+      return res.status(400).json({ message: "Enter the 6-digit code we texted you." });
     }
 
-    const matches = hashValue(code) === otp.codeHash;
-    if (!matches) {
-      await prisma.preRegistrationOtp.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
-      return res.status(400).json({ message: "Incorrect code." });
+    const phone = req.body.phone.trim();
+    let approved;
+    try {
+      approved = await checkVerification(phone, req.body.code);
+    } catch (err) {
+      return respondWithVerifyError(res, err);
     }
+    if (!approved) return res.status(400).json({ message: "Incorrect code." });
 
-    await prisma.preRegistrationOtp.update({ where: { id: otp.id }, data: { consumedAt: new Date() } });
+    await prisma.preRegistrationOtp.updateMany({ where: { phone, consumedAt: null }, data: { consumedAt: new Date() } });
 
     const phoneVerificationToken = jwt.sign(
       { purpose: "phone_verification", phone },
