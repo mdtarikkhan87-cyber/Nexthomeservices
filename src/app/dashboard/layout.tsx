@@ -49,7 +49,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
       description="Your dashboard shows your listings, messages, and account status. Log in or create an account to continue — you'll land right here."
     >
       {activeRole && (
-        <div className="mx-auto flex max-w-6xl flex-col lg:flex-row">
+        <div className="mx-auto flex w-full max-w-[var(--width-app)] flex-col lg:flex-row">
           <DashboardNav role={activeRole} />
           <div className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:py-10">
             {requiredRole ? <RoleScoped requiredRole={requiredRole}>{children}</RoleScoped> : children}
