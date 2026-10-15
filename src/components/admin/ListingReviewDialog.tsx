@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PhotoCarousel } from "@/components/ui/PhotoCarousel";
 import { StatusBadge, StatusKind } from "@/components/ui/StatusBadge";
 import { ReviewDialogShell } from "./ReviewDialogShell";
 import { useAdminReview } from "@/lib/use-admin-review";
@@ -15,15 +15,11 @@ const OWNER_STATE_BADGE: Record<AdminUserRoleRow["state"], { kind: StatusKind; l
   "role-added": { kind: "pending", label: "Owner not yet verified" },
 };
 
-// Placeholder photos (dev-mode URLs recorded before S3 was configured) are
-// filtered out up front, same as a render failure — both mean "nothing to
-// show for this one," not worth a separate per-photo message. A listing
-// with zero displayable photos still shows a warning but never blocks
-// Approve/Reject — the text details below are reviewable on their own.
-function PhotoGallery({ photos }: { photos: AdminListingReviewPhoto[] }) {
-  const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set());
-  const displayable = photos.filter((p) => !p.isPlaceholder && !failedUrls.has(p.url));
-
+// One photo at a time (PhotoCarousel). A placeholder or broken photo shows an
+// "Image unavailable" tile for that slide only, and a listing with no photos
+// at all still shows a warning — neither ever blocks Approve/Reject, since the
+// text details below are reviewable on their own.
+function PhotoGallery({ photos, title }: { photos: AdminListingReviewPhoto[]; title: string }) {
   if (photos.length === 0) {
     return (
       <EmptyState
@@ -32,30 +28,8 @@ function PhotoGallery({ photos }: { photos: AdminListingReviewPhoto[] }) {
       />
     );
   }
-  if (displayable.length === 0) {
-    return (
-      <EmptyState
-        title="Photos unavailable"
-        description="Every photo on file is a placeholder or failed to load — the details below are still reviewable."
-      />
-    );
-  }
 
-  return (
-    <div className="flex flex-col gap-2">
-      {displayable.map((photo, i) => (
-        // A public S3 URL, not a static asset next/image can optimize.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={photo.url}
-          src={photo.url}
-          alt={`Photo ${i + 1}`}
-          className="max-h-[320px] w-full rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] object-contain"
-          onError={() => setFailedUrls((prev) => new Set(prev).add(photo.url))}
-        />
-      ))}
-    </div>
-  );
+  return <PhotoCarousel photos={photos} alt={title} fit="contain" />;
 }
 
 export function ListingReviewDialog({
@@ -115,7 +89,7 @@ export function ListingReviewDialog({
             )}
           </div>
           <p className="text-sm text-[var(--color-text-secondary)]">{data.description}</p>
-          <PhotoGallery photos={data.photos} />
+          <PhotoGallery photos={data.photos} title={data.title} />
         </div>
       )}
       footer={
