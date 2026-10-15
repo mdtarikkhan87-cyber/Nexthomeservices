@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ListingActions } from "@/components/property/ListingActions";
-import { PropertyGallery } from "@/components/property/PropertyGallery";
+import { PhotoCarousel } from "@/components/ui/PhotoCarousel";
 import { IconCheck } from "@/components/ui/icons";
 import { UserRatings } from "@/components/shared/UserRatings";
 import { apiFetchListingById } from "@/lib/listings-client";
@@ -78,10 +78,19 @@ export function ListingFullDetail({ id }: { id: string }) {
               e.g. one created directly via the API rather than through the
               wizard, which always seeds galleryUrls with photoUrl. An empty
               array is not nullish, so `??` would never fall back, leaving
-              PropertyGallery with no image at all. */}
-          <PropertyGallery
-            images={listing.galleryUrls && listing.galleryUrls.length > 0 ? listing.galleryUrls : [listing.photoUrl]}
+              the gallery with no image at all. */}
+          {/* One photo at a time with arrows. `optimized` uses next/image,
+              which throws on a host missing from next.config.ts — so a dead
+              dev-mode "/dev-fake-file/" URL is flagged as a placeholder here
+              and shown as an "Image unavailable" tile instead of being
+              handed to it. */}
+          <PhotoCarousel
+            photos={(listing.galleryUrls && listing.galleryUrls.length > 0 ? listing.galleryUrls : [listing.photoUrl]).map(
+              (url) => ({ url, isPlaceholder: url.includes("/dev-fake-file/") }),
+            )}
             alt={listing.title}
+            fit="cover"
+            optimized
           />
 
           {/* Status + price co-located, immediately after the image — never buried (DESIGN_SYSTEM.md §11) */}
