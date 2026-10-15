@@ -41,14 +41,15 @@ export function Hero() {
         </Link>
       </Container>
 
-      {/* Centred and capped at 1600px, so on a wide or zoomed-out screen the
-          photograph never stretches. From `lg` the height is 60vh, capped at
+      {/* Centred and capped at the page wrapper's width (1600px, growing only
+          with the fluid content — --width-wrapper), so on a wide or zoomed-out
+          screen the photograph never stretches. From `lg` the height is 60vh, capped at
           640px, and never shorter than the width needs to keep the roofline
           below the top fade (it is the 37.5vw term that matters at 1366px).
           No scrim, no text, not a link. Phones and tablets keep the fixed
           4:3 / 2:1 plate. */}
       <div
-        className="relative mx-auto aspect-[4/3] w-full max-w-[1600px] md:aspect-[2/1] lg:aspect-auto lg:h-[min(max(60vh,37.5vw),640px)]"
+        className="relative mx-auto aspect-[4/3] w-full max-w-[var(--width-wrapper)] md:aspect-[2/1] lg:aspect-auto lg:h-[min(max(60vh,37.5vw),640px)]"
         style={{
           maskImage: PHOTO_MASK,
           maskComposite: "intersect",
@@ -61,7 +62,7 @@ export function Hero() {
           alt="A modern single-storey home with timber cladding and a white wing, set in a green garden"
           fill
           preload
-          sizes="(min-width: 1600px) 1600px, 100vw"
+          sizes="(min-width: 2500px) 2160px, 100vw"
           className="object-cover object-[62%_100%] lg:object-bottom"
         />
       </div>
