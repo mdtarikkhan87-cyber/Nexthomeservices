@@ -180,7 +180,7 @@ export function RoleSwitcher({ variant = "header" }: { variant?: "header" | "dra
             transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
             className="absolute right-0 top-full z-50 mt-2 w-60 max-w-[calc(100vw-2rem)] origin-top-right rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-2 shadow-[var(--elevation-lg)]"
           >
-            <p className="u-label px-2 pb-1.5 pt-1 text-[var(--color-text-secondary)]">Act as</p>
+            <p className="u-label px-2 pb-1.5 pt-1 text-[var(--color-text-secondary)]">Switch role</p>
             {roles.map((r) => {
               const selected = r.role === activeRole;
               return (
