@@ -20,3 +20,23 @@ Items 10–12 were added by the 24 August 2026 client-revision pass — see [REV
 | 13 | Real notifications are not built (future feature) | `src/lib/notification-context.tsx`, `src/lib/notifications.ts`, `src/app/dashboard/notifications/page.tsx` | The hardcoded demo feed (`SEED_NOTIFICATIONS`) was removed, so the feed starts **empty** and shows "No notifications yet". The only notifications that appear are ones raised in the current browser session by the user's own actions (e.g. submitting a listing or documents) via `notify()` — they are not persisted and disappear on reload. **To build later:** a backend `notifications` table and `GET /notifications` / `PATCH /notifications/:id/read` endpoints, created from real events (new enquiry/message, listing or ad approved/rejected, role document review result, subscription changes), optionally pushed over the existing Socket.IO connection; then switch `notification-context.tsx` to fetch and persist read-state |
 
 None of these were silently resolved — not during the original audit pass, and not during the client-revision pass that followed. Where a fix touched adjacent code (e.g. gating listing/service *submission* on role-verified state, which the docs *do* already specify), that was implemented; every item above was left exactly as open as it was found.
+
+## Large-screen issues
+Client feedback: "remove all the extra white spaces … or make the website a little more compact." The empty space was on large monitors (1920px and up), where content stayed laptop-width. Fix: fluid width tokens in `src/app/globals.css` (`--width-page`, `--width-home`, `--width-app`, `--width-wrapper`), equal to the old widths up to ~1440px and growing with the screen above that. Vertical spacing was deliberately left alone. None of the items below are resolved — they are known limits or follow-ups.
+
+**Follow-up once the photo carousel (`feature/property-photo-carousel`) has merged** — skipped on purpose because they need it:
+- Bound the photo height on the listing detail page. The photo column now grows with the screen, so a tall photo can push price and status below the fold (DESIGN_SYSTEM.md §11). Needs an optional `className` prop on `PhotoCarousel` (and the detail page switched from `PropertyGallery` to it).
+- Update `PhotoCarousel`'s default `sizes` hint (`66vw`), which over-fetches on a very wide screen.
+
+**Known issues / needs a decision** (most severe first):
+1. Hero and the 1600px column are a teammate's design. `Hero.tsx` (own commit) now follows `--width-wrapper`; above 1600px the photo gets wider. Teammate answer: not yet answered. The source image is 2400px wide, enough up to ~2500px screens at 1x.
+2. Admin and dashboard are single-column feeds and forms, so they use a lower cap (`--width-app`, 1600px). Pages with their own narrow `max-w-*` (e.g. the new-listing wizard) stay left-aligned inside a wider shell and can look sparse on a large monitor.
+3. Logged-in pages (admin, dashboard, messages, saved, account) were not screenshot-tested at 1920/2560 by the person who built this; they need a manual check.
+4. `CuratedListings` (home) is a fixed 5-card composition and was left alone. `FacetGrid` is capped at 4 tiles (`maxStates`), so auto-fill would leave empty slots; also left alone.
+5. Help, legal, advertise, account and service detail stay narrow on purpose (readable line length), so they still show side space on a big monitor; making them use it needs design input.
+6. Between ~1440px and ~1600px the home page (1280px) and inner pages (fluid, from 1152px) differ in width, as they did before; they only merge above ~1600px.
+7. Auto-fill grids start at 1440px, not below, so the existing 2-column (below 1280px) and 3-column (1280px and up) browse layouts are untouched; those counts are still per-breakpoint.
+8. Listing description is capped at 72ch, not 70ch: 70ch (674px in Quicksand) would be 10px narrower than today's laptop column (684px).
+9. `100vw` includes a classic scrollbar, so fluid widths can be ~15px wider than the visible area; harmless because the elements are also `w-full`.
+10. Image `sizes` hints elsewhere (e.g. `PropertyCard`, 33vw) are still approximate and will over-fetch somewhat at 2560px.
+
