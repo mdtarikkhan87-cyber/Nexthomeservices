@@ -39,7 +39,7 @@ const FEATURES = [
 export function FeatureBar() {
   return (
     <section className="px-4 pb-4 pt-10 sm:px-6 sm:pt-12">
-      <div className="mx-auto max-w-6xl rounded-[var(--radius-feature)] bg-[var(--color-surface-inverted)] px-6 py-8 sm:px-10 sm:py-9">
+      <div className="mx-auto max-w-[var(--width-page)] rounded-[var(--radius-feature)] bg-[var(--color-surface-inverted)] px-6 py-8 sm:px-10 sm:py-9">
         {/* 2-up on phones rather than a single column: these are short,
             scannable claims, and stacking four of them vertically turns a
             reassurance strip into a long scroll. Dividers appear only from

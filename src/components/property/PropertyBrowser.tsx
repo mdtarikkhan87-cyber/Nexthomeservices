@@ -224,7 +224,7 @@ export function PropertyBrowser() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-10 pt-6 sm:px-6 sm:pb-12 sm:pt-10">
+    <div className="mx-auto w-full max-w-[var(--width-page)] px-4 pb-10 pt-6 sm:px-6 sm:pb-12 sm:pt-10">
       {/* One page, one H1, one mode control. The eyebrow/heading/intro are
           keyed on `mode` so the page states plainly which side of the toggle
           is showing — a toggle whose only feedback is the pill position makes
@@ -409,7 +409,7 @@ export function PropertyBrowser() {
               initial={chosen === null ? false : "hidden"}
               animate="shown"
               variants={{ shown: { transition: { staggerChildren: 0.035 } } }}
-              className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 sm:gap-y-8 xl:grid-cols-3"
+              className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 sm:gap-y-8 xl:grid-cols-3 min-[1440px]:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]!"
             >
               {results.map((listing, i) => (
                 <motion.div

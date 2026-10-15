@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useId, useState, useSyncExternalStore } from "react";
-import { CONTAINER_CLASS } from "@/components/ui/Container";
+import { CONTAINER_CLASS, PAGE_CONTAINER_CLASS } from "@/components/ui/Container";
 import { IconChevronDown } from "@/components/ui/icons";
 import { FOCUS_RING } from "@/components/ui/SelectField";
 
@@ -135,12 +135,12 @@ function FooterGroup({ group, collapsible }: { group: LinkGroup; collapsible: bo
 
 export function Footer() {
   // Same rule as the header: the landing page uses the shared 1280px container,
-  // every other route keeps its own 6xl.
+  // every other route uses the fluid page container.
   const isHome = usePathname() === "/";
   const compact = useSyncExternalStore(subscribeMobile, getMobile, getServerMobile);
   return (
     <footer className="border-t border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)]">
-      <div className={`${compact ? "py-8" : "py-12"} ${isHome ? CONTAINER_CLASS : "mx-auto max-w-6xl px-4 sm:px-6"}`}>
+      <div className={`${compact ? "py-8" : "py-12"} ${isHome ? CONTAINER_CLASS : PAGE_CONTAINER_CLASS}`}>
         <div className={`grid grid-cols-1 ${compact ? "gap-0" : "gap-10"} sm:grid-cols-2 lg:grid-cols-[1.3fr_repeat(3,1fr)]`}>
           <div className={compact ? "pb-5" : undefined}>
             <Image src="/brand/nexthome-logo-primary.png" alt="NextHome" width={2267} height={2958} className="h-10 w-auto" />

@@ -39,7 +39,7 @@ function ResetPasswordForm() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:min-h-[640px] lg:grid-cols-2">
+    <div className="grid grid-cols-1 lg:min-h-[640px] min-[1600px]:min-h-[max(640px,calc(100dvh-5rem))]! lg:grid-cols-2">
       <div className="relative hidden overflow-hidden lg:block">
         <Image
           src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1200&q=70"

@@ -97,7 +97,7 @@ export function ListingRegistrationWall({ teaser }: { teaser: ListingTeaser }) {
   const hiddenPhotos = Math.max(listing.galleryCount - 1, 0);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+    <div className="mx-auto w-full max-w-[var(--width-page)] px-4 py-8 sm:px-6 sm:py-10">
       <nav className="mb-6 text-sm text-[var(--color-text-secondary)]">
         <Link
           href={`/listings?mode=${listing.type}`}
@@ -109,7 +109,7 @@ export function ListingRegistrationWall({ teaser }: { teaser: ListingTeaser }) {
         <span>{listing.title}</span>
       </nav>
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px]">
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_clamp(380px,26vw,520px)]">
         <div>
           {/* The lead photo — the same image the card showed, nothing more.
               The remaining gallery is represented by a count, not by the
