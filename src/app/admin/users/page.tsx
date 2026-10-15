@@ -46,7 +46,10 @@ export default function AdminUsersPage() {
       {users.length === 0 ? (
         <EmptyState className="mt-6" title="No users yet" />
       ) : (
-        <ul className="mt-6 flex flex-col gap-3">
+        // One card per row on laptops. From 1440px, as many columns as fit with
+        // each card at least 30rem wide (2 across on a full-HD monitor); at 1440
+        // only one fits, so nothing changes there.
+        <ul className="mt-6 flex flex-col gap-3 min-[1440px]:grid min-[1440px]:grid-cols-[repeat(auto-fill,minmax(30rem,1fr))] min-[1440px]:items-start">
           {users.map((user) => (
             <li
               key={user.id}
