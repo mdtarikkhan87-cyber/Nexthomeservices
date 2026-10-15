@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { KeyboardEvent, useState } from "react";
+import { KeyboardEvent, PointerEvent, useRef, useState } from "react";
 import { IconArrowLeft, IconArrowRight } from "@/components/ui/icons";
+import { isAllowedImageHost } from "@/lib/image-hosts";
 
 export interface CarouselPhoto {
   url: string;
@@ -17,11 +18,18 @@ export interface CarouselPhoto {
 // A plain <img> by default: it can't crash on an unconfigured host the way
 // next/image can, and a failed load is catchable with onError. `optimized`
 // switches to next/image (resized by Next) for the public page, where the
-// originals can be several MB each — callers must filter out placeholder URLs
-// first, since next/image refuses hosts missing from next.config.ts.
+// originals can be several MB each — but only for URLs whose host is on the
+// allow-list in next.config.ts (see lib/image-hosts.ts); any other URL falls
+// back to a plain <img>, because next/image throws while rendering for an
+// unlisted host and onError could never catch that.
 //
 // No animation on purpose: the photo simply swaps, so reduced-motion
 // preferences are respected without any extra code.
+
+// A horizontal swipe must travel at least this far (px), and further sideways
+// than up/down, to count — so taps, small jitters and vertical scrolling never
+// change the photo.
+const SWIPE_MIN_DISTANCE = 40;
 
 const ARROW_BUTTON =
   "absolute top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[var(--color-deep-blue)] shadow-[var(--elevation-sm)] transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-deep-blue)] hover:text-white";
@@ -68,6 +76,9 @@ export function PhotoCarousel({
     setState({ signature, index: 0, failed: NOT_FAILED });
   }
   const current = state.signature === signature ? state : { signature, index: 0, failed: NOT_FAILED };
+  // Where the current touch started (null when no single-finger touch is in
+  // progress). A ref, not state: nothing on screen depends on it.
+  const swipeStart = useRef<{ id: number; x: number; y: number } | null>(null);
 
   if (total === 0) {
     return (
@@ -96,6 +107,29 @@ export function PhotoCarousel({
     // alone so it keeps bubbling.
   };
 
+  // Touch swipe, via pointer events (touch only — a mouse drag would fight
+  // text selection). The frame is `touch-pan-y`, so the browser still owns
+  // vertical scrolling and cancels the pointer if the finger scrolls; only a
+  // mostly-horizontal drag reaches pointerup. Same wrap-around as the arrows.
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "touch") return;
+    // A second finger (pinch) cancels the gesture rather than guessing.
+    swipeStart.current = swipeStart.current ? null : { id: e.pointerId, x: e.clientX, y: e.clientY };
+  };
+  const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    const start = swipeStart.current;
+    if (!start || start.id !== e.pointerId) return;
+    swipeStart.current = null;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.abs(dx) >= SWIPE_MIN_DISTANCE && Math.abs(dx) > Math.abs(dy)) {
+      go(dx < 0 ? 1 : -1); // swipe left → next, swipe right → previous
+    }
+  };
+  const onPointerCancel = () => {
+    swipeStart.current = null;
+  };
+
   const photo = slides[current.index];
   const unavailable = photo.isPlaceholder || current.failed.has(photo.url);
   const next = total > 1 ? slides[(current.index + 1) % total] : null;
@@ -107,7 +141,7 @@ export function PhotoCarousel({
     setState({ ...current, failed: new Set(current.failed).add(url) });
 
   const renderImage = (p: CarouselPhoto, props: { alt: string; hidden?: boolean }) =>
-    optimized ? (
+    optimized && isAllowedImageHost(p.url) ? (
       <Image
         src={p.url}
         alt={props.alt}
@@ -119,8 +153,8 @@ export function PhotoCarousel({
         aria-hidden={props.hidden || undefined}
       />
     ) : (
-      // Admin photos come from public S3 URLs and may be dead dev-mode ones —
-      // not something next/image can optimize or safely load.
+      // Not optimized: the default mode, or a URL whose host next/image would
+      // refuse (see isAllowedImageHost) — a plain <img> can't throw on it.
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={p.url}
@@ -136,11 +170,14 @@ export function PhotoCarousel({
 
   return (
     <div
-      className={FRAME}
+      className={total > 1 ? `${FRAME} touch-pan-y` : FRAME}
       role="group"
       aria-roledescription={total > 1 ? "carousel" : undefined}
       aria-label={total > 1 ? `${alt} photos` : undefined}
       onKeyDown={total > 1 ? onKeyDown : undefined}
+      onPointerDown={total > 1 ? onPointerDown : undefined}
+      onPointerUp={total > 1 ? onPointerUp : undefined}
+      onPointerCancel={total > 1 ? onPointerCancel : undefined}
     >
       {unavailable ? (
         <div
