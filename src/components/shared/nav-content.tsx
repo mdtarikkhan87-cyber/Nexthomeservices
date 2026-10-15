@@ -6,7 +6,7 @@ import { IconCheck, IconShield } from "@/components/ui/icons";
 import { MenuButton, MenuDivider, MenuLabel, MenuLink } from "@/components/shared/NavMenu";
 import { useAuth } from "@/lib/auth-context";
 import { useNotifications } from "@/lib/notification-context";
-import { roleDisplay, roleLandingHref } from "@/lib/roles";
+import { ROLE_LABELS, roleDisplay, roleLandingHref } from "@/lib/roles";
 import type { RoleName } from "@/lib/types";
 
 // What goes inside the header's menus, in one place, so the desktop dropdowns
@@ -170,20 +170,39 @@ export function AccountItems({ inMenu = true }: { inMenu?: boolean }) {
   );
 }
 
-/** "Signed in as" name and email (as in the existing account menu), then the current role. */
+/**
+ * Who is signed in: the name, the email under it, and a small badge for the
+ * account type — but only where the badge says something the rest of the menu
+ * doesn't. That is an admin ("Administrator": an admin holds no roles, so
+ * nothing else would say so) and a user with exactly one role. A user with
+ * several roles gets no badge: the "Switch role" list below already marks the
+ * active role with a check, and stating it twice is how the two drift apart.
+ *
+ * "Signed in as" is kept for screen readers (visually hidden), so what is
+ * announced is unchanged.
+ */
 export function AccountHeader() {
-  const { user, roles, activeRole } = useAuth();
+  const { user } = useAuth();
   if (!user?.name) return null;
-  const held = roles.find((r) => r.role === activeRole);
-  const line = user.isAdmin ? "Admin" : held ? `Viewing as ${roleDisplay(held.role, held.context)}` : "";
+  const badge = user.isAdmin ? "Administrator" : user.roles.length === 1 ? ROLE_LABELS[user.roles[0]] : null;
   return (
     <div className="border-b border-[var(--color-border-hairline)] px-5 py-3">
-      <p className="text-xs font-medium text-[var(--color-text-body)]">Signed in as</p>
-      <p className="truncate text-[15px] font-bold text-[var(--color-dark-blue)]">{user.name}</p>
-      <p className="truncate text-[13px] font-medium text-[var(--color-text-body)]" title={user.email}>
-        {user.email}
+      <p className="truncate text-[15px] font-bold text-[var(--color-dark-blue)]">
+        <span className="sr-only">Signed in as </span>
+        {user.name}
       </p>
-      {line && <p className="mt-1 text-[13px] font-medium text-[var(--color-text-body)]">{line}</p>}
+      {user.email && (
+        <p className="truncate text-[13px] font-medium text-[var(--color-text-body)]" title={user.email}>
+          {user.email}
+        </p>
+      )}
+      {badge && (
+        <p className="mt-2">
+          <span className="inline-block max-w-full truncate rounded-full bg-[var(--color-surface-dense)] px-2.5 py-0.5 align-top text-xs font-bold text-[var(--color-text-secondary)]">
+            {badge}
+          </span>
+        </p>
+      )}
     </div>
   );
 }
