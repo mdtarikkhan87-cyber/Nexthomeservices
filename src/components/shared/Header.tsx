@@ -15,6 +15,7 @@ import {
   ListingsMenuContent,
   MobileSheetContent,
   MoreMenuContent,
+  ReviewNote,
 } from "@/components/shared/nav-content";
 import { RoleSwitcher } from "@/components/shared/RoleSwitcher";
 import { useAuth } from "@/lib/auth-context";
@@ -287,6 +288,11 @@ export function Header() {
                 </>
               )}
               panelClassName="md:w-[32rem] lg:w-[44rem]"
+              footer={
+                <div className="rounded-b-2xl bg-[var(--color-surface-base)] px-5 py-3.5 md:px-6">
+                  <ReviewNote />
+                </div>
+              }
             >
               <ListingsMenuContent />
             </NavMenu>

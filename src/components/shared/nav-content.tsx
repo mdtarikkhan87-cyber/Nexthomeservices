@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { ReactNode } from "react";
-import { IconCheck } from "@/components/ui/icons";
+import { IconCheck, IconShield } from "@/components/ui/icons";
 import { MenuButton, MenuDivider, MenuLabel, MenuLink } from "@/components/shared/NavMenu";
 import { useAuth } from "@/lib/auth-context";
 import { useNotifications } from "@/lib/notification-context";
@@ -30,6 +30,16 @@ export const MORE_LINKS = [
   { href: "/help", label: "FAQs", description: "Answers to common questions" },
 ] as const;
 
+/** Every listing is reviewed before it goes live — said once, in the menu footer. */
+export function ReviewNote({ className = "" }: { className?: string }) {
+  return (
+    <p className={`flex items-center gap-2 text-sm font-medium text-[var(--color-text-body)] ${className}`}>
+      <IconShield aria-hidden className="h-4 w-4 shrink-0 text-[var(--color-brand-primary)]" />
+      Every listing is reviewed before it goes live.
+    </p>
+  );
+}
+
 // Location links are live data on the landing page (fetched server-side), which
 // the header cannot see without a request of its own — so the menu points at
 // that section instead of listing states, and shows no counts.
@@ -55,7 +65,7 @@ export function ListingsMenuContent() {
 
       <div role="group" aria-label="Browse by location">
         <MenuLabel>Browse by location</MenuLabel>
-        <MenuLink href="/#browse-by" label="Choose a location" />
+        <MenuLink href="/#browse-by" label="Choose a location" description="States with homes right now" />
       </div>
 
       <div role="group" aria-label="Stay length" className="md:col-span-2 lg:col-span-1">
@@ -212,7 +222,7 @@ export function MobileSheetContent({
       </SheetSection>
 
       <SheetSection label="Browse by location">
-        <MenuLink inMenu={false} href="/#browse-by" label="Choose a location" />
+        <MenuLink inMenu={false} href="/#browse-by" label="Choose a location" description="States with homes right now" />
       </SheetSection>
 
       <SheetSection label="Stay length">
@@ -242,6 +252,7 @@ export function MobileSheetContent({
         </div>
       )}
 
+      <ReviewNote className="px-6 pb-3 pt-4" />
     </div>
   );
 }
