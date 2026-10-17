@@ -286,7 +286,7 @@ export function Header() {
                   />
                 </>
               )}
-              panelClassName="w-56"
+              panelClassName="md:w-[32rem] lg:w-[44rem]"
             >
               <ListingsMenuContent />
             </NavMenu>
