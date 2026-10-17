@@ -14,6 +14,8 @@ import type { RoleName } from "@/lib/types";
 //
 // Every destination below is an existing route or query param:
 //   /listings?mode=rent | sale      the Rent/Buy toggle on the Listings page
+//   /#browse-by                     the landing page's "Browse by" location cards
+//   /listings?mode=rent&duration=…  the Short-Term / Long-Term filter
 //   /listings?verified=1            the "Verified listings only" filter
 //   /help                           "Help & FAQ" (the product's only FAQ page)
 //   /#how-it-works                  the landing page's trust-process section
@@ -28,27 +30,40 @@ export const MORE_LINKS = [
   { href: "/help", label: "FAQs", description: "Answers to common questions" },
 ] as const;
 
-// The Listings menu is just these three links, on desktop and in the mobile
-// sheet alike. (It used to also offer "Browse by location" and "Stay length"
-// columns, with a subtitle under each link; the destinations still exist on the
-// Listings page and the landing page, they are simply no longer in the menu.)
-const LISTINGS_LINKS = [
-  { href: "/listings?mode=rent", label: "Rent" },
-  { href: "/listings?mode=sale", label: "Buy" },
-  { href: "/listings", label: "All listings" },
+// Location links are live data on the landing page (fetched server-side), which
+// the header cannot see without a request of its own — so the menu points at
+// that section instead of listing states, and shows no counts.
+const STAY_LENGTH = [
+  { href: "/listings?mode=rent&duration=short-term", label: "Short-Term rentals" },
+  { href: "/listings?mode=rent&duration=long-term", label: "Long-Term rentals" },
 ] as const;
 
 // ---------------------------------------------------------------------------
 // Listings
 // ---------------------------------------------------------------------------
 
-/** The Listings menu body: Rent · Buy · All listings. */
+/** The Listings menu body: Browse · Browse by location · Stay length. */
 export function ListingsMenuContent() {
   return (
-    <div role="group" aria-label="Listings" className="p-2">
-      {LISTINGS_LINKS.map((l) => (
-        <MenuLink key={l.href} href={l.href} label={l.label} />
-      ))}
+    <div className="grid max-h-[calc(100dvh-8rem)] gap-x-4 gap-y-5 overflow-y-auto p-4 md:grid-cols-2 md:p-5 lg:grid-cols-3">
+      <div role="group" aria-label="Browse">
+        <MenuLabel>Browse</MenuLabel>
+        <MenuLink href="/listings?mode=rent" label="Rent" />
+        <MenuLink href="/listings?mode=sale" label="Buy" />
+        <MenuLink href="/listings" label="All listings" />
+      </div>
+
+      <div role="group" aria-label="Browse by location">
+        <MenuLabel>Browse by location</MenuLabel>
+        <MenuLink href="/#browse-by" label="Choose a location" />
+      </div>
+
+      <div role="group" aria-label="Stay length" className="md:col-span-2 lg:col-span-1">
+        <MenuLabel>Stay length</MenuLabel>
+        {STAY_LENGTH.map((d) => (
+          <MenuLink key={d.href} href={d.href} label={d.label} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -191,9 +206,21 @@ export function MobileSheetContent({
   return (
     <div className="pb-2">
       <SheetSection label="Listings">
-        {LISTINGS_LINKS.map((l) => (
-          <MenuLink key={l.href} inMenu={false} href={l.href} label={l.label} />
-        ))}
+        <MenuLink inMenu={false} href="/listings?mode=rent" label="Rent" />
+        <MenuLink inMenu={false} href="/listings?mode=sale" label="Buy" />
+        <MenuLink inMenu={false} href="/listings" label="All listings" />
+      </SheetSection>
+
+      <SheetSection label="Browse by location">
+        <MenuLink inMenu={false} href="/#browse-by" label="Choose a location" />
+      </SheetSection>
+
+      <SheetSection label="Stay length">
+        <div className="grid grid-cols-2 gap-x-1">
+          {STAY_LENGTH.map((d) => (
+            <MenuLink key={d.href} inMenu={false} href={d.href} label={d.label.replace(" rentals", "")} />
+          ))}
+        </div>
       </SheetSection>
 
       <SheetSection label="More">
@@ -214,6 +241,7 @@ export function MobileSheetContent({
           {isAuthenticated ? <AccountItems inMenu={false} /> : loggedOutActions}
         </div>
       )}
+
     </div>
   );
 }
