@@ -197,10 +197,6 @@ export function Header() {
     }
   };
 
-  // On a phone, the property detail header is the most crowded one, so Log in
-  // and Register live in the menu there instead — never in both places.
-  const authInMenuOnly = pathname.startsWith("/listing/");
-
   const listingsActive = isListingsSection(pathname);
 
   return (
@@ -315,12 +311,16 @@ export function Header() {
 
           {/* Persistent role switcher — spec §3B. Renders nothing unless the
               user actually holds more than one role. */}
-          {isAuthenticated && <RoleSwitcher />}
+          {isAuthenticated && (
+            <div className="hidden md:contents">
+              <RoleSwitcher />
+            </div>
+          )}
 
           {canListProperty && (
             <Link
               href="/dashboard/listings/new"
-              className="u-ui hidden min-h-11 items-center rounded-xl bg-[var(--color-dark-blue)] px-4 text-sm font-bold text-white transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-deep-blue)] sm:inline-flex"
+              className="u-ui hidden min-h-11 items-center rounded-xl bg-[var(--color-dark-blue)] px-4 text-sm font-bold text-white transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-deep-blue)] md:inline-flex"
             >
               List Your Property
             </Link>
@@ -351,7 +351,7 @@ export function Header() {
             <Link
               href="/dashboard/notifications"
               aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-              className={`relative flex h-12 w-12 items-center justify-center rounded-xl! md:h-11 md:w-11 text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
+              className={`relative hidden h-12 w-12 items-center justify-center rounded-xl! md:flex md:h-11 md:w-11 text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
             >
               <IconBell className="h-[18px] w-[18px]" />
               {unreadCount > 0 && (
@@ -371,10 +371,10 @@ export function Header() {
                   outlined Dark Blue button, so "Register" stays the primary
                   path without a filled control competing with the hero CTA.
                   Both are 44px tall — on a phone they are most of the nav. */}
-              {/* On the property detail page these two are phone-hidden and
-                  live in the hamburger menu instead (see authInMenuOnly). A
-                  full class swap, not an added `hidden`: there is no
-                  tailwind-merge, so `flex` would win against it. */}
+              {/* Phones: neither shows here — Log in and Register are in the
+                  hamburger menu, so the bar is just the logo and the menu
+                  button. `hidden md:flex`, a full class swap rather than an
+                  added `hidden`: there is no tailwind-merge. */}
               <Link
                 href="/login"
                 className={`u-ui hidden min-h-11 items-center rounded-xl! px-3 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] md:flex ${FOCUS_RING}`}
@@ -383,32 +383,34 @@ export function Header() {
               </Link>
               <Link
                 href="/register"
-                className={`u-ui ${authInMenuOnly ? "hidden md:flex" : "flex"} min-h-11 items-center rounded-xl! border border-[var(--color-dark-blue)] px-3 md:px-4 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-dark-blue)] hover:text-white ${FOCUS_RING}`}
+                className={`u-ui hidden md:flex min-h-11 items-center rounded-xl! border border-[var(--color-dark-blue)] px-3 md:px-4 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-dark-blue)] hover:text-white ${FOCUS_RING}`}
               >
                 Register
               </Link>
             </>
           ) : (
-            <NavMenu
-              align="right"
-              triggerAriaLabel="Account menu"
-              triggerClassName="inline-flex min-h-12 items-center gap-2 border border-[var(--color-dark-blue)] px-3 md:min-h-11 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] aria-expanded:bg-[var(--color-surface-base)]"
-              trigger={({ open }) => (
-                <>
-                  <Avatar name={user?.name ?? "Account"} size={22} className="ring-0" />
-                  <IconChevronDown
-                    aria-hidden
-                    className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-                  />
-                </>
-              )}
-              panelClassName="w-[18rem]"
-              header={<AccountHeader />}
-            >
-              <div className="p-2">
-                <AccountItems />
-              </div>
-            </NavMenu>
+            <div className="hidden md:contents">
+              <NavMenu
+                align="right"
+                triggerAriaLabel="Account menu"
+                triggerClassName="inline-flex min-h-12 items-center gap-2 border border-[var(--color-dark-blue)] px-3 md:min-h-11 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] aria-expanded:bg-[var(--color-surface-base)]"
+                trigger={({ open }) => (
+                  <>
+                    <Avatar name={user?.name ?? "Account"} size={22} className="ring-0" />
+                    <IconChevronDown
+                      aria-hidden
+                      className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+                    />
+                  </>
+                )}
+                panelClassName="w-[18rem]"
+                header={<AccountHeader />}
+              >
+                <div className="p-2">
+                  <AccountItems />
+                </div>
+              </NavMenu>
+            </div>
           )}
 
           {/* Phones: the menu button is the last thing on the bar, top-right. */}
@@ -439,6 +441,7 @@ export function Header() {
           <MobileSheetContent
             pathname={pathname}
             isAuthenticated={isAuthenticated}
+            canListProperty={canListProperty}
             loggedOutActions={
               <div className="flex flex-col gap-2 px-0 pb-2">
                 <Link
@@ -447,16 +450,12 @@ export function Header() {
                 >
                   Log in
                 </Link>
-                {/* Register stays on the bar next to the menu button, except on
-                    the property page, where the bar hides it (authInMenuOnly). */}
-                {authInMenuOnly && (
-                  <Link
-                    href="/register"
-                    className={`flex min-h-12 items-center justify-center rounded-xl! border border-[var(--color-dark-blue)] text-[15px] font-bold text-[var(--color-dark-blue)] hover:bg-[var(--color-dark-blue)] hover:text-white ${FOCUS_RING}`}
-                  >
-                    Register
-                  </Link>
-                )}
+                <Link
+                  href="/register"
+                  className={`flex min-h-12 items-center justify-center rounded-xl! border border-[var(--color-dark-blue)] text-[15px] font-bold text-[var(--color-dark-blue)] hover:bg-[var(--color-dark-blue)] hover:text-white ${FOCUS_RING}`}
+                >
+                  Register
+                </Link>
               </div>
             }
           />
