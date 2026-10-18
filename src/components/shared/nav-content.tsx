@@ -205,16 +205,26 @@ function SheetSection({ label, children }: { label: string; children: ReactNode 
 export function MobileSheetContent({
   pathname,
   isAuthenticated,
+  canListProperty = false,
   loggedOutActions,
 }: {
   pathname: string;
   isAuthenticated: boolean;
-  /** Omit (or pass null) when the header bar already shows Log in / Register,
-      so the two never appear on screen together. */
+  /** An acting Landlord: shows "List Your Property", which sits in the bar on
+      wider screens and has no room there on a phone. */
+  canListProperty?: boolean;
+  /** Shown to a signed-out visitor at the TOP of the sheet. On phones the bar
+      carries no Log in or Register (they live here), so callers always pass this. */
   loggedOutActions?: ReactNode;
 }) {
   return (
     <div className="pb-2">
+      {/* Signed out: Log in / Register come FIRST, so they are on screen the
+          moment the menu opens instead of below a long list on a short phone. */}
+      {!isAuthenticated && loggedOutActions && (
+        <div className="border-b border-[var(--color-border-hairline)] px-3 pb-3 pt-3">{loggedOutActions}</div>
+      )}
+
       <SheetSection label="Listings">
         <MenuLink inMenu={false} href="/listings?mode=rent" label="Rent" />
         <MenuLink inMenu={false} href="/listings?mode=sale" label="Buy" />
@@ -246,9 +256,14 @@ export function MobileSheetContent({
         ))}
       </SheetSection>
 
-      {(isAuthenticated || loggedOutActions) && (
+      {isAuthenticated && (
         <div className="mx-3 border-t border-[var(--color-border-hairline)] pt-3">
-          {isAuthenticated ? <AccountItems inMenu={false} /> : loggedOutActions}
+          {/* Phones: the bar carries only the logo and this menu's button, so
+              who is signed in, their role, Notifications and the role
+              switcher ("Switch role") are all here. */}
+          <AccountHeader />
+          {canListProperty && <MenuLink inMenu={false} href="/dashboard/listings/new" label="List Your Property" />}
+          <AccountItems inMenu={false} />
         </div>
       )}
 
