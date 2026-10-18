@@ -209,8 +209,8 @@ export function MobileSheetContent({
 }: {
   pathname: string;
   isAuthenticated: boolean;
-  /** Omit (or pass null) when the header bar already shows Log in / Register,
-      so the two never appear on screen together. */
+  /** Shown to a signed-out visitor at the foot of the sheet. On phones the bar
+      carries no Log in (it lives here), so callers always pass this. */
   loggedOutActions?: ReactNode;
 }) {
   return (

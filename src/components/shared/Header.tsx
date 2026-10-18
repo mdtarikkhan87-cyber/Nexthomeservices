@@ -223,27 +223,17 @@ export function Header() {
         }`}
       >
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            className={`-ml-2 flex min-h-12 min-w-12 items-center justify-center rounded-xl! text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] md:hidden ${FOCUS_RING}`}
-            onClick={() => (sheet.open ? sheet.hide() : sheet.show())}
-            aria-expanded={sheet.open}
-            aria-controls="mobile-nav"
-            aria-label={sheet.open ? "Close menu" : "Open menu"}
-          >
-            {sheet.open ? <IconClose className="h-6 w-6" /> : <IconMenu className="h-6 w-6" />}
-          </button>
-
           {!isHome && (
             <Link
               href={BACK_FALLBACK}
               onClick={onBackClick}
               aria-label="Back to previous page"
               title="Back"
-              // Bordered rather than bare: it sits directly beside the logo,
+              // Hidden on phones (the logo sits alone, top-left; the browser has its own
+              // back control). Bordered rather than bare: it sits directly beside the logo,
               // which is also a link to "/", so it has to read as a control in
               // its own right instead of as part of the mark.
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-default)] text-[var(--color-text-secondary)] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-brand-primary)] hover:bg-[var(--color-surface-dense)] hover:text-[var(--color-brand-primary)]"
+              className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-default)] md:flex text-[var(--color-text-secondary)] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-brand-primary)] hover:bg-[var(--color-surface-dense)] hover:text-[var(--color-brand-primary)]"
             >
               <IconArrowLeft className="h-[18px] w-[18px]" />
             </Link>
@@ -387,7 +377,7 @@ export function Header() {
                   tailwind-merge, so `flex` would win against it. */}
               <Link
                 href="/login"
-                className={`u-ui ${authInMenuOnly ? "hidden md:flex" : "flex"} min-h-11 items-center rounded-xl! px-3 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
+                className={`u-ui hidden min-h-11 items-center rounded-xl! px-3 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] md:flex ${FOCUS_RING}`}
               >
                 Log in
               </Link>
@@ -420,6 +410,18 @@ export function Header() {
               </div>
             </NavMenu>
           )}
+
+          {/* Phones: the menu button is the last thing on the bar, top-right. */}
+          <button
+            type="button"
+            className={`-mr-2 flex min-h-12 min-w-12 items-center justify-center rounded-xl! text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] md:hidden ${FOCUS_RING}`}
+            onClick={() => (sheet.open ? sheet.hide() : sheet.show())}
+            aria-expanded={sheet.open}
+            aria-controls="mobile-nav"
+            aria-label={sheet.open ? "Close menu" : "Open menu"}
+          >
+            {sheet.open ? <IconClose className="h-6 w-6" /> : <IconMenu className="h-6 w-6" />}
+          </button>
         </div>
       </div>
 
@@ -438,22 +440,24 @@ export function Header() {
             pathname={pathname}
             isAuthenticated={isAuthenticated}
             loggedOutActions={
-              authInMenuOnly ? (
-                <div className="flex flex-col gap-2 px-0 pb-2">
+              <div className="flex flex-col gap-2 px-0 pb-2">
+                <Link
+                  href="/login"
+                  className={`flex min-h-12 items-center justify-center rounded-xl! bg-[var(--color-brand-primary)] text-[15px] font-bold text-white hover:bg-[var(--color-brand-primary-hover)] ${FOCUS_RING}`}
+                >
+                  Log in
+                </Link>
+                {/* Register stays on the bar next to the menu button, except on
+                    the property page, where the bar hides it (authInMenuOnly). */}
+                {authInMenuOnly && (
                   <Link
                     href="/register"
                     className={`flex min-h-12 items-center justify-center rounded-xl! border border-[var(--color-dark-blue)] text-[15px] font-bold text-[var(--color-dark-blue)] hover:bg-[var(--color-dark-blue)] hover:text-white ${FOCUS_RING}`}
                   >
                     Register
                   </Link>
-                  <Link
-                    href="/login"
-                    className={`flex min-h-12 items-center justify-center rounded-xl! text-[15px] font-bold text-[var(--color-dark-blue)] hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
-                  >
-                    Log in
-                  </Link>
-                </div>
-              ) : null
+                )}
+              </div>
             }
           />
         </div>
