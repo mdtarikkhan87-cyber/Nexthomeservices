@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { IconCheck, IconChevronDown } from "@/components/ui/icons";
 import { useAuth } from "@/lib/auth-context";
-import { ROLE_LABELS_SHORT, roleDisplay, roleLandingHref } from "@/lib/roles";
+import { ROLE_LABELS_HEADER, ROLE_LABELS_SHORT, roleDisplay, roleLandingHref } from "@/lib/roles";
 import { RoleName } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -131,9 +131,9 @@ export function RoleSwitcher({ variant = "header" }: { variant?: "header" | "dra
       >
         <span className="flex h-9 items-center gap-2 rounded-full border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] pl-2.5 pr-2 text-[13px] transition-colors duration-[var(--motion-duration-short)] group-hover:border-[var(--color-deep-blue)] sm:pl-3">
         {/* A live dot, not a decorative one: it says this control reflects
-            current state, which is the whole job of "Viewing as". */}
+            current state. The button shows just the role name; the "Viewing as"
+            wording remains for screen readers (the sr-only text below). */}
         <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-brand-primary)]" />
-        <span className="u-ui hidden text-[var(--color-text-secondary)] lg:inline">Viewing as</span>
         {/* The role name is animated on change so a switch made from the
             dashboard, or from the drawer, is visibly acknowledged up here too
             — otherwise the only feedback for switching role is that a page
@@ -154,7 +154,8 @@ export function RoleSwitcher({ variant = "header" }: { variant?: "header" | "dra
           transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
           className="font-bold text-[var(--color-text-primary)]"
         >
-          {ROLE_LABELS_SHORT[activeRole]}
+          <span className="sm:hidden">{ROLE_LABELS_SHORT[activeRole]}</span>
+          <span className="hidden sm:inline">{ROLE_LABELS_HEADER[activeRole]}</span>
         </motion.span>
         <IconChevronDown
           aria-hidden
