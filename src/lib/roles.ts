@@ -54,6 +54,15 @@ export const ROLE_LABELS_SHORT: Record<RoleName, string> = {
   advertiser: "Advertiser",
 };
 
+/** What the header switcher shows once there is room for it (from `sm`): the
+    short forms, except that the Service Provider role is spelled out. Below
+    `sm` it falls back to ROLE_LABELS_SHORT, where "Service Provider" would not
+    fit between the logo and the account controls. */
+export const ROLE_LABELS_HEADER: Record<RoleName, string> = {
+  ...ROLE_LABELS_SHORT,
+  "service-provider": "Service Provider",
+};
+
 export const ROLE_BLURBS: Record<RoleName, string> = {
   landlord: "List a property for rent or sale, and manage enquiries.",
   "tenant-buyer": "Search listings, save homes, and message landlords — free.",

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { IconCheck, IconChevronDown } from "@/components/ui/icons";
 import { useAuth } from "@/lib/auth-context";
-import { ROLE_LABELS_SHORT, roleDisplay, roleLandingHref } from "@/lib/roles";
+import { ROLE_LABELS_HEADER, ROLE_LABELS_SHORT, roleDisplay, roleLandingHref } from "@/lib/roles";
 import { RoleName } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -153,7 +153,8 @@ export function RoleSwitcher({ variant = "header" }: { variant?: "header" | "dra
           transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
           className="font-bold text-[var(--color-text-primary)]"
         >
-          {ROLE_LABELS_SHORT[activeRole]}
+          <span className="sm:hidden">{ROLE_LABELS_SHORT[activeRole]}</span>
+          <span className="hidden sm:inline">{ROLE_LABELS_HEADER[activeRole]}</span>
         </motion.span>
         <IconChevronDown
           aria-hidden
