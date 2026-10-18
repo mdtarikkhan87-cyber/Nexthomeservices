@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 // need client state.
 export default function ServiceDirectoryPage() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <div className="mx-auto w-full max-w-[var(--width-page)] px-4 py-10 sm:px-6 sm:py-14">
       <div className="border-b border-[var(--color-border-hairline)] pb-8">
         <p className="u-label text-[var(--color-brand-primary-text)]">Services</p>
         <h1 className="u-display mt-3 max-w-xl text-[2.25rem] text-[var(--color-text-primary)] sm:text-5xl">

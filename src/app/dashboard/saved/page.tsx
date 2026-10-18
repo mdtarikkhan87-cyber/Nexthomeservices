@@ -59,7 +59,7 @@ export default function SavedHomesPage() {
           description="Browse listings to save your favorites and compare them later."
         />
       ) : (
-        <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 min-[1440px]:grid-cols-[repeat(auto-fill,minmax(20rem,1fr))]!">
           {saved.map((l) => (
             <PropertyCard key={l.id} listing={l} />
           ))}

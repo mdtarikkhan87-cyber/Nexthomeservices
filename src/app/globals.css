@@ -129,6 +129,36 @@
   --motion-easing-warm: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* ---------------------------------------------------------------------
+   FLUID PAGE WIDTHS — one place that decides how wide content may grow.
+
+   Below ~1440px every width here equals what the site had before (1152px for
+   inner pages, 1280px for the landing page), so phones, tablets and laptops
+   look exactly as they did. Above that the content grows with the screen
+   (80vw, i.e. a constant ~10% of air each side) up to a readable cap, instead
+   of staying laptop-width in the middle of a large monitor.
+
+   Used as `max-w-[var(--width-…)]`, so each is the element's total width
+   including its own padding — the same meaning max-w-6xl had.
+   Note 100vw includes a classic scrollbar, so the result can be ~15px wider
+   than the visible area; harmless, since the element is also `w-full`.
+   --------------------------------------------------------------------- */
+:root {
+  /* Inner pages: was max-w-6xl (1152px). 80vw is exactly 1152px at 1440px. */
+  --width-page: clamp(1152px, 80vw, 2000px);
+  /* Landing page: was 1280px. Stays 1280px until --width-page passes it
+     (~1600px viewport), then the two merge so the header logo no longer
+     shifts between the home page and the others on a big screen. */
+  --width-home: max(1280px, var(--width-page));
+  /* Admin and dashboard shells: mostly single-column feeds and forms, so a
+     lower cap than public pages — a much wider shell would leave narrow
+     content stranded on the left. */
+  --width-app: clamp(1152px, 80vw, 1600px);
+  /* The outer column (providers.tsx): the 1600px it always was, growing only
+     when the content would otherwise not fit inside it. */
+  --width-wrapper: max(1600px, calc(var(--width-page) + 160px));
+}
+
 @theme inline {
   --color-surface-base: var(--color-surface-base);
   --color-surface-raised: var(--color-surface-raised);

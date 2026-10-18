@@ -239,7 +239,7 @@ function RegisterFlow() {
   const currentStepIndex = visibleSteps.findIndex((s) => s.key === step);
 
   return (
-    <div className="grid grid-cols-1 lg:min-h-[640px] lg:grid-cols-[380px_1fr]">
+    <div className="grid grid-cols-1 lg:min-h-[640px] min-[1600px]:min-h-[max(640px,calc(100dvh-5rem))]! lg:grid-cols-[380px_1fr]">
       <div className="hidden bg-[var(--color-surface-inverted)] px-10 py-14 lg:block">
         <p className="u-label text-[var(--color-light-blue)]">Create your account</p>
         <h2 className="u-heading mt-3 text-2xl text-white">

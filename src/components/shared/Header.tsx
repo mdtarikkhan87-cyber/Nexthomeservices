@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
-import { CONTAINER_CLASS } from "@/components/ui/Container";
+import { CONTAINER_CLASS, PAGE_CONTAINER_CLASS } from "@/components/ui/Container";
 import { IconArrowLeft, IconBell, IconChevronDown, IconClose, IconMenu } from "@/components/ui/icons";
 import { FOCUS_RING } from "@/components/ui/SelectField";
 import { NavMenu, useMenuState } from "@/components/shared/NavMenu";
@@ -211,11 +211,11 @@ export function Header() {
       }`}
     >
       {/* Home uses the shared 1280px landing container, so the logo lines up
-          with the hero text; other routes keep their own 6xl until they are
-          migrated, so the logo stays aligned with each page's content. */}
+          with the hero text; other routes use the fluid page container (1152px
+          on laptops), so the logo stays aligned with each page's content. */}
       <div
         className={`flex h-16 items-center justify-between gap-3 sm:gap-6 md:h-20 ${
-          isHome ? CONTAINER_CLASS : "mx-auto max-w-6xl px-4 sm:px-6"
+          isHome ? CONTAINER_CLASS : PAGE_CONTAINER_CLASS
         }`}
       >
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">

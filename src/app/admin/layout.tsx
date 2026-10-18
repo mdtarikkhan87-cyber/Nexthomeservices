@@ -21,7 +21,7 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <AdminGate>
       <AdminComplaintsProvider>
-        <div className="mx-auto flex max-w-6xl flex-col lg:flex-row">
+        <div className="mx-auto flex w-full max-w-[var(--width-app)] flex-col lg:flex-row">
           <AdminNav />
           <div className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:py-10">{children}</div>
         </div>

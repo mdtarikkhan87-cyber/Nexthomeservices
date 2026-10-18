@@ -187,7 +187,7 @@ export function ServiceDirectory() {
         </p>
       )}
 
-      <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 min-[1440px]:grid-cols-[repeat(auto-fill,minmax(24rem,1fr))]!">
         {results.map((s) => (
           <Link
             key={s.id}

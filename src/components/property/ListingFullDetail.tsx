@@ -56,7 +56,7 @@ export function ListingFullDetail({ id }: { id: string }) {
   const rooms = roomsOf(listing);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+    <div className="mx-auto w-full max-w-[var(--width-page)] px-4 py-8 sm:px-6 sm:py-10">
       {/* /rent and /buy are gone — one Listings route now, with the mode
           carried as a param so "back to listings" returns to the same side of
           the toggle the reader came from. */}
@@ -71,7 +71,7 @@ export function ListingFullDetail({ id }: { id: string }) {
         <span>{listing.title}</span>
       </nav>
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px]">
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_clamp(380px,26vw,520px)]">
         <div>
           {/* `??` alone isn't enough here: the backend defaults galleryUrls
               to [] (not null) for a listing with no extra gallery photos —
@@ -127,7 +127,7 @@ export function ListingFullDetail({ id }: { id: string }) {
 
           <div className="mt-8 border-t border-[var(--color-border-hairline)] pt-8">
             <h2 className="text-lg font-bold text-[var(--color-text-primary)]">About this property</h2>
-            <p className="mt-3 leading-relaxed text-[var(--color-text-secondary)]">{listing.description}</p>
+            <p className="mt-3 max-w-[72ch] leading-relaxed text-[var(--color-text-secondary)]">{listing.description}</p>
           </div>
 
           {/* ROOMS AND FACILITIES — gated content: this whole block lives
