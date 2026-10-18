@@ -9,7 +9,7 @@ import { ROLE_LABELS_HEADER, ROLE_LABELS_SHORT, roleDisplay, roleLandingHref } f
 import { RoleName } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
-// The persistent role switcher — "Viewing as: {role}".
+// The persistent role switcher — a pill showing the current role.
 //
 // ⚠️ THIS AMENDS AN APPROVED RULE, deliberately and in the open.
 // INFORMATION_ARCHITECTURE.md's "Role Switching Access" says role switching is
@@ -131,8 +131,7 @@ export function RoleSwitcher({ variant = "header" }: { variant?: "header" | "dra
       >
         <span className="flex h-9 items-center gap-2 rounded-full border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] pl-2.5 pr-2 text-[13px] transition-colors duration-[var(--motion-duration-short)] group-hover:border-[var(--color-deep-blue)] sm:pl-3">
         {/* A live dot, not a decorative one: it says this control reflects
-            current state. The button shows just the role name; the "Viewing as"
-            wording remains for screen readers (the sr-only text below). */}
+            current state, which is the whole job of this control. */}
         <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-brand-primary)]" />
         {/* The role name is animated on change so a switch made from the
             dashboard, or from the drawer, is visibly acknowledged up here too
@@ -164,7 +163,7 @@ export function RoleSwitcher({ variant = "header" }: { variant?: "header" | "dra
           }`}
         />
         <span className="sr-only">
-          Currently viewing as {activeHeld ? roleDisplay(activeHeld.role, activeHeld.context) : ""}. Change role.
+          Current role: {activeHeld ? roleDisplay(activeHeld.role, activeHeld.context) : ""}, switch role
         </span>
         </span>
       </button>
@@ -182,7 +181,7 @@ export function RoleSwitcher({ variant = "header" }: { variant?: "header" | "dra
             transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
             className="absolute right-0 top-full z-50 mt-2 w-60 max-w-[calc(100vw-2rem)] origin-top-right rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-2 shadow-[var(--elevation-lg)]"
           >
-            <p className="u-label px-2 pb-1.5 pt-1 text-[var(--color-text-secondary)]">Act as</p>
+            <p className="u-label px-2 pb-1.5 pt-1 text-[var(--color-text-secondary)]">Switch role</p>
             {roles.map((r) => {
               const selected = r.role === activeRole;
               return (
