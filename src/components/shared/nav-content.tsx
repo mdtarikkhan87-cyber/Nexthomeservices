@@ -6,7 +6,7 @@ import { IconCheck, IconShield } from "@/components/ui/icons";
 import { MenuButton, MenuDivider, MenuLabel, MenuLink } from "@/components/shared/NavMenu";
 import { useAuth } from "@/lib/auth-context";
 import { useNotifications } from "@/lib/notification-context";
-import { roleDisplay, roleLandingHref } from "@/lib/roles";
+import { ROLE_LABELS, roleDisplay, roleLandingHref } from "@/lib/roles";
 import type { RoleName } from "@/lib/types";
 
 // What goes inside the header's menus, in one place, so the desktop dropdowns
@@ -58,9 +58,9 @@ export function ListingsMenuContent() {
     <div className="grid max-h-[calc(100dvh-8rem)] gap-x-4 gap-y-5 overflow-y-auto p-4 md:grid-cols-2 md:p-5 lg:grid-cols-3">
       <div role="group" aria-label="Browse">
         <MenuLabel>Browse</MenuLabel>
-        <MenuLink href="/listings?mode=rent" label="Rent" description="Homes to rent" />
-        <MenuLink href="/listings?mode=sale" label="Buy" description="Homes for sale" />
-        <MenuLink href="/listings" label="All listings" description="Everything, newest first" />
+        <MenuLink href="/listings?mode=rent" label="Rent" />
+        <MenuLink href="/listings?mode=sale" label="Buy" />
+        <MenuLink href="/listings" label="All listings" />
       </div>
 
       <div role="group" aria-label="Browse by location">
@@ -170,20 +170,39 @@ export function AccountItems({ inMenu = true }: { inMenu?: boolean }) {
   );
 }
 
-/** "Signed in as" name and email (as in the existing account menu), then the current role. */
+/**
+ * Who is signed in: the name, the email under it, and a small badge for the
+ * account type — but only where the badge says something the rest of the menu
+ * doesn't. That is an admin ("Administrator": an admin holds no roles, so
+ * nothing else would say so) and a user with exactly one role. A user with
+ * several roles gets no badge: the "Switch role" list below already marks the
+ * active role with a check, and stating it twice is how the two drift apart.
+ *
+ * "Signed in as" is kept for screen readers (visually hidden), so what is
+ * announced is unchanged.
+ */
 export function AccountHeader() {
-  const { user, roles, activeRole } = useAuth();
+  const { user } = useAuth();
   if (!user?.name) return null;
-  const held = roles.find((r) => r.role === activeRole);
-  const line = user.isAdmin ? "Admin" : held ? `Viewing as ${roleDisplay(held.role, held.context)}` : "";
+  const badge = user.isAdmin ? "Administrator" : user.roles.length === 1 ? ROLE_LABELS[user.roles[0]] : null;
   return (
     <div className="border-b border-[var(--color-border-hairline)] px-5 py-3">
-      <p className="text-xs font-medium text-[var(--color-text-body)]">Signed in as</p>
-      <p className="truncate text-[15px] font-bold text-[var(--color-dark-blue)]">{user.name}</p>
-      <p className="truncate text-[13px] font-medium text-[var(--color-text-body)]" title={user.email}>
-        {user.email}
+      <p className="truncate text-[15px] font-bold text-[var(--color-dark-blue)]">
+        <span className="sr-only">Signed in as </span>
+        {user.name}
       </p>
-      {line && <p className="mt-1 text-[13px] font-medium text-[var(--color-text-body)]">{line}</p>}
+      {user.email && (
+        <p className="truncate text-[13px] font-medium text-[var(--color-text-body)]" title={user.email}>
+          {user.email}
+        </p>
+      )}
+      {badge && (
+        <p className="mt-2">
+          <span className="inline-block max-w-full truncate rounded-full bg-[var(--color-surface-dense)] px-2.5 py-0.5 align-top text-xs font-bold text-[var(--color-text-secondary)]">
+            {badge}
+          </span>
+        </p>
+      )}
     </div>
   );
 }
@@ -205,20 +224,30 @@ function SheetSection({ label, children }: { label: string; children: ReactNode 
 export function MobileSheetContent({
   pathname,
   isAuthenticated,
+  canListProperty = false,
   loggedOutActions,
 }: {
   pathname: string;
   isAuthenticated: boolean;
-  /** Omit (or pass null) when the header bar already shows Log in / Register,
-      so the two never appear on screen together. */
+  /** An acting Landlord: shows "List Your Property", which sits in the bar on
+      wider screens and has no room there on a phone. */
+  canListProperty?: boolean;
+  /** Shown to a signed-out visitor at the TOP of the sheet. On phones the bar
+      carries no Log in or Register (they live here), so callers always pass this. */
   loggedOutActions?: ReactNode;
 }) {
   return (
     <div className="pb-2">
+      {/* Signed out: Log in / Register come FIRST, so they are on screen the
+          moment the menu opens instead of below a long list on a short phone. */}
+      {!isAuthenticated && loggedOutActions && (
+        <div className="border-b border-[var(--color-border-hairline)] px-3 pb-3 pt-3">{loggedOutActions}</div>
+      )}
+
       <SheetSection label="Listings">
-        <MenuLink inMenu={false} href="/listings?mode=rent" label="Rent" description="Homes to rent" />
-        <MenuLink inMenu={false} href="/listings?mode=sale" label="Buy" description="Homes for sale" />
-        <MenuLink inMenu={false} href="/listings" label="All listings" description="Everything, newest first" />
+        <MenuLink inMenu={false} href="/listings?mode=rent" label="Rent" />
+        <MenuLink inMenu={false} href="/listings?mode=sale" label="Buy" />
+        <MenuLink inMenu={false} href="/listings" label="All listings" />
       </SheetSection>
 
       <SheetSection label="Browse by location">
@@ -246,9 +275,14 @@ export function MobileSheetContent({
         ))}
       </SheetSection>
 
-      {(isAuthenticated || loggedOutActions) && (
+      {isAuthenticated && (
         <div className="mx-3 border-t border-[var(--color-border-hairline)] pt-3">
-          {isAuthenticated ? <AccountItems inMenu={false} /> : loggedOutActions}
+          {/* Phones: the bar carries only the logo and this menu's button, so
+              who is signed in, their role, Notifications and the role
+              switcher ("Switch role") are all here. */}
+          <AccountHeader />
+          {canListProperty && <MenuLink inMenu={false} href="/dashboard/listings/new" label="List Your Property" />}
+          <AccountItems inMenu={false} />
         </div>
       )}
 

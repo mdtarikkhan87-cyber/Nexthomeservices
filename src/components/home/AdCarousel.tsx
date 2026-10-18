@@ -157,8 +157,13 @@ function Carousel({ ads }: { ads: Advertisement[] }) {
   const items = [...ads, ...ads, ...ads];
 
   return (
+    // `isolate` gives the carousel its own stacking context. Its progress bar,
+    // pause button and arrows carry z-10/z-20 so they sit above the cards, and
+    // without this those values competed with the page's other layers — the
+    // search dropdown above (z-10) opens over this section, and the bar and an
+    // arrow painted straight through it.
     <section
-      className={CONTAINER_CLASS}
+      className={`${CONTAINER_CLASS} isolate`}
       aria-roledescription="carousel"
       aria-label="Sponsored"
       onMouseEnter={() => setHovered(true)}
