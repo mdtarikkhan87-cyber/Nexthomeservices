@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useState, ReactNode } from "rea
 import { AnimatePresence } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Input, PasswordInput } from "@/components/ui/Input";
 import { Overlay } from "@/components/ui/Overlay";
 import { useAuth } from "@/lib/auth-context";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
@@ -156,8 +156,7 @@ function AuthPrompt({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <Input
-            type="password"
+          <PasswordInput
             required
             placeholder="Password"
             aria-label="Password"

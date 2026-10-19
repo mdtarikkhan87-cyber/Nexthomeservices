@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Input, Label } from "@/components/ui/Input";
+import { Input, Label, PasswordInput } from "@/components/ui/Input";
 import { IconCheck } from "@/components/ui/icons";
 import { useAuth } from "@/lib/auth-context";
 import { roleLandingHref } from "@/lib/roles";
@@ -120,9 +120,8 @@ function LoginForm() {
                   Forgot password?
                 </Link>
               </div>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 required
                 placeholder="••••••••"
                 value={password}

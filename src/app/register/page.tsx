@@ -6,7 +6,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { isValidPhoneNumber } from "react-phone-number-input";
 import { Button } from "@/components/ui/Button";
-import { Input, Label } from "@/components/ui/Input";
+import { Input, Label, PasswordInput } from "@/components/ui/Input";
 import { PhoneNumberField } from "@/components/ui/PhoneNumberField";
 import { PasswordRequirements } from "@/components/ui/PasswordRequirements";
 import { StatusBanner } from "@/components/ui/StatusBanner";
@@ -407,9 +407,8 @@ function RegisterFlow() {
               </div>
               <div>
                 <Label htmlFor="reg-password">Password</Label>
-                <Input
+                <PasswordInput
                   id="reg-password"
-                  type="password"
                   autoComplete="new-password"
                   aria-describedby="reg-password-rules"
                   placeholder="Choose a password"

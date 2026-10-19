@@ -1,4 +1,7 @@
-import { InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes, forwardRef, LabelHTMLAttributes } from "react";
+"use client";
+
+import { InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes, forwardRef, LabelHTMLAttributes, ReactNode, useState } from "react";
+import { IconEye, IconEyeOff } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
 // DESIGN_SYSTEM.md §9: one consistent visual treatment across every form
@@ -24,21 +27,59 @@ export const FieldError = ({ error }: { error?: string }) =>
     </p>
   ) : null;
 
-export interface InputProps extends InputHTMLAttributes<HTMLInputElement>, FieldWrapperProps {}
+export interface InputProps extends InputHTMLAttributes<HTMLInputElement>, FieldWrapperProps {
+  /** Something that sits inside the field at its right-hand end (a button, an icon). */
+  trailing?: ReactNode;
+}
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(({ className, error, hint, ...props }, ref) => (
+export const Input = forwardRef<HTMLInputElement, InputProps>(({ className, error, hint, trailing, ...props }, ref) => (
   <div>
-    <input
-      ref={ref}
-      className={cn(fieldBase, error ? "border-[var(--color-status-rejected)]" : "border-[var(--color-border-default)]", className)}
-      aria-invalid={!!error}
-      {...props}
-    />
+    <div className="relative">
+      <input
+        ref={ref}
+        className={cn(fieldBase, error ? "border-[var(--color-status-rejected)]" : "border-[var(--color-border-default)]", trailing ? "pr-12" : undefined, className)}
+        aria-invalid={!!error}
+        {...props}
+      />
+      {trailing}
+    </div>
     {hint && !error && <p className="mt-1.5 text-sm text-[var(--color-text-secondary)]">{hint}</p>}
     <FieldError error={error} />
   </div>
 ));
 Input.displayName = "Input";
+
+/**
+ * A password field with a show/hide button at its end. Use it for EVERY password
+ * input, so the behaviour is the same everywhere: hidden by default, the eye
+ * toggles the input between type="password" and type="text" (the value, the
+ * autofill attributes and form submission are untouched — only `type` changes),
+ * and the button is a real <button>, so it is reachable by Tab and works with
+ * Enter and Space. Its label says what pressing it will do.
+ */
+export const PasswordInput = forwardRef<HTMLInputElement, Omit<InputProps, "type" | "trailing">>((props, ref) => {
+  const [visible, setVisible] = useState(false);
+  return (
+    <Input
+      ref={ref}
+      {...props}
+      type={visible ? "text" : "password"}
+      trailing={
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? "Hide password" : "Show password"}
+          // A tap on the eye shouldn't blur the field (and close a phone keyboard).
+          onMouseDown={(e) => e.preventDefault()}
+          className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] text-[var(--color-text-secondary)] transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-surface-dense)] hover:text-[var(--color-deep-blue)]"
+        >
+          {visible ? <IconEyeOff className="h-5 w-5" /> : <IconEye className="h-5 w-5" />}
+        </button>
+      }
+    />
+  );
+});
+PasswordInput.displayName = "PasswordInput";
 
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement>, FieldWrapperProps {}
 

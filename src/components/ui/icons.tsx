@@ -289,3 +289,11 @@ export function IconReply(props: IconProps) {
     </svg>
   );
 }
+
+export function IconEyeOff(props: IconProps) {
+  return (
+    <svg {...strokeProps} aria-hidden="true" {...props}>
+      <path d="M17.94 17.94A10.1 10.1 0 0 1 12 19c-6.5 0-10-7-10-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.1 9.1 0 0 1 12 5c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24M1 1l22 22" />
+    </svg>
+  );
+}
