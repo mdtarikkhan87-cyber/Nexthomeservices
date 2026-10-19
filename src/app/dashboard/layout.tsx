@@ -49,10 +49,17 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
       description="Your dashboard shows your listings, messages, and account status. Log in or create an account to continue — you'll land right here."
     >
       {activeRole && (
-        <div className="mx-auto flex w-full max-w-[var(--width-app)] flex-col lg:flex-row">
+        // The dashboard shell: a 264px sidebar flush with the left edge, and the
+        // content beside it in a column capped at the app width (--width-app, which
+        // grows on large screens — the large-screen layout change on main). The row spans the full
+        // width and the content has `min-w-0`, so a wide child (a table, a long
+        // title) can never push the page sideways on a phone.
+        <div className="flex flex-col lg:min-h-[calc(100vh-5rem)] lg:flex-row lg:items-stretch">
           <DashboardNav role={activeRole} />
-          <div className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:py-10">
-            {requiredRole ? <RoleScoped requiredRole={requiredRole}>{children}</RoleScoped> : children}
+          <div className="min-w-0 flex-1 px-4 pb-14 pt-5 sm:px-6 lg:px-10 lg:pt-8">
+            <div className="mx-auto w-full max-w-[var(--width-app)]">
+              {requiredRole ? <RoleScoped requiredRole={requiredRole}>{children}</RoleScoped> : children}
+            </div>
           </div>
         </div>
       )}

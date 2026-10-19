@@ -16,6 +16,19 @@ export interface ConversationSummary {
   updatedAt: string;
 }
 
+/** A conversation is unread for `myUserId` when its latest message is from the
+    other person and hasn't been read yet. */
+export function isConversationUnread(conv: ConversationSummary, myUserId: string): boolean {
+  return Boolean(conv.lastMessageSenderId && conv.lastMessageSenderId !== myUserId && !conv.lastMessageReadAt);
+}
+
+/** The other person in a conversation, from `myUserId`'s side. */
+export function otherParticipant(conv: ConversationSummary, myUserId: string): { id: string; name: string } {
+  return conv.participantAId === myUserId
+    ? { id: conv.participantBId, name: conv.participantBName }
+    : { id: conv.participantAId, name: conv.participantAName };
+}
+
 export interface Message {
   id: string;
   conversationId: string;
