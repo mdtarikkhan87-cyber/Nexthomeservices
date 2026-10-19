@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Input, Label } from "@/components/ui/Input";
+import { Label, PasswordInput } from "@/components/ui/Input";
 import { apiResetPassword } from "@/lib/backend-client";
 
 function ResetPasswordForm() {
@@ -96,9 +96,8 @@ function ResetPasswordForm() {
               <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
                 <div>
                   <Label htmlFor="rp-password">New password</Label>
-                  <Input
+                  <PasswordInput
                     id="rp-password"
-                    type="password"
                     required
                     minLength={8}
                     placeholder="At least 8 characters"
@@ -108,9 +107,8 @@ function ResetPasswordForm() {
                 </div>
                 <div>
                   <Label htmlFor="rp-confirm">Confirm new password</Label>
-                  <Input
+                  <PasswordInput
                     id="rp-confirm"
-                    type="password"
                     required
                     minLength={8}
                     placeholder="Re-enter your new password"
