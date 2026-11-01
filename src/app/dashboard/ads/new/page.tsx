@@ -59,7 +59,7 @@ export default function SubmitAdvertisementPage() {
           setIsSubmitting(true);
           try {
             const presigned = await apiGetPresignedUpload({
-              purpose: "ad-image",
+              purpose: "ad-image-pending",
               fileName: selectedFile.name,
               fileType: selectedFile.type,
               fileSize: selectedFile.size,

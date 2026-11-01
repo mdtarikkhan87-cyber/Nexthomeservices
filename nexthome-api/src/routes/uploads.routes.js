@@ -16,13 +16,13 @@ function checkValidation(req, res) {
 }
 
 // POST /uploads/presign
-// Body: { purpose: "listing-photo" | "trust-document" | "ad-image", fileName, fileType }
+// Body: { purpose: "listing-photo" | "trust-document" | "ad-image" | "ad-image-pending", fileName, fileType, fileSize }
 // Returns a short-lived URL the frontend PUTs the raw file to directly.
 router.post(
   "/presign",
   authenticate,
   [
-    body("purpose").isIn(["listing-photo", "trust-document", "ad-image"]),
+    body("purpose").isIn(["listing-photo", "trust-document", "ad-image", "ad-image-pending"]),
     body("fileName").isString().notEmpty(),
     body("fileType").isString().notEmpty(),
     // Declared size in bytes — validated against the per-purpose limit below

@@ -5,6 +5,7 @@ const { body, query, param, validationResult } = require("express-validator");
 const prisma = require("../lib/prisma");
 const { ACTOR, EVENTS, emitToUser, publishAdChange, publishAdminQueueChange } = require("../lib/realtime");
 const { authenticate, requireRole } = require("../middleware/auth.middleware");
+const { PENDING_AD_PREFIX } = require("../lib/s3");
 
 const router = express.Router();
 
@@ -35,8 +36,24 @@ function optionalAuthenticate(req, res, next) {
   next();
 }
 
+// The creative's imageUrl is one of:
+//   - the S3 KEY of an image the advertiser just uploaded for review
+//     ("ads-pending/<their own user id>/...", from the "ad-image-pending"
+//     upload purpose - private until an admin approves the ad), or
+//   - a full http(s) URL (an already-public image, or local dev storage).
+// A key must live under the CALLER'S OWN pending prefix: approval later copies
+// that object to the public ads/ prefix, so accepting any key would let an
+// advertiser publish somebody else's private file (a verification document,
+// say) by naming it.
+const imageUrlRule = (chain) =>
+  chain.custom((value, { req }) => {
+    if (/^https?:\/\//i.test(value)) return true;
+    if (value.startsWith(`${PENDING_AD_PREFIX}${req.user.sub}/`) && !value.includes("..")) return true;
+    throw new Error("Upload the image through the app first.");
+  });
+
 // -----------------------------------------------------------------------
-// POST /ads — submit an ad for review. Advertiser only.
+// POST /ads - submit an ad for review. Advertiser only.
 // `placement`, `startsAt`, `endsAt` are deliberately NOT settable here —
 // PRD §9: "the admin decides where ads appear... how long they run, and
 // what they cost." Those get set later by an admin (Admin phase, not yet
@@ -47,7 +64,7 @@ router.post(
   authenticate,
   requireRole("advertiser"),
   [
-    body("imageUrl").isString().notEmpty(),
+    imageUrlRule(body("imageUrl").isString().notEmpty()),
     body("headline").isString().isLength({ min: 3 }),
     body("linkUrl").isURL(),
   ],
@@ -158,7 +175,7 @@ router.patch(
   requireRole("advertiser"),
   [
     param("id").isString(),
-    body("imageUrl").optional().isString().notEmpty(),
+    imageUrlRule(body("imageUrl").optional().isString().notEmpty()),
     body("headline").optional().isString().isLength({ min: 3 }),
     body("linkUrl").optional().isURL(),
   ],
@@ -174,12 +191,17 @@ router.patch(
     }
 
     const { imageUrl, headline, linkUrl } = req.body;
-    const updated = await prisma.advertisement.update({
-      where: { id: req.params.id },
-      data: { imageUrl, headline, linkUrl },
-    });
+    const data = { imageUrl, headline, linkUrl };
+    // A replaced creative is a newly uploaded, unreviewed image that is private
+    // until approved - so a LIVE ad that gets one goes back into review (it
+    // also couldn't be shown to the public with a private image).
+    const newCreativeNeedsReview = typeof imageUrl === "string" && imageUrl.startsWith(PENDING_AD_PREFIX);
+    if (newCreativeNeedsReview && existing.status === "live") data.status = "pending_review";
+
+    const updated = await prisma.advertisement.update({ where: { id: req.params.id }, data });
 
     publishAdChange(updated, ACTOR.SELF);
+    if (updated.status === "pending_review") publishAdminQueueChange("listing");
 
     res.json(updated);
   },

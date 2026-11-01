@@ -341,7 +341,7 @@ export interface PresignedUpload {
 }
 
 export async function apiGetPresignedUpload(input: {
-  purpose: "listing-photo" | "trust-document" | "ad-image";
+  purpose: "listing-photo" | "trust-document" | "ad-image" | "ad-image-pending";
   fileName: string;
   fileType: string;
   /** Bytes. Checked against the server-side limit and signed into the upload URL. */

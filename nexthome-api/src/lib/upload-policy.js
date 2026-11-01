@@ -23,6 +23,10 @@ const DOCUMENT_TYPES = { ...IMAGE_TYPES, "application/pdf": ["pdf"] };
 const POLICY = {
   "listing-photo": { types: IMAGE_TYPES, maxBytes: 5 * MB, label: "JPG, PNG, WebP or GIF images up to 5 MB" },
   "ad-image": { types: IMAGE_TYPES, maxBytes: 5 * MB, label: "JPG, PNG, WebP or GIF images up to 5 MB" },
+  // An advertiser's creative BEFORE an admin has approved it: same rules as
+  // "ad-image", but stored under a private prefix (see s3.js). The image only
+  // becomes public when the ad is approved.
+  "ad-image-pending": { types: IMAGE_TYPES, maxBytes: 5 * MB, label: "JPG, PNG, WebP or GIF images up to 5 MB" },
   "trust-document": { types: DOCUMENT_TYPES, maxBytes: 10 * MB, label: "an image (JPG, PNG, WebP, GIF) or a PDF, up to 10 MB" },
 };
 

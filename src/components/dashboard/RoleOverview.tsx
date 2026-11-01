@@ -156,9 +156,12 @@ function unreadItem(
 }
 
 function Thumb({ src, size }: { src?: string; size: 48 | 56 | 64 }) {
+  // An ad that is still awaiting review has a private image (its imageUrl is a
+  // storage key, not a URL a browser can load), so it shows the empty tile.
+  const loadable = !!src && /^https?:\/\//i.test(src);
   return (
     <span className="relative block shrink-0 overflow-hidden rounded-xl bg-[var(--color-surface-dense)]" style={{ width: size, height: size }}>
-      {src && <Image src={src} alt="" fill sizes={`${size}px`} className="object-cover" />}
+      {loadable && <Image src={src} alt="" fill sizes={`${size}px`} className="object-cover" />}
     </span>
   );
 }
