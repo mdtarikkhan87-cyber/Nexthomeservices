@@ -68,7 +68,7 @@ export function AdReviewDialog({
                 }
               />
             ) : (
-              // A public S3 URL, not a static asset next/image can optimize.
+              // A signed (pending ad) or public (live ad) S3 URL, not a static asset next/image can optimize.
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={data.imageUrl}

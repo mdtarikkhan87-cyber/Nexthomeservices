@@ -1,4 +1,11 @@
-const { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } = require("@aws-sdk/client-s3");
+const {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  CopyObjectCommand,
+  DeleteObjectCommand,
+} = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { v4: uuidv4 } = require("uuid");
 
@@ -37,6 +44,10 @@ function getClient() {
 // object should be publicly readable:
 //   "listing-photo"   -> public (anyone can view a live listing's photos)
 //   "ad-image"        -> public (anyone can view a live ad's creative)
+//   "ad-image-pending"-> private (an ad's creative until an admin approves it;
+//                         admins view it through a signed URL, and approval
+//                         moves it to the public ads/ prefix — see
+//                         copyObject/deleteObject below and admin.routes.js)
 //   "trust-document"  -> private (only admins should ever see these)
 //
 // DEV MODE (NODE_ENV !== "production" only): if AWS isn't configured, returns
@@ -53,7 +64,10 @@ function getClient() {
 // filesystem is ephemeral, so anything saved this way is gone on the next
 // deploy or restart. Set up real AWS S3 credentials to replace this.
 const PUBLIC_PURPOSES = ["listing-photo", "ad-image"];
-const FOLDER_BY_PURPOSE = { "trust-document": "documents", "ad-image": "ads" };
+// ads-pending/ is deliberately NOT under ads/: the bucket policy grants public
+// read on the prefix "ads/" (with the slash), which does not match
+// "ads-pending/…", so pending creatives stay private.
+const FOLDER_BY_PURPOSE = { "trust-document": "documents", "ad-image": "ads", "ad-image-pending": "ads-pending" };
 
 async function getPresignedUploadUrl({ purpose, fileName, fileType, fileSize, userId, baseUrl }) {
   const folder = FOLDER_BY_PURPOSE[purpose] || "listings";
@@ -77,10 +91,13 @@ async function getPresignedUploadUrl({ purpose, fileName, fileType, fileSize, us
       throw new Error("S3 is not configured (AWS_REGION/AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_S3_BUCKET) — refusing to use local-disk uploads in production.");
     }
     console.log(`[DEV S3 — AWS env vars not set] Would upload to key: ${key} (${fileType})`);
+    // Local dev only: a pending ad image also gets a (local) URL, so the whole
+    // ad flow still renders on a machine with no AWS account. There is nothing
+    // private about local-disk storage, and none of this runs in production.
     return {
       uploadUrl: `${baseUrl}/dev-fake-upload/${key}`,
       key,
-      publicUrl: isPublic ? `${baseUrl}/dev-fake-file/${key}` : null,
+      publicUrl: isPublic || purpose === "ad-image-pending" ? `${baseUrl}/dev-fake-file/${key}` : null,
       dev: true,
     };
   }
@@ -121,11 +138,11 @@ async function getPresignedUploadUrl({ purpose, fileName, fileType, fileSize, us
 // ---------------------------------------------------------------------------
 // Admin document/ad-image review (GET side) — see admin.routes.js.
 //
-// Trust documents are the one upload purpose that's actually private (no
-// publicUrl is ever generated for them — see PUBLIC_PURPOSES above), so an
-// admin needs a short-lived signed GET to view one at all. Ad images are
-// public by design and never go through this; admin.routes.js passes
-// Advertisement.imageUrl straight through unsigned.
+// Trust documents and not-yet-approved ad creatives are the private upload
+// purposes (no publicUrl is ever generated for them — see PUBLIC_PURPOSES
+// above), so an admin needs a short-lived signed GET to view one at all. A
+// LIVE ad's image is public by design and never goes through this;
+// admin.routes.js passes it through unsigned.
 // ---------------------------------------------------------------------------
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif"];
@@ -223,8 +240,42 @@ async function getSignedReadUrl({ key, expiresIn = 300, disposition = "inline", 
   return getSignedUrl(getClient(), command, { expiresIn });
 }
 
+// ---------------------------------------------------------------------------
+// Approving an ad: move its creative from the private ads-pending/ prefix to
+// the public ads/ prefix. Two separate steps (copy, then delete) so the caller
+// can save the new URL in the database BETWEEN them — deleting first would
+// lose the image if that save then failed.
+//
+// IAM: CopyObject needs s3:GetObject on the source and s3:PutObject on the
+// destination; DeleteObject needs s3:DeleteObject.
+// ---------------------------------------------------------------------------
+
+const PENDING_AD_PREFIX = "ads-pending/";
+const PUBLIC_AD_PREFIX = "ads/";
+
+function publicUrlForKey(key) {
+  return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+}
+
+// Copies an object to another key in the same bucket. Content type and
+// metadata are carried over (CopyObject's default).
+async function copyObject({ fromKey, toKey }) {
+  const bucket = process.env.AWS_S3_BUCKET;
+  const source = `${encodeURIComponent(bucket)}/${fromKey.split("/").map(encodeURIComponent).join("/")}`;
+  await getClient().send(new CopyObjectCommand({ Bucket: bucket, CopySource: source, Key: toKey }));
+}
+
+async function deleteObject(key) {
+  await getClient().send(new DeleteObjectCommand({ Bucket: process.env.AWS_S3_BUCKET, Key: key }));
+}
+
 module.exports = {
   getPresignedUploadUrl,
+  PENDING_AD_PREFIX,
+  PUBLIC_AD_PREFIX,
+  publicUrlForKey,
+  copyObject,
+  deleteObject,
   isConfigured,
   kindFromKey,
   fileNameFromKey,

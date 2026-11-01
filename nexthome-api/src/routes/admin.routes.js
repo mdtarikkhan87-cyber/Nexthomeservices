@@ -11,7 +11,18 @@ const {
   publishAdChange,
   publishAdminQueueChange,
 } = require("../lib/realtime");
-const { isConfigured, kindFromKey, fileNameFromKey, objectExists, getSignedReadUrl } = require("../lib/s3");
+const {
+  isConfigured,
+  kindFromKey,
+  fileNameFromKey,
+  objectExists,
+  getSignedReadUrl,
+  PENDING_AD_PREFIX,
+  PUBLIC_AD_PREFIX,
+  publicUrlForKey,
+  copyObject,
+  deleteObject,
+} = require("../lib/s3");
 
 const router = express.Router();
 
@@ -395,13 +406,21 @@ router.get(
         return res.status(404).json({ message: "Advertisement not found." });
       }
 
-      res.json({
-        headline: ad.headline,
-        linkUrl: ad.linkUrl,
-        imageUrl: ad.imageUrl,
-        status: ad.status,
-        isPlaceholder: ad.imageUrl.includes("/dev-fake-file/"),
-      });
+      let imageUrl = ad.imageUrl;
+      let isPlaceholder = imageUrl.includes("/dev-fake-file/");
+      // Before approval the creative is a PRIVATE object (ads-pending/...): the
+      // admin sees it through a short-lived signed URL, same as a trust
+      // document. Once the ad is live its image is public and passes through.
+      if (ad.status !== "live" && imageUrl.startsWith(PENDING_AD_PREFIX)) {
+        if (isConfigured() && (await objectExists(imageUrl))) {
+          imageUrl = await getSignedReadUrl({ key: imageUrl, fileName: fileNameFromKey(imageUrl) });
+        } else {
+          isPlaceholder = true; // never a raw key in the response
+          imageUrl = "";
+        }
+      }
+
+      res.json({ headline: ad.headline, linkUrl: ad.linkUrl, imageUrl, status: ad.status, isPlaceholder });
     } catch (err) {
       console.error(`[admin] Failed to load ad review for ${req.params.id}:`, err);
       res.status(500).json({ message: "Couldn't load that advertisement." });
@@ -547,8 +566,34 @@ router.patch(
     // site. "homepage-banner" is the only placement that exists today
     // (AdBanner on the homepage); this stops being a blanket assignment the
     // moment a second one is added and an admin needs to actually choose.
+    // Approving an ad also PUBLISHES its image: the creative sits in the
+    // private ads-pending/ prefix until now (see lib/s3.js), and is copied to
+    // the public ads/ prefix. Legacy ads (a full URL already) have nothing to move.
+    let pendingKeyToDelete = null;
     if (kind === "advertisement" && action === "approve") {
       data.placement = "homepage-banner";
+
+      const ad = await prisma.advertisement.findUnique({ where: { id }, select: { imageUrl: true, advertiserId: true } });
+      if (ad && ad.imageUrl.startsWith(PENDING_AD_PREFIX)) {
+        // Only ever copy from the advertiser's OWN pending folder - never an
+        // arbitrary key, which would publish someone else's private file.
+        if (!ad.imageUrl.startsWith(`${PENDING_AD_PREFIX}${ad.advertiserId}/`) || ad.imageUrl.includes("..")) {
+          return res.status(400).json({ message: "This ad's image isn't a valid pending upload, so it can't be approved." });
+        }
+        if (isConfigured()) {
+          const publicKey = PUBLIC_AD_PREFIX + ad.imageUrl.slice(PENDING_AD_PREFIX.length);
+          try {
+            await copyObject({ fromKey: ad.imageUrl, toKey: publicKey });
+          } catch (err) {
+            // Without the copy the ad would go live with an image nobody can
+            // see, so it is NOT approved.
+            console.error(`[admin] Couldn't publish the image for ad ${id}:`, err?.name || err);
+            return res.status(502).json({ message: "Couldn't publish the ad's image, so the ad was not approved. Try again." });
+          }
+          data.imageUrl = publicUrlForKey(publicKey);
+          pendingKeyToDelete = ad.imageUrl;
+        }
+      }
     }
     // The "Verified" badge on property and service listings means an admin
     // has reviewed and approved them (the homepage promises "every listing
@@ -561,6 +606,13 @@ router.patch(
 
     try {
       const updated = await model.update({ where: { id }, data });
+      // The new public URL is saved; only now remove the private copy. A failure
+      // here is logged, not fatal - the leftover object stays private.
+      if (pendingKeyToDelete) {
+        await deleteObject(pendingKeyToDelete).catch((err) =>
+          console.error(`[admin] Published ad ${id} but couldn't delete ${pendingKeyToDelete}:`, err?.name || err),
+        );
+      }
       // Committed — push the new status to the owner (and, for a property, to
       // anyone who saved it) so their dashboard updates without a refresh.
       if (kind === "property") await publishListingChange(updated, ACTOR.ADMIN);
