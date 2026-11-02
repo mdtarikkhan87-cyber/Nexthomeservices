@@ -46,8 +46,8 @@ export function ServicesBand() {
                     A home is more than the keys.
                   </h2>
                   <p className="mt-4 max-w-md text-[var(--color-off-white)]/85">
-                    Verified electricians, plumbers and other trades — the people you need once you&rsquo;ve
-                    moved in, checked the same way our landlords are.
+                    Find verified electricians, plumbers and other tradespeople for after you&apos;ve moved in. We
+                    check them the same way we check landlords.
                   </p>
 
                   <Link

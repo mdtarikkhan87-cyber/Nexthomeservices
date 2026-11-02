@@ -145,8 +145,8 @@ export function Footer() {
           <div className={compact ? "pb-5" : undefined}>
             <Image src="/brand/nexthome-logo-primary.png" alt="NextHome" width={2267} height={2958} className="h-10 w-auto" />
             <p className={`${compact ? "mt-3" : "mt-4"} max-w-xs text-sm text-[var(--color-text-secondary)]`}>
-              Verified listings, reviewed before they go live — replacing scattered groups and unreliable agents
-              with one trustworthy platform.
+              Every listing is reviewed before it goes live, so you&apos;re not stuck relying on random WhatsApp
+              groups or agents you can&apos;t verify.
             </p>
           </div>
           {LINK_GROUPS.map((group) => (

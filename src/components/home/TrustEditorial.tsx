@@ -17,15 +17,15 @@ import { Reveal } from "./Reveal";
 const STEPS = [
   {
     title: "Identity checked",
-    body: "Landlords and service providers confirm phone, email and a document before they can list — surfaced as a Verified badge on every listing.",
+    body: "Landlords and service providers verify their phone number, email and a government ID before they can list. Anything that passes shows a Verified badge.",
   },
   {
     title: "Admin reviewed",
-    body: "Every listing is checked by our team before it goes live. Nothing publishes automatically.",
+    body: "Our team checks every listing before it goes live. Nothing gets published automatically.",
   },
   {
     title: "On-platform record",
-    body: "Messages stay tied to the listing they're about, so there's a clear record if something needs resolving.",
+    body: "Messages stay attached to the listing they're about, so there's a clear record if something needs sorting out later.",
   },
 ];
 
@@ -52,7 +52,7 @@ export function TrustEditorial() {
             <div>
               <Eyebrow onDark>How NextHome earns trust</Eyebrow>
               <h2 className="u-heading mt-3 max-w-lg text-3xl text-white sm:text-[2.75rem]">
-                Not a promise — a process, on every listing.
+                How every listing gets verified
               </h2>
 
               <ol className="mt-10">
