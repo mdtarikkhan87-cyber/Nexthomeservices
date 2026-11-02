@@ -90,17 +90,19 @@ export default async function HomePage() {
             )}
           </Container>
         </div>
-
-        {/* The one ad slot on the site (every live ad for it, as a carousel) — renders nothing when there's no live
-            ad for this placement, so it costs nothing when empty. */}
-        {bannerAds.length > 0 && (
-          <div className="pb-8 lg:pb-10">
-            <AdCarousel ads={bannerAds} />
-          </div>
-        )}
       </div>
 
       <CuratedListings listings={allListings} />
+
+      {/* The one ad slot on the site (every live ad for it, as a carousel), directly
+          under the listings — renders nothing when there's no live ad for this
+          placement, so it costs nothing when empty. */}
+      {bannerAds.length > 0 && (
+        <div className="pb-12 md:pb-20">
+          <AdCarousel ads={bannerAds} />
+        </div>
+      )}
+
       <TrustEditorial />
       <ServicesBand />
     </div>
