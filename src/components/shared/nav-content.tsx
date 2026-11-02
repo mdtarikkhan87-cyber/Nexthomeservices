@@ -220,18 +220,10 @@ function SheetSection({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-/** Everything the desktop menus offer, as one scrolling sheet of 48px targets. */
-export function MobileSheetContent({
-  pathname,
-  isAuthenticated,
-  canListProperty = false,
-}: {
-  pathname: string;
-  isAuthenticated: boolean;
-  /** An acting Landlord: shows "List Your Property", which sits in the bar on
-      wider screens and has no room there on a phone. */
-  canListProperty?: boolean;
-}) {
+/** The site navigation, as one scrolling sheet of 48px targets (the hamburger
+    menu on phones and tablets). Account controls are NOT here — see
+    MobileAccountPanel. */
+export function MobileSheetContent({ pathname }: { pathname: string }) {
   return (
     <div className="pb-2">
       <SheetSection label="Listings">
@@ -253,18 +245,23 @@ export function MobileSheetContent({
         ))}
       </SheetSection>
 
-      {isAuthenticated && (
-        <div className="mx-3 border-t border-[var(--color-border-hairline)] pt-3">
-          {/* Phones: the bar carries only the logo and this menu's button, so
-              who is signed in, their role, Notifications and the role
-              switcher ("Switch role") are all here. */}
-          <AccountHeader />
-          {canListProperty && <MenuLink inMenu={false} href="/dashboard/listings/new" label="List Your Property" />}
-          <AccountItems inMenu={false} />
-        </div>
-      )}
-
       <ReviewNote className="px-6 pb-3 pt-4" />
+    </div>
+  );
+}
+
+/** The signed-in account panel on phones and tablets (opened by the profile
+    button next to the hamburger): who is signed in and as which role, List Your
+    Property for an acting Landlord, Dashboard, Switch role, Profile,
+    Notifications and Log out. Desktop has the same content in its avatar menu. */
+export function MobileAccountPanel({ canListProperty = false }: { canListProperty?: boolean }) {
+  return (
+    <div className="pb-2">
+      <AccountHeader />
+      <div className="px-3 pt-2">
+        {canListProperty && <MenuLink inMenu={false} href="/dashboard/listings/new" label="List Your Property" />}
+        <AccountItems inMenu={false} />
+      </div>
     </div>
   );
 }

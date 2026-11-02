@@ -13,6 +13,7 @@ import {
   AccountHeader,
   AccountItems,
   ListingsMenuContent,
+  MobileAccountPanel,
   MobileSheetContent,
   MoreMenuContent,
   ReviewNote,
@@ -121,6 +122,7 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const sheet = useMenuState();
+  const account = useMenuState();
   const headerRef = useRef<HTMLElement>(null);
   const [scrolled, setScrolled] = useState(false);
 
@@ -135,13 +137,20 @@ export function Header() {
     };
   }, []);
 
-  // The mobile sheet closes on Escape or a press outside the header.
+  // The two compact panels (site navigation, account) close on Escape or a
+  // press outside the header. Only one is open at a time (see the buttons).
   const sheetHide = sheet.hide;
+  const accountHide = account.hide;
+  const anyPanelOpen = sheet.open || account.open;
   useEffect(() => {
-    if (!sheet.open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && sheetHide();
+    if (!anyPanelOpen) return;
+    const closeAll = () => {
+      sheetHide();
+      accountHide();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeAll();
     const onPointer = (e: PointerEvent) => {
-      if (headerRef.current && !headerRef.current.contains(e.target as Node)) sheetHide();
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) closeAll();
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onPointer);
@@ -149,7 +158,7 @@ export function Header() {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onPointer);
     };
-  }, [sheet.open, sheetHide]);
+  }, [anyPanelOpen, sheetHide, accountHide]);
 
   // §3A: "List Your Property ... only appears once a user is registered with,
   // and currently acting as, the Landlord role — it is a role-gated nav item,
@@ -199,15 +208,10 @@ export function Header() {
 
   const listingsActive = isListingsSection(pathname);
 
-  // Signed out, the compact header (logo + "Login | menu" pill) now runs up to
-  // the desktop breakpoint (below 1024px: phones AND tablets); the full header
-  // starts at `lg`. Signed in, the compact header is still phones only (full
-  // header from `md`) — a signed-in tablet keeps its role switcher, bell and
-  // account menu in the bar. Tailwind needs every class spelled out, hence the
-  // two literal variants of each rather than a computed prefix.
-  const fullFlex = isAuthenticated ? "md:flex" : "lg:flex";
-  const fullBlock = isAuthenticated ? "md:block" : "lg:block";
-  const compactOnly = isAuthenticated ? "md:hidden" : "lg:hidden";
+  // Below 1024px (phones AND tablets) the header is compact: the logo and one
+  // pill on the right. Signed out the pill is "Login | menu"; signed in it is
+  // "profile | menu" — the profile button opens the account panel, the menu
+  // button opens site navigation. The full header starts at `lg`.
 
   return (
     <header
@@ -239,7 +243,7 @@ export function Header() {
               // back control). Bordered rather than bare: it sits directly beside the logo,
               // which is also a link to "/", so it has to read as a control in
               // its own right instead of as part of the mark.
-              className={`hidden h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-default)] ${fullFlex} text-[var(--color-text-secondary)] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-brand-primary)] hover:bg-[var(--color-surface-dense)] hover:text-[var(--color-brand-primary)]`}
+              className={`hidden h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-default)] lg:flex text-[var(--color-text-secondary)] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-brand-primary)] hover:bg-[var(--color-surface-dense)] hover:text-[var(--color-brand-primary)]`}
             >
               <IconArrowLeft className="h-[18px] w-[18px]" />
             </Link>
@@ -270,7 +274,7 @@ export function Header() {
             />
           </Link>
 
-          <nav aria-label="Primary" className={`hidden ${isAuthenticated ? "md:ml-4 md:flex" : "lg:flex"} lg:ml-6`}>
+          <nav aria-label="Primary" className="hidden lg:ml-6 lg:flex">
             <NavMenu
               openOnHover
               triggerClassName={`${navItem} rounded-xl`}
@@ -298,7 +302,7 @@ export function Header() {
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           {/* Secondary links. Icon only below `lg` — on a phone the same links
               live in the sheet behind the hamburger. */}
-          <div className={`hidden ${fullBlock}`}>
+          <div className="hidden lg:block">
             <NavMenu
               align="right"
               triggerAriaLabel="Menu"
@@ -322,7 +326,7 @@ export function Header() {
           {/* Persistent role switcher — spec §3B. Renders nothing unless the
               user actually holds more than one role. */}
           {isAuthenticated && (
-            <div className="hidden md:contents">
+            <div className="hidden lg:contents">
               <RoleSwitcher />
             </div>
           )}
@@ -330,7 +334,7 @@ export function Header() {
           {canListProperty && (
             <Link
               href="/dashboard/listings/new"
-              className="u-ui hidden min-h-11 items-center rounded-xl bg-[var(--color-dark-blue)] px-4 text-sm font-bold text-white transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-deep-blue)] md:inline-flex"
+              className="u-ui hidden min-h-11 items-center rounded-xl bg-[var(--color-dark-blue)] px-4 text-sm font-bold text-white transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-deep-blue)] lg:inline-flex"
             >
               List Your Property
             </Link>
@@ -340,10 +344,10 @@ export function Header() {
               without an activeRole, which admin never has. The account menu's
               "Admin overview" is its equivalent. */}
           {isAuthenticated && !user?.isAdmin && (
-            // Wrapped, not given `hidden md:inline-flex` directly: navItem carries its
+            // Wrapped, not given `hidden lg:inline-flex` directly: navItem carries its
             // own `inline-flex`, and with no tailwind-merge that beat `hidden` and
             // left this link on phones.
-            <span className="hidden md:inline-flex">
+            <span className="hidden lg:inline-flex">
               <Link
                 href="/dashboard"
                 aria-current={pathname === "/dashboard" ? "page" : undefined}
@@ -361,7 +365,7 @@ export function Header() {
             <Link
               href="/dashboard/notifications"
               aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-              className={`relative hidden h-12 w-12 items-center justify-center rounded-xl! md:flex md:h-11 md:w-11 text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
+              className={`relative hidden h-12 w-12 items-center justify-center rounded-xl! lg:flex lg:h-11 lg:w-11 text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
             >
               <IconBell className="h-[18px] w-[18px]" />
               {unreadCount > 0 && (
@@ -399,11 +403,11 @@ export function Header() {
               </Link>
             </>
           ) : (
-            <div className="hidden md:contents">
+            <div className="hidden lg:contents">
               <NavMenu
                 align="right"
                 triggerAriaLabel="Account menu"
-                triggerClassName="inline-flex min-h-12 items-center gap-2 border border-[var(--color-dark-blue)] px-3 md:min-h-11 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] aria-expanded:bg-[var(--color-surface-base)]"
+                triggerClassName="inline-flex min-h-12 items-center gap-2 border border-[var(--color-dark-blue)] px-3 lg:min-h-11 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] aria-expanded:bg-[var(--color-surface-base)]"
                 trigger={({ open }) => (
                   <>
                     <Avatar name={user?.name ?? "Account"} size={22} className="ring-0" />
@@ -423,24 +427,48 @@ export function Header() {
             </div>
           )}
 
-          {/* Phones: the menu button is the last thing on the bar, top-right.
-              Signed out it is one pill: "Login", a hairline divider, then the menu
-              button — Login goes straight to the login page, the icon opens the
-              menu. (Register is reached from the login page.) Signed in it is the
-              bare menu button; the account controls live inside the menu. */}
-          {isAuthenticated ? (
-            <button
-              type="button"
-              className={`-mr-2 flex min-h-12 min-w-12 items-center justify-center rounded-xl! text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] md:hidden ${FOCUS_RING}`}
-              onClick={() => (sheet.open ? sheet.hide() : sheet.show())}
-              aria-expanded={sheet.open}
-              aria-controls="mobile-nav"
-              aria-label={sheet.open ? "Close menu" : "Open menu"}
-            >
-              {sheet.open ? <IconClose className="h-6 w-6" /> : <IconMenu className="h-6 w-6" />}
-            </button>
-          ) : (
-            <div className="flex h-11 items-center rounded-full border md:h-12 border-[var(--color-border-default)] bg-[var(--color-surface-raised)] shadow-[var(--elevation-xs)] lg:hidden">
+          {/* Phones and tablets: ONE pill, last on the bar, top-right. Signed out:
+              "Login", a hairline divider, then the menu button — Login goes
+              straight to the login page (Register is reached from there).
+              Signed in: the profile button (your initials; a dot when there are
+              unread notifications), the divider, then the menu button. The
+              profile button opens the account panel; the menu button opens
+              site navigation. Opening one closes the other. */}
+          <div className="flex h-11 items-center rounded-full border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] shadow-[var(--elevation-xs)] md:h-12 lg:hidden">
+            {isAuthenticated ? (
+              <button
+                type="button"
+                className={`relative flex h-full w-12 items-center justify-center rounded-l-full! transition-colors duration-200 hover:bg-[var(--color-surface-base)] md:w-14 ${FOCUS_RING}`}
+                onClick={() => {
+                  if (account.open) account.hide();
+                  else {
+                    sheet.hide();
+                    account.show();
+                  }
+                }}
+                aria-expanded={account.open}
+                aria-controls="mobile-account"
+                aria-label={
+                  account.open
+                    ? "Close account menu"
+                    : unreadCount > 0
+                      ? `Account menu, ${unreadCount} unread notifications`
+                      : "Account menu"
+                }
+              >
+                {account.open ? (
+                  <IconClose className="h-5 w-5 text-[var(--color-deep-blue)] md:h-6 md:w-6" />
+                ) : (
+                  <Avatar name={user?.name ?? "Account"} size={30} className="ring-0" />
+                )}
+                {unreadCount > 0 && !account.open && (
+                  <span
+                    aria-hidden
+                    className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-[var(--color-brand-primary)] ring-2 ring-[var(--color-surface-raised)] md:right-2.5"
+                  />
+                )}
+              </button>
+            ) : (
               <Link
                 href="/login"
                 onClick={() => sheet.hide()}
@@ -448,38 +476,54 @@ export function Header() {
               >
                 Login
               </Link>
-              <span aria-hidden className="h-5 w-px bg-[var(--color-border-default)] md:h-6" />
-              <button
-                type="button"
-                className={`flex h-full w-12 items-center justify-center rounded-r-full! text-[var(--color-deep-blue)] md:w-14 transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
-                onClick={() => (sheet.open ? sheet.hide() : sheet.show())}
-                aria-expanded={sheet.open}
-                aria-controls="mobile-nav"
-                aria-label={sheet.open ? "Close menu" : "Open menu"}
-              >
-                {sheet.open ? <IconClose className="h-5 w-5 md:h-6 md:w-6" /> : <IconMenu className="h-5 w-5 md:h-6 md:w-6" />}
-              </button>
-            </div>
-          )}
+            )}
+            <span aria-hidden className="h-5 w-px bg-[var(--color-border-default)] md:h-6" />
+            <button
+              type="button"
+              className={`flex h-full w-12 items-center justify-center rounded-r-full! text-[var(--color-deep-blue)] md:w-14 transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
+              onClick={() => {
+                if (sheet.open) sheet.hide();
+                else {
+                  account.hide();
+                  sheet.show();
+                }
+              }}
+              aria-expanded={sheet.open}
+              aria-controls="mobile-nav"
+              aria-label={sheet.open ? "Close menu" : "Open menu"}
+            >
+              {sheet.open ? <IconClose className="h-5 w-5 md:h-6 md:w-6" /> : <IconMenu className="h-5 w-5 md:h-6 md:w-6" />}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Mobile: one sheet with everything the desktop menus offer. */}
+      {/* Compact header: site navigation (the menu button's panel). */}
       {sheet.rendered && (
         <div
           id="mobile-nav"
           data-state={sheet.open ? "open" : "closed"}
-          // Any link or action in the sheet closes it (links still navigate).
+          // Any link or action in the panel closes it (links still navigate).
           onClick={(e) => {
             if ((e.target as HTMLElement).closest("a[href], button")) sheet.hide();
           }}
-          className={`u-menu-panel absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] origin-top overflow-y-auto overscroll-contain rounded-b-3xl border-t border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] shadow-[0_24px_60px_-16px_rgba(23,42,58,0.32)] ${compactOnly}`}
+          className="u-menu-panel absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] origin-top overflow-y-auto overscroll-contain rounded-b-3xl border-t border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] shadow-[0_24px_60px_-16px_rgba(23,42,58,0.32)] lg:hidden"
         >
-          <MobileSheetContent
-            pathname={pathname}
-            isAuthenticated={isAuthenticated}
-            canListProperty={canListProperty}
-          />
+          <MobileSheetContent pathname={pathname} />
+        </div>
+      )}
+
+      {/* Compact header, signed in: the account panel (the profile button's). */}
+      {isAuthenticated && account.rendered && (
+        <div
+          id="mobile-account"
+          data-state={account.open ? "open" : "closed"}
+          onClick={(e) => {
+            if ((e.target as HTMLElement).closest("a[href], button")) account.hide();
+          }}
+          className="u-menu-panel absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] origin-top overflow-y-auto overscroll-contain rounded-b-3xl border-t border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] shadow-[0_24px_60px_-16px_rgba(23,42,58,0.32)] lg:hidden"
+        >
+          <MobileAccountPanel canListProperty={canListProperty} />
         </div>
       )}
     </header>
