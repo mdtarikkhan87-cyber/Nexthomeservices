@@ -87,7 +87,7 @@ export function RoleOverview({ role }: { role: RoleName }) {
         <StatusBanner
           kind="pending"
           title="Your documents are under review"
-          description="You can still browse and manage your other active roles while this is pending — nothing else is restricted."
+          description="Your other roles still work while this is pending."
         />
       )}
       {role === "landlord" && <LandlordOverview name={user?.name} subscription={current?.subscriptionState} verified={current?.state === "role-verified"} />}
@@ -264,7 +264,7 @@ function LandlordOverview({ name, subscription, verified }: { name?: string; sub
         tone: "pending",
         icon: <IconCreditCard className="h-[18px] w-[18px]" />,
         title: "Subscribe to publish listings",
-        meta: "There’s no free listing tier — a subscription activates publishing.",
+        meta: "Publishing needs a subscription. There is no free tier.",
         cta: "View plans",
         href: "/dashboard/subscription",
       });
@@ -425,7 +425,7 @@ function LandlordOverview({ name, subscription, verified }: { name?: string; sub
               {subscription === "active"
                 ? "You can publish listings."
                 : verified
-                  ? "There’s no free listing tier — subscribe to publish."
+                  ? "Publishing needs a subscription."
                   : "Your account must be verified before you can subscribe."}
             </p>
             <PrimaryLink href="/dashboard/subscription" block>
@@ -650,7 +650,7 @@ function ProviderOverview({ name }: { name?: string }) {
   const listing = services?.[0];
 
   const attention: AttentionItem[] = [];
-  const u = unreadItem(inquiries, user?.id, "enquiry", "unread inquiry", "unread inquiries");
+  const u = unreadItem(inquiries, user?.id, "enquiry", "unread enquiry", "unread enquiries");
   if (u) attention.push(u);
   if (services?.length === 0)
     attention.push({
@@ -683,7 +683,7 @@ function ProviderOverview({ name }: { name?: string }) {
               {listing ? "Manage my service listing" : "Create your service listing"}
             </PrimaryAction>
             <SecondaryAction href="/dashboard/messages" icon={<IconMessageCircle className="h-[18px] w-[18px]" />} count={unreadCount ?? 0}>
-              Respond to inquiries
+              Respond to enquiries
             </SecondaryAction>
           </>
         }
@@ -692,7 +692,7 @@ function ProviderOverview({ name }: { name?: string }) {
       <StatGrid>
         <StatTile label="Active service listings" value={count("live")} note="Visible in the directory" icon={<IconWrench className="h-[18px] w-[18px]" />} href="/dashboard/service-listing" />
         <StatTile label="Awaiting review" value={count("pending-review")} note="Admin is checking this" icon={<IconClock className="h-[18px] w-[18px]" />} href="/dashboard/service-listing" />
-        <StatTile label="Inquiries" value={inquiries ? inquiries.length : null} note="Customers who messaged you" icon={<IconInbox className="h-[18px] w-[18px]" />} href="/dashboard/messages" />
+        <StatTile label="Enquiries" value={inquiries ? inquiries.length : null} note="Customers who messaged you" icon={<IconInbox className="h-[18px] w-[18px]" />} href="/dashboard/messages" />
         <StatTile label="Unread replies" value={unreadCount} icon={<IconMessageCircle className="h-[18px] w-[18px]" />} href="/dashboard/messages" />
       </StatGrid>
 
@@ -707,7 +707,7 @@ function ProviderOverview({ name }: { name?: string }) {
               </h2>
               <p className="text-[13px] text-[var(--color-text-secondary)]">People asking about your services</p>
             </div>
-            <div role="tablist" aria-label="Filter inquiries" className="inline-flex rounded-xl bg-[var(--color-surface-dense)] p-1">
+            <div role="tablist" aria-label="Filter enquiries" className="inline-flex rounded-xl bg-[var(--color-surface-dense)] p-1">
               {(["all", "unread"] as const).map((t) => (
                 <button
                   key={t}
@@ -728,7 +728,7 @@ function ProviderOverview({ name }: { name?: string }) {
             </div>
           ) : leads.length === 0 ? (
             <p className="border-t border-[var(--color-border-hairline)] px-4 py-6 text-sm text-[var(--color-text-secondary)] sm:px-6">
-              {tab === "unread" ? "No unread inquiries — you’re all caught up." : "No inquiries yet. When a customer messages you about your service, it appears here."}
+              {tab === "unread" ? "No unread enquiries." : "No enquiries yet. When a customer messages you about your service, it appears here."}
             </p>
           ) : (
             <ul>
@@ -903,7 +903,7 @@ function TenantOverview({
             ) : (
               <EmptyState
                 title={contextListings.length === 0 ? `No homes to ${copy.verb} right now` : "You’ve saved everything on offer"}
-                description={contextListings.length === 0 ? "New listings appear here as soon as they pass review. Check back soon." : "Every live listing is already in your saved homes. New ones will show up here."}
+                description={contextListings.length === 0 ? "New listings appear here as soon as they pass review." : "Every live listing is already in your saved homes. New ones will show up here."}
                 action={
                   <Link href="/dashboard/saved">
                     <Button size="dense" variant="secondary">

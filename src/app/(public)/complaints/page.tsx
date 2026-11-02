@@ -38,7 +38,7 @@ export default function ComplaintsPage() {
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10 sm:px-6 sm:py-14">
-      <h1 className="text-3xl font-bold tracking-tight text-[var(--color-text-primary)] sm:text-4xl">Report a Concern</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-[var(--color-text-primary)] sm:text-4xl">Report a concern</h1>
       <p className="mt-1 text-[var(--color-text-secondary)]">
         Report a bad-actor landlord, a suspicious listing, or a scam attempt.
       </p>
@@ -56,7 +56,7 @@ export default function ComplaintsPage() {
           <Input
             required
             minLength={3}
-            placeholder="What/who is this about? (e.g. listing title, user name)"
+            placeholder="Listing title or user name"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
           />
@@ -69,7 +69,7 @@ export default function ComplaintsPage() {
             onChange={(e) => setBody(e.target.value)}
           />
           <Button type="submit" className="self-start" disabled={isSubmitting}>
-            {isSubmitting ? "Submitting…" : "Submit Report"}
+            {isSubmitting ? "Submitting…" : "Submit report"}
           </Button>
         </form>
       )}

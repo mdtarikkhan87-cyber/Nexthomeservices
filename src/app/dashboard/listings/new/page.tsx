@@ -251,7 +251,7 @@ export default function PostPropertyPage() {
         <div className="mt-4">
           <StatusBanner
             kind="blocked"
-            title="Your Landlord account is still pending document review"
+            title="Your landlord account is still pending document review"
             description="Your listing details are kept as a draft. Once our team approves your documents, come back and submit it for review."
           />
         </div>
@@ -267,8 +267,7 @@ export default function PostPropertyPage() {
       <div className="max-w-xl">
         <h1 className="u-heading text-2xl text-[var(--color-text-primary)]">Subscribe to publish</h1>
         <p className="mt-2 text-[var(--color-text-secondary)]">
-          There&apos;s no free listing tier — your details are kept as a draft. Subscribe to publish this and
-          future listings.
+          There is no free listing tier. Your details are kept as a draft until you subscribe.
         </p>
         <div className="mt-5 flex flex-wrap gap-2.5">
           <Button onClick={() => router.push("/dashboard/subscription")}>Go to Subscription</Button>

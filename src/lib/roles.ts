@@ -65,8 +65,8 @@ export const ROLE_LABELS_HEADER: Record<RoleName, string> = {
 
 export const ROLE_BLURBS: Record<RoleName, string> = {
   landlord: "List a property for rent or sale, and manage enquiries.",
-  "tenant-buyer": "Search listings, save homes, and message landlords — free.",
-  "service-provider": "Offer a trade service to people moving home — free to join.",
+  "tenant-buyer": "Search listings, save homes and message landlords. Free.",
+  "service-provider": "Offer a trade service to people who have just moved. Free to join.",
   advertiser: "Promote a business, property, or service on NextHome.",
 };
 
@@ -108,9 +108,9 @@ export function roleLandingHref(role: RoleName): string {
     where it takes you is a quiz, not a control. */
 export const ROLE_DESTINATION_LABEL: Record<RoleName, string> = {
   "tenant-buyer": "Takes you to Listings",
-  landlord: "Takes you to your Landlord dashboard",
-  "service-provider": "Takes you to your Service dashboard",
-  advertiser: "Takes you to your Advertisements",
+  landlord: "Takes you to your landlord dashboard",
+  "service-provider": "Takes you to your service dashboard",
+  advertiser: "Takes you to your advertisements",
 };
 
 /**

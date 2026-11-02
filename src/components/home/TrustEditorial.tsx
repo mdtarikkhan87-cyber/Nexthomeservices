@@ -50,7 +50,7 @@ export function TrustEditorial() {
             </div>
 
             <div>
-              <Eyebrow onDark>How NextHome earns trust</Eyebrow>
+              <Eyebrow onDark>Verification</Eyebrow>
               <h2 className="u-heading mt-3 max-w-lg text-3xl text-white sm:text-[2.75rem]">
                 How every listing gets verified
               </h2>

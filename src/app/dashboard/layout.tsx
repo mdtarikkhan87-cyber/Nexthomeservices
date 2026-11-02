@@ -46,7 +46,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
   return (
     <AuthRequired
       title="Log in to open your dashboard"
-      description="Your dashboard shows your listings, messages, and account status. Log in or create an account to continue — you'll land right here."
+      description="Your dashboard shows your listings, messages and account status. Log in or create an account to continue, and you'll come back to this page."
     >
       {activeRole && (
         // The dashboard shell: a 264px sidebar flush with the left edge, and the

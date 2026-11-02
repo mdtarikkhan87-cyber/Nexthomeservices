@@ -213,8 +213,8 @@ export default function AdminUsersPage() {
         }
         description={
           subscriptionAction?.activate
-            ? "Manually marks their Landlord subscription active — a stand-in until real payment processing exists. They'll be able to publish listings."
-            : "Marks their Landlord subscription inactive. Existing live listings are not affected, but they won't be able to publish new ones."
+            ? "Manually marks their landlord subscription active — a stand-in until real payment processing exists. They'll be able to publish listings."
+            : "Marks their landlord subscription inactive. Existing live listings are not affected, but they won't be able to publish new ones."
         }
         confirmLabel={subscriptionAction?.activate ? "Activate" : "Deactivate"}
         destructive={!subscriptionAction?.activate}

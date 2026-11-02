@@ -11,7 +11,7 @@ import { PropertyBrowser } from "@/components/property/PropertyBrowser";
 export const metadata: Metadata = {
   title: "Listings — Homes to Rent and Buy | NextHome",
   description:
-    "Browse verified homes to rent or buy on NextHome, reviewed by our team before they go live. Switch between renting and buying with one toggle.",
+    "Browse homes to rent or buy across Nigeria. Every listing is reviewed by our team before it goes live.",
 };
 
 export default function ListingsPage() {

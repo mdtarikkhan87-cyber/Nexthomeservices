@@ -13,8 +13,8 @@ export default function AdvertisePage() {
     <div className="mx-auto max-w-2xl px-4 py-10 text-center sm:px-6 sm:py-14">
       <h1 className="text-3xl font-bold tracking-tight text-[var(--color-text-primary)] sm:text-4xl">Advertise on NextHome</h1>
       <p className="mt-3 text-[var(--color-text-secondary)]">
-        Put your business, property, or service in front of visitors browsing NextHome. Submit your ad for
-        review — our team sets placement, duration, and pricing, then you confirm before it goes live.
+        Advertise your business, property or service to people browsing NextHome. Submit your ad and our
+        team reviews it, then sets the placement, duration and price for you to confirm before it goes live.
       </p>
       <Button
         className="mt-6"

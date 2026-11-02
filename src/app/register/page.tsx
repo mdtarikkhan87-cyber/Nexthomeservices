@@ -243,7 +243,7 @@ function RegisterFlow() {
       <div className="hidden bg-[var(--color-surface-inverted)] px-10 py-14 lg:block">
         <p className="u-label text-[var(--color-light-blue)]">Create your account</p>
         <h2 className="u-heading mt-3 text-2xl text-white">
-          Join a trustworthy way to find your next home.
+          Rent, list or offer a service on one account.
         </h2>
         <ol className="mt-10 flex flex-col gap-6">
           {visibleSteps.map((s, i) => {
@@ -304,15 +304,15 @@ function RegisterFlow() {
                 {returnContext.actionLabel}
               </p>
             ) : (
-              <p className="mt-1 text-[var(--color-text-secondary)]">What brings you to NextHome?</p>
+              <p className="mt-1 text-[var(--color-text-secondary)]">Choose your role</p>
             )}
             <p className="u-ui mt-3 text-sm text-[var(--color-text-secondary)]">
-              A NextHome account lets you open full listing details, save homes and message landlords and
-              service providers — and, once verified, list your own property, service or ad.
+              With an account you can see full listing details, save homes and message landlords. To list a
+              property, offer a service or run an ad, you verify first.
             </p>
             <p className="u-ui mt-3 text-sm text-[var(--color-text-secondary)]">
-              Pick as many as apply — you can be a Renter <em>and</em> a Landlord on one account, and add
-              more later without registering again.
+              Pick every role that applies. One account can be both a renter and a landlord, and you can add
+              roles later.
             </p>
 
             <div className="mt-6 flex flex-col gap-3">

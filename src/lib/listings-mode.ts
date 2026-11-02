@@ -97,7 +97,7 @@ export const MODE_COPY: Record<
     eyebrow: "For rent",
     heading: "Homes to rent",
     intro:
-      "Find your next home with confidence. Explore rental properties reviewed by our team, and narrow your search by location, budget, bedrooms and rental duration.",
+      "Rental homes reviewed by our team before they go live. Filter by state, area, budget, bedrooms and rental duration.",
   },
   sale: {
     label: "Buy",
