@@ -30,7 +30,7 @@ const LINK_GROUPS: { title: string; links: { href: string; label: string }[] }[]
     title: "Discover",
     links: [
       { href: "/listings?mode=rent", label: "Homes to rent" },
-      { href: "/listings?mode=sale", label: "Homes to buy" },
+      { href: "/listings?mode=sale", label: "Homes for sale" },
     ],
   },
   {
@@ -47,8 +47,8 @@ const LINK_GROUPS: { title: string; links: { href: string; label: string }[] }[]
     title: "Help & support",
     links: [
       { href: "/help", label: "Help & FAQ" },
-      { href: "/feedback", label: "Send Feedback" },
-      { href: "/complaints", label: "Report a Concern" },
+      { href: "/feedback", label: "Send feedback" },
+      { href: "/complaints", label: "Report a concern" },
     ],
   },
 ];
@@ -145,8 +145,8 @@ export function Footer() {
           <div className={compact ? "pb-5" : undefined}>
             <Image src="/brand/nexthome-logo-primary.png" alt="NextHome" width={2267} height={2958} className="h-10 w-auto" />
             <p className={`${compact ? "mt-3" : "mt-4"} max-w-xs text-sm text-[var(--color-text-secondary)]`}>
-              Verified listings, reviewed before they go live — replacing scattered groups and unreliable agents
-              with one trustworthy platform.
+              Every listing is reviewed before it goes live, so you&apos;re not stuck relying on random WhatsApp
+              groups or agents you can&apos;t verify.
             </p>
           </div>
           {LINK_GROUPS.map((group) => (

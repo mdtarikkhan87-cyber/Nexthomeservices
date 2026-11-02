@@ -43,11 +43,11 @@ export function ServicesBand() {
                 <div className="max-w-lg">
                   <Eyebrow onDark>Services</Eyebrow>
                   <h2 className="u-heading mt-3 text-3xl text-white sm:text-[2.75rem]">
-                    A home is more than the keys.
+                    Electricians, plumbers and more, checked by us
                   </h2>
                   <p className="mt-4 max-w-md text-[var(--color-off-white)]/85">
-                    Verified electricians, plumbers and other trades — the people you need once you&rsquo;ve
-                    moved in, checked the same way our landlords are.
+                    Find verified electricians, plumbers and other tradespeople for after you&apos;ve moved in. We
+                    check them the same way we check landlords.
                   </p>
 
                   <Link

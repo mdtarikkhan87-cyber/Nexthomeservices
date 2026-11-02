@@ -56,7 +56,7 @@ export default function SavedHomesPage() {
         <EmptyState
           className="mt-5"
           title={`No saved homes for ${contextCopy[context]} yet`}
-          description="Browse listings to save your favorites and compare them later."
+          description="Browse listings to save your favourites and compare them later."
         />
       ) : (
         <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 min-[1440px]:grid-cols-[repeat(auto-fill,minmax(20rem,1fr))]!">

@@ -84,7 +84,7 @@ export default async function HomePage() {
             {listingsUnavailable && (
               <div role="status" className="mt-6">
                 <p className="rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                  We couldn&rsquo;t load listings just now. Please refresh in a moment — you can still search above.
+                  Listings didn&rsquo;t load. Refresh to try again. Search above still works.
                 </p>
               </div>
             )}

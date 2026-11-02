@@ -39,7 +39,7 @@ export function CuratedListings({ listings }: { listings: PropertyListing[] }) {
             <div>
               <Eyebrow>Recently listed</Eyebrow>
               <h2 className="u-heading mt-3 max-w-md text-3xl text-[var(--color-text-primary)] sm:text-4xl">
-                Homes worth a closer look
+                New on NextHome
               </h2>
             </div>
 

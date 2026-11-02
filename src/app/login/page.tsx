@@ -10,7 +10,7 @@ import { IconCheck } from "@/components/ui/icons";
 import { useAuth } from "@/lib/auth-context";
 import { roleLandingHref } from "@/lib/roles";
 
-const REASSURANCE_POINTS = ["Verified listings only", "In-app messaging, on record", "No spam, ever"];
+const REASSURANCE_POINTS = ["Every listing reviewed by our team", "Messages saved against the listing", "Emails only about your account"];
 
 function LoginForm() {
   const { user, login, isAuthenticated, activeRole, needsRoleChoice } = useAuth();
@@ -80,7 +80,7 @@ function LoginForm() {
         />
         <div className="relative flex h-full flex-col justify-end p-12">
           <h2 className="max-w-sm text-3xl font-bold tracking-tight text-white">
-            Welcome back to a trustworthy way to find your next home.
+            Log in to see your saved homes and messages.
           </h2>
           <ul className="mt-6 flex flex-col gap-2.5">
             {REASSURANCE_POINTS.map((point) => (

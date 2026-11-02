@@ -104,7 +104,7 @@ export default function ServiceListingPage() {
         <h1 className="mb-4 text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">My Service Listing</h1>
         <StatusBanner
           kind="blocked"
-          title="Your Service Provider account is still pending document review"
+          title="Your service provider account is still pending document review"
           description="You'll be able to create your listing once our team approves your documents."
         />
       </div>

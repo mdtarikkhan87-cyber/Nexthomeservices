@@ -287,7 +287,7 @@ export function AttentionCard({ items, loading, className }: { items: AttentionI
               <path d="M20 6 9 17l-5-5" />
             </svg>
           </IconTile>
-          You&rsquo;re all caught up — nothing needs your attention right now.
+          Nothing needs your attention.
         </p>
       ) : (
         <ul className="mt-2 flex flex-col">

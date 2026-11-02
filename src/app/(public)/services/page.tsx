@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ServiceDirectory } from "@/components/property/ServiceDirectory";
 
 export const metadata: Metadata = {
-  title: "Local Service Providers | NextHome",
+  title: "Local service providers | NextHome",
   description: "Find verified electricians, plumbers, mechanics, and other trades on NextHome.",
 };
 
@@ -17,11 +17,10 @@ export default function ServiceDirectoryPage() {
       <div className="border-b border-[var(--color-border-hairline)] pb-8">
         <p className="u-label text-[var(--color-brand-primary-text)]">Services</p>
         <h1 className="u-display mt-3 max-w-xl text-[2.25rem] text-[var(--color-text-primary)] sm:text-5xl">
-          A home is more than the keys.
+          Find a service provider
         </h1>
         <p className="mt-4 max-w-lg text-[var(--color-text-secondary)]">
-          Electricians, plumbers, mechanics and other trades — verified the same way our landlords are,
-          and ready to help.
+          Electricians, plumbers, mechanics and other tradespeople, checked the same way we check landlords.
         </p>
       </div>
 

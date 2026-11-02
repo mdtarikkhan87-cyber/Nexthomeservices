@@ -16,7 +16,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
     <div className="mx-auto flex min-h-[60vh] w-full max-w-md flex-col justify-center px-4 py-16 sm:px-6">
       <h1 className="text-3xl font-bold tracking-tight text-[var(--color-text-primary)]">Something went wrong</h1>
       <p className="mt-3 text-[var(--color-text-secondary)]">
-        We hit a problem loading this page. It&rsquo;s likely temporary — try again, or head back home.
+        This page didn&rsquo;t load. Try again, or go to the homepage.
       </p>
       <div className="mt-6 flex flex-wrap items-center gap-4">
         <button

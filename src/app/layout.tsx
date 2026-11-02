@@ -50,9 +50,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "NextHome — Rent, Buy, and Connect With Confidence",
+  title: "NextHome: verified homes to rent and buy in Nigeria",
   description:
-    "Find verified rental and sale listings, connect with landlords and local service providers, all in one trustworthy place.",
+    "Rent or buy homes that our team has reviewed, message landlords directly, and find electricians, plumbers and other tradespeople.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

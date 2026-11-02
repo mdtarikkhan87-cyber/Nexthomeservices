@@ -24,7 +24,7 @@ export default function AccountPage() {
   return (
     <AuthRequired
       title="Log in to open your account"
-      description="Your account page shows your verification status and the roles you hold. Log in or create an account to continue — you'll land right here."
+      description="Your account page shows your verification status and roles. Log in or create an account to continue, and you'll come back to this page."
     >
       <AccountContent />
     </AuthRequired>

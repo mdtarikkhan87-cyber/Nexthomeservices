@@ -46,13 +46,13 @@ export default function FeedbackPage() {
             </p>
           )}
           <Textarea
-            placeholder="What's on your mind?"
+            placeholder="Tell us what's not working or what to improve"
             rows={5}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
           />
           <Button className="mt-3" onClick={submit} disabled={submitting || !message.trim()}>
-            {submitting ? "Submitting…" : "Submit Feedback"}
+            {submitting ? "Submitting…" : "Submit feedback"}
           </Button>
         </div>
       )}

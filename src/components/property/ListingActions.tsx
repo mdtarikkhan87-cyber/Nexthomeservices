@@ -149,7 +149,7 @@ export function ListingActions({
         </div>
       ) : !composerOpen ? (
         <Button onClick={openComposer} size="default">
-          {selectedRoom ? `Message about ${selectedRoom.label}` : "Message Landlord"}
+          {selectedRoom ? `Message about ${selectedRoom.label}` : "Message landlord"}
         </Button>
       ) : (
         <div className="rounded-[var(--radius-card)] border border-[var(--color-border-default)] p-4">

@@ -197,8 +197,8 @@ export function ListingRegistrationWall({ teaser }: { teaser: ListingTeaser }) {
               Register to see the full listing
             </h2>
             <p className="mt-1.5 text-sm text-[var(--color-text-secondary)]">
-              Browsing is open to everyone. Full property details and contact are for registered
-              members — it takes a minute and it&apos;s free.
+              Anyone can browse. Full details and landlord contact are for registered members.
+              Registering is free and takes about a minute.
             </p>
 
             <ul className="mt-5 flex flex-col gap-2.5">

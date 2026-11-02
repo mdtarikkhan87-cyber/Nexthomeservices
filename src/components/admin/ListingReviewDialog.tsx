@@ -24,7 +24,7 @@ function PhotoGallery({ photos, title }: { photos: AdminListingReviewPhoto[]; ti
     return (
       <EmptyState
         title="No photos"
-        description="This listing has no photos on file — the details below are still reviewable."
+        description="No photos were uploaded. The details below can still be reviewed."
       />
     );
   }
