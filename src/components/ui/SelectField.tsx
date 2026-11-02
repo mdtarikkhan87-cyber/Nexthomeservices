@@ -197,130 +197,144 @@ export function SelectField({
   const accessibleName = label ? undefined : ariaLabel;
 
   return (
-    <div ref={rootRef} className={`relative ${className}`}>
-      <button
-        ref={triggerRef}
-        id={ids.trigger}
-        type="button"
-        data-field={fieldName ?? label ?? ariaLabel}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? ids.list : undefined}
-        aria-labelledby={label ? `${ids.label} ${ids.value}` : undefined}
-        aria-label={accessibleName ? `${accessibleName}: ${isPlaceholder && placeholder ? placeholder : selected.label}` : undefined}
-        onClick={() => (open ? closePanel(false) : openPanel())}
-        onKeyDown={(e) => {
-          if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
-            e.preventDefault();
-            openPanel();
-          }
-        }}
-        className={`group flex w-full items-center justify-between gap-2 rounded-2xl! bg-[var(--color-surface-base)] text-left transition-colors duration-200 hover:bg-[var(--color-surface-base)] aria-expanded:bg-[var(--color-surface-base)] lg:bg-transparent lg:hover:bg-[var(--color-surface-base)] lg:aria-expanded:bg-[var(--color-surface-base)] ${FOCUS_RING} ${
-          isField ? "min-h-14 px-4 py-2 lg:px-3.5" : "min-h-12 px-4 lg:min-h-9 lg:px-3.5 lg:py-1"
-        }`}
-      >
-        <span className="min-w-0 flex-1">
-          {label && (
-            <span
-              id={ids.label}
-              className="block text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-[var(--color-text-body)]"
-            >
-              {label}
-            </span>
-          )}
-          <span
-            id={ids.value}
-            className={`block break-words leading-snug ${label ? "mt-1.5 text-base" : "text-sm"} font-medium ${
-              isPlaceholder ? "text-[var(--color-text-body)]" : "text-[var(--color-dark-blue)]"
-            }`}
-          >
-            {isPlaceholder && placeholder ? placeholder : selected.label}
-          </span>
-        </span>
-        <IconChevronDown
-          aria-hidden
-          className={`h-4 w-4 shrink-0 text-[var(--color-deep-blue)] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-
+    <>
+      {/* While the list is open the rest of the page is dimmed, so the panel reads
+          as a deliberate layer above the page (not as text running into the next
+          section). It is a sibling of the field, below it (z-40 vs the field's
+          z-50), so the field and its panel stay bright. Pressing it closes the
+          list; so do Escape and a press anywhere outside (handled above). */}
       {open && (
         <div
-          // Keep focus where it is when the panel's own padding is pressed.
-          onMouseDown={(e) => {
-            if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
-          }}
-          className={`u-pop absolute left-0 top-full z-50 mt-2 w-max min-w-full max-w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-[color-mix(in_srgb,var(--color-dark-blue)_8%,transparent)] bg-[var(--color-surface-raised)] p-2 shadow-[0_20px_50px_-12px_rgba(23,42,58,0.3),0_2px_6px_rgba(23,42,58,0.06)] ${panelClassName}`}
-        >
-          {searchable && (
-            <div className="px-1 pb-2">
-              <input
-                ref={inputRef}
-                type="text"
-                role="combobox"
-                aria-expanded="true"
-                aria-controls={ids.list}
-                aria-activedescendant={activeId}
-                aria-autocomplete="list"
-                aria-label={searchPlaceholder}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder={searchPlaceholder}
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setActive(0);
-                }}
-                onKeyDown={onPanelKeyDown}
-                className={`min-h-11 w-full rounded-xl bg-[var(--color-surface-base)] px-3 text-sm font-medium text-[var(--color-dark-blue)] placeholder:text-[var(--color-text-body)] outline-none ${FOCUS_RING}`}
-              />
-            </div>
-          )}
-
-          <ul
-            ref={listRef}
-            id={ids.list}
-            role="listbox"
-            aria-label={label ?? ariaLabel}
-            tabIndex={searchable ? undefined : -1}
-            aria-activedescendant={searchable ? undefined : activeId}
-            onKeyDown={searchable ? undefined : onPanelKeyDown}
-            className="max-h-64 overflow-y-auto overscroll-contain outline-none focus-visible:shadow-none!"
-          >
-            {visible.map((option, i) => {
-              const isSelected = option.value === value;
-              const isActive = i === active;
-              return (
-                <li
-                  key={option.value || "__any"}
-                  id={ids.option(i)}
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => choose(i)}
-                  onMouseMove={() => active !== i && setActive(i)}
-                  className={`flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-xl border-l-[3px] px-3 py-2 text-[15px] font-medium text-[var(--color-dark-blue)] transition-colors duration-150 ${
-                    isActive ? "border-[var(--color-brand-primary)]" : "border-transparent"
-                  } ${
-                    isSelected
-                      ? "bg-[color-mix(in_srgb,var(--color-light-blue)_28%,transparent)]"
-                      : isActive
-                        ? "bg-[var(--color-surface-base)]"
-                        : ""
-                  }`}
-                >
-                  <span className={isSelected ? "font-bold" : ""}>{option.label}</span>
-                  {isSelected && <IconCheck aria-hidden className="h-4 w-4 shrink-0 text-[var(--color-deep-blue)]" />}
-                </li>
-              );
-            })}
-          </ul>
-
-          {visible.length === 0 && (
-            <p role="status" className="px-3 py-3 text-sm text-[var(--color-text-body)]">
-              No matches
-            </p>
-          )}
-        </div>
+          aria-hidden
+          onClick={() => closePanel(false)}
+          className="fixed inset-0 z-40 cursor-default bg-[var(--color-dark-blue)]/40 backdrop-blur-[2px]"
+        />
       )}
-    </div>
+      <div ref={rootRef} className={`relative ${open ? "z-50" : ""} ${className}`}>
+        <button
+          ref={triggerRef}
+          id={ids.trigger}
+          type="button"
+          data-field={fieldName ?? label ?? ariaLabel}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={open ? ids.list : undefined}
+          aria-labelledby={label ? `${ids.label} ${ids.value}` : undefined}
+          aria-label={accessibleName ? `${accessibleName}: ${isPlaceholder && placeholder ? placeholder : selected.label}` : undefined}
+          onClick={() => (open ? closePanel(false) : openPanel())}
+          onKeyDown={(e) => {
+            if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+              e.preventDefault();
+              openPanel();
+            }
+          }}
+          className={`group flex w-full items-center justify-between gap-2 rounded-2xl! bg-[var(--color-surface-base)] text-left transition-colors duration-200 hover:bg-[var(--color-surface-base)] aria-expanded:bg-[var(--color-surface-base)] lg:bg-transparent lg:hover:bg-[var(--color-surface-base)] lg:aria-expanded:bg-[var(--color-surface-base)] ${FOCUS_RING} ${
+            isField ? "min-h-14 px-4 py-2 lg:px-3.5" : "min-h-12 px-4 lg:min-h-9 lg:px-3.5 lg:py-1"
+          }`}
+        >
+          <span className="min-w-0 flex-1">
+            {label && (
+              <span
+                id={ids.label}
+                className="block text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-[var(--color-text-body)]"
+              >
+                {label}
+              </span>
+            )}
+            <span
+              id={ids.value}
+              className={`block break-words leading-snug ${label ? "mt-1.5 text-base" : "text-sm"} font-medium ${
+                isPlaceholder ? "text-[var(--color-text-body)]" : "text-[var(--color-dark-blue)]"
+              }`}
+            >
+              {isPlaceholder && placeholder ? placeholder : selected.label}
+            </span>
+          </span>
+          <IconChevronDown
+            aria-hidden
+            className={`h-4 w-4 shrink-0 text-[var(--color-deep-blue)] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+
+        {open && (
+          <div
+            // Keep focus where it is when the panel's own padding is pressed.
+            onMouseDown={(e) => {
+              if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
+            }}
+            className={`u-pop absolute left-0 top-full z-50 mt-2 w-max min-w-full max-w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-[color-mix(in_srgb,var(--color-dark-blue)_8%,transparent)] bg-[var(--color-surface-raised)] p-2 shadow-[0_20px_50px_-12px_rgba(23,42,58,0.3),0_2px_6px_rgba(23,42,58,0.06)] ${panelClassName}`}
+          >
+            {searchable && (
+              <div className="px-1 pb-2">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  role="combobox"
+                  aria-expanded="true"
+                  aria-controls={ids.list}
+                  aria-activedescendant={activeId}
+                  aria-autocomplete="list"
+                  aria-label={searchPlaceholder}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder={searchPlaceholder}
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setActive(0);
+                  }}
+                  onKeyDown={onPanelKeyDown}
+                  className={`min-h-11 w-full rounded-xl bg-[var(--color-surface-base)] px-3 text-sm font-medium text-[var(--color-dark-blue)] placeholder:text-[var(--color-text-body)] outline-none ${FOCUS_RING}`}
+                />
+              </div>
+            )}
+
+            <ul
+              ref={listRef}
+              id={ids.list}
+              role="listbox"
+              aria-label={label ?? ariaLabel}
+              tabIndex={searchable ? undefined : -1}
+              aria-activedescendant={searchable ? undefined : activeId}
+              onKeyDown={searchable ? undefined : onPanelKeyDown}
+              className="max-h-64 overflow-y-auto overscroll-contain outline-none focus-visible:shadow-none!"
+            >
+              {visible.map((option, i) => {
+                const isSelected = option.value === value;
+                const isActive = i === active;
+                return (
+                  <li
+                    key={option.value || "__any"}
+                    id={ids.option(i)}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => choose(i)}
+                    onMouseMove={() => active !== i && setActive(i)}
+                    className={`flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-xl border-l-[3px] px-3 py-2 text-[15px] font-medium text-[var(--color-dark-blue)] transition-colors duration-150 ${
+                      isActive ? "border-[var(--color-brand-primary)]" : "border-transparent"
+                    } ${
+                      isSelected
+                        ? "bg-[color-mix(in_srgb,var(--color-light-blue)_28%,transparent)]"
+                        : isActive
+                          ? "bg-[var(--color-surface-base)]"
+                          : ""
+                    }`}
+                  >
+                    <span className={isSelected ? "font-bold" : ""}>{option.label}</span>
+                    {isSelected && <IconCheck aria-hidden className="h-4 w-4 shrink-0 text-[var(--color-deep-blue)]" />}
+                  </li>
+                );
+              })}
+            </ul>
+
+            {visible.length === 0 && (
+              <p role="status" className="px-3 py-3 text-sm text-[var(--color-text-body)]">
+                No matches
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
