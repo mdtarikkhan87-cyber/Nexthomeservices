@@ -31,8 +31,6 @@ export function ClosingCta() {
 
   const primary =
     "inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--color-brand-primary)] px-6 text-sm font-bold text-white transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-brand-primary-hover)]";
-  const secondary =
-    "inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--color-border-default)] px-6 text-sm font-bold text-[var(--color-text-primary)] transition-colors duration-[var(--motion-duration-short)] hover:border-[var(--color-deep-blue)]";
 
   return (
     <section className="bg-[var(--color-surface-base)] py-12 md:py-20">
@@ -49,21 +47,22 @@ export function ClosingCta() {
                   : "Browse every listing for free. A free account unlocks full property details, messaging and saved homes."}
               </p>
             </div>
-            <div className="flex shrink-0 flex-wrap gap-2.5">
-              <Link href="/listings" className={primary}>
-                Browse listings
-              </Link>
-
-              {isActingLandlord ? (
-                <Link href="/dashboard/listings/new" className={secondary}>
-                  List a property
-                </Link>
-              ) : !isAuthenticated ? (
-                <Link href="/register" className={secondary}>
-                  Create a free account
-                </Link>
-              ) : null}
-            </div>
+            {/* One action, by who is reading: "Browse listings" is not repeated here
+                (the search card, the nav and the sections above already cover it).
+                A signed-in non-landlord has no action to take, so no button. */}
+            {(isActingLandlord || !isAuthenticated) && (
+              <div className="flex shrink-0 flex-wrap gap-2.5">
+                {isActingLandlord ? (
+                  <Link href="/dashboard/listings/new" className={primary}>
+                    List a property
+                  </Link>
+                ) : (
+                  <Link href="/register" className={primary}>
+                    Create a free account
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
         </Reveal>
       </Container>

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { IconArrowRight, IconClock, IconShield } from "@/components/ui/icons";
+import { IconClock, IconShield } from "@/components/ui/icons";
 import { Container } from "@/components/ui/Container";
 import { browseFacets } from "@/lib/browse-facets";
 import type { PropertyListing } from "@/lib/types";
@@ -18,20 +18,13 @@ export function FacetGrid({ listings }: { listings: PropertyListing[] }) {
     <section id="browse-by" className="bg-[var(--color-surface-base)] pb-12 pt-8 md:pb-20 md:pt-12 lg:pt-16">
       <Container>
         <Reveal>
-          <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+          <div className="mb-10">
             <div>
               <Eyebrow>Browse by</Eyebrow>
               <h2 className="u-heading mt-3 text-3xl text-[var(--color-text-primary)] sm:text-4xl">
                 Where you&rsquo;re looking
               </h2>
             </div>
-            <Link
-              href="/listings?mode=rent"
-              className="group u-ui inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-[var(--color-brand-primary-text)] hover:underline"
-            >
-              All rentals
-              <IconArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-            </Link>
           </div>
 
           {/* 2-up on phones, 4-up from `lg`. The photo is decorative (the

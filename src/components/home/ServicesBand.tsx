@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/ui/Container";
 import { IconArrowRight } from "@/components/ui/icons";
-import { SERVICE_CATEGORIES } from "@/lib/service-categories";
 import { Eyebrow } from "./Eyebrow";
 import { Reveal } from "./Reveal";
 
@@ -13,13 +12,9 @@ import { Reveal } from "./Reveal";
 // bleed). Ending the sequence on the widest element gives the page a clear
 // crescendo instead of eight equally-sized slabs.
 //
-// Category chips come from the same SERVICE_CATEGORIES list the provider
-// signup form and the /services directory filter use, so a chip is always a
-// category a provider can actually register under. Each links into the live
-// /services directory.
+// There is deliberately one link into the services directory (the button): a row
+// of category chips that all pointed at the same page repeated it six times.
 export function ServicesBand() {
-  const categories = SERVICE_CATEGORIES;
-
   return (
     <section className="bg-[var(--color-surface-raised)] py-12 md:py-20">
       <Container>
@@ -54,19 +49,6 @@ export function ServicesBand() {
                     Verified electricians, plumbers and other trades — the people you need once you&rsquo;ve
                     moved in, checked the same way our landlords are.
                   </p>
-
-                  <ul className="mt-7 flex flex-wrap gap-2">
-                    {categories.map((c) => (
-                      <li key={c}>
-                        <Link
-                          href="/services"
-                          className="u-ui inline-block rounded-full border border-white/25 px-3.5 py-1.5 text-[13px] font-semibold text-white transition-colors duration-[var(--motion-duration-short)] hover:border-white/60 hover:bg-white/10"
-                        >
-                          {c}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
 
                   <Link
                     href="/services"
