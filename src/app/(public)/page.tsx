@@ -1,7 +1,5 @@
 import { SearchBar } from "@/components/shared/SearchBar";
-import { ClosingCta } from "@/components/home/ClosingCta";
 import { Hero } from "@/components/home/Hero";
-import { FacetGrid } from "@/components/home/FacetGrid";
 import { CuratedListings } from "@/components/home/CuratedListings";
 import { TrustEditorial } from "@/components/home/TrustEditorial";
 import { ServicesBand } from "@/components/home/ServicesBand";
@@ -35,7 +33,7 @@ export const dynamic = "force-dynamic";
 // band never fades in as a block.
 //
 // REAL BACKEND (6 Sept 2026): listings are fetched ONCE here, server-side, and
-// passed down to FacetGrid and CuratedListings as props. A single fetch avoids
+// passed down to CuratedListings as a prop. A single fetch avoids
 // duplicating the request, and keeps this the one place that decides what a
 // visitor's first view of the catalog contains.
 export default async function HomePage() {
@@ -92,25 +90,21 @@ export default async function HomePage() {
             )}
           </Container>
         </div>
-
-        {/* The one ad slot on the site (every live ad for it, as a carousel) — renders nothing when there's no live
-            ad for this placement, so it costs nothing when empty. */}
-        {bannerAds.length > 0 && (
-          <div className="pb-8 lg:pb-10">
-            <AdCarousel ads={bannerAds} />
-          </div>
-        )}
       </div>
 
-      <FacetGrid listings={allListings} />
       <CuratedListings listings={allListings} />
+
+      {/* The one ad slot on the site (every live ad for it, as a carousel), directly
+          under the listings — renders nothing when there's no live ad for this
+          placement, so it costs nothing when empty. */}
+      {bannerAds.length > 0 && (
+        <div className="pb-12 md:pb-20">
+          <AdCarousel ads={bannerAds} />
+        </div>
+      )}
+
       <TrustEditorial />
       <ServicesBand />
-
-      {/* Role-aware (see ClosingCta.tsx): what it offers depends on who is
-          reading it, so it never invites an anonymous visitor to do
-          something the access model no longer allows. */}
-      <ClosingCta />
     </div>
   );
 }
