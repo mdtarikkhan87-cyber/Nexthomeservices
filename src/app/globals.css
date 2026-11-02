@@ -132,11 +132,22 @@
 /* ---------------------------------------------------------------------
    FLUID PAGE WIDTHS — one place that decides how wide content may grow.
 
-   Below ~1440px every width here equals what the site had before (1152px for
-   inner pages, 1280px for the landing page), so phones, tablets and laptops
-   look exactly as they did. Above that the content grows with the screen
-   (80vw, i.e. a constant ~10% of air each side) up to a readable cap, instead
-   of staying laptop-width in the middle of a large monitor.
+   Every width is "the viewport minus a side margin", so the margin scales with
+   the screen instead of the content staying one fixed width in the middle of a
+   big monitor:
+
+     --gutter  the air between the screen edge and the content box:
+               2vw, never less than 16px, never more than 64px.
+     width     100vw - 2 x --gutter, never narrower than the old fixed width
+               (so phones, tablets and anything up to ~1200px are exactly as
+               they were — the element is also `w-full`, which wins when the
+               screen is narrower than that floor), and never wider than a
+               readable cap (the ceiling, for very large and ultra-wide screens).
+
+   Approximate results (content box / margin each side, before the container's
+   own padding):
+     1366px  1311 / 27     1440px  1383 / 29     1536px  1475 / 31
+     1920px  1843 / 38     2560px  2240 (cap) / 160     3440px  2240 / 600
 
    Used as `max-w-[var(--width-…)]`, so each is the element's total width
    including its own padding — the same meaning max-w-6xl had.
@@ -144,16 +155,17 @@
    than the visible area; harmless, since the element is also `w-full`.
    --------------------------------------------------------------------- */
 :root {
-  /* Inner pages: was max-w-6xl (1152px). 80vw is exactly 1152px at 1440px. */
-  --width-page: clamp(1152px, 80vw, 2000px);
-  /* Landing page: was 1280px. Stays 1280px until --width-page passes it
-     (~1600px viewport), then the two merge so the header logo no longer
-     shifts between the home page and the others on a big screen. */
+  --gutter: clamp(16px, 2vw, 64px);
+  /* Inner pages: was max-w-6xl (1152px). */
+  --width-page: clamp(1152px, calc(100vw - 2 * var(--gutter)), 2240px);
+  /* Landing page: was 1280px. Never below that, and equal to --width-page once
+     that passes it, so the header logo does not shift between the home page and
+     the others on a big screen. */
   --width-home: max(1280px, var(--width-page));
   /* Admin and dashboard shells: mostly single-column feeds and forms, so a
      lower cap than public pages — a much wider shell would leave narrow
      content stranded on the left. */
-  --width-app: clamp(1152px, 80vw, 1600px);
+  --width-app: clamp(1152px, calc(100vw - 2 * var(--gutter)), 1800px);
   /* The outer column (providers.tsx): the 1600px it always was, growing only
      when the content would otherwise not fit inside it. */
   --width-wrapper: max(1600px, calc(var(--width-page) + 160px));
