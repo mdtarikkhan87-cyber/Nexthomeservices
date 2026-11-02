@@ -413,17 +413,44 @@ export function Header() {
             </div>
           )}
 
-          {/* Phones: the menu button is the last thing on the bar, top-right. */}
-          <button
-            type="button"
-            className={`-mr-2 flex min-h-12 min-w-12 items-center justify-center rounded-xl! text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] md:hidden ${FOCUS_RING}`}
-            onClick={() => (sheet.open ? sheet.hide() : sheet.show())}
-            aria-expanded={sheet.open}
-            aria-controls="mobile-nav"
-            aria-label={sheet.open ? "Close menu" : "Open menu"}
-          >
-            {sheet.open ? <IconClose className="h-6 w-6" /> : <IconMenu className="h-6 w-6" />}
-          </button>
+          {/* Phones: the menu button is the last thing on the bar, top-right.
+              Signed out it is one pill: "Login", a hairline divider, then the menu
+              button — Login goes straight to the login page, the icon opens the
+              menu. (Register is reached from the login page.) Signed in it is the
+              bare menu button; the account controls live inside the menu. */}
+          {isAuthenticated ? (
+            <button
+              type="button"
+              className={`-mr-2 flex min-h-12 min-w-12 items-center justify-center rounded-xl! text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] md:hidden ${FOCUS_RING}`}
+              onClick={() => (sheet.open ? sheet.hide() : sheet.show())}
+              aria-expanded={sheet.open}
+              aria-controls="mobile-nav"
+              aria-label={sheet.open ? "Close menu" : "Open menu"}
+            >
+              {sheet.open ? <IconClose className="h-6 w-6" /> : <IconMenu className="h-6 w-6" />}
+            </button>
+          ) : (
+            <div className="flex h-11 items-center rounded-full border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] shadow-[var(--elevation-xs)] md:hidden">
+              <Link
+                href="/login"
+                onClick={() => sheet.hide()}
+                className={`flex h-full items-center rounded-l-full! pl-4 pr-3 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
+              >
+                Login
+              </Link>
+              <span aria-hidden className="h-5 w-px bg-[var(--color-border-default)]" />
+              <button
+                type="button"
+                className={`flex h-full w-12 items-center justify-center rounded-r-full! text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
+                onClick={() => (sheet.open ? sheet.hide() : sheet.show())}
+                aria-expanded={sheet.open}
+                aria-controls="mobile-nav"
+                aria-label={sheet.open ? "Close menu" : "Open menu"}
+              >
+                {sheet.open ? <IconClose className="h-5 w-5" /> : <IconMenu className="h-5 w-5" />}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -442,22 +469,6 @@ export function Header() {
             pathname={pathname}
             isAuthenticated={isAuthenticated}
             canListProperty={canListProperty}
-            loggedOutActions={
-              <div className="flex flex-col gap-2 px-0 pb-2">
-                <Link
-                  href="/login"
-                  className={`flex min-h-12 items-center justify-center rounded-xl! bg-[var(--color-brand-primary)] text-[15px] font-bold text-white hover:bg-[var(--color-brand-primary-hover)] ${FOCUS_RING}`}
-                >
-                  Log in
-                </Link>
-                <Link
-                  href="/register"
-                  className={`flex min-h-12 items-center justify-center rounded-xl! border border-[var(--color-dark-blue)] text-[15px] font-bold text-[var(--color-dark-blue)] hover:bg-[var(--color-dark-blue)] hover:text-white ${FOCUS_RING}`}
-                >
-                  Register
-                </Link>
-              </div>
-            }
           />
         </div>
       )}
