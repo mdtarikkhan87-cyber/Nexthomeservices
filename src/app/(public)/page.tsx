@@ -1,6 +1,5 @@
 import { SearchBar } from "@/components/shared/SearchBar";
 import { Hero } from "@/components/home/Hero";
-import { FacetGrid } from "@/components/home/FacetGrid";
 import { CuratedListings } from "@/components/home/CuratedListings";
 import { TrustEditorial } from "@/components/home/TrustEditorial";
 import { ServicesBand } from "@/components/home/ServicesBand";
@@ -34,7 +33,7 @@ export const dynamic = "force-dynamic";
 // band never fades in as a block.
 //
 // REAL BACKEND (6 Sept 2026): listings are fetched ONCE here, server-side, and
-// passed down to FacetGrid and CuratedListings as props. A single fetch avoids
+// passed down to CuratedListings as a prop. A single fetch avoids
 // duplicating the request, and keeps this the one place that decides what a
 // visitor's first view of the catalog contains.
 export default async function HomePage() {
@@ -101,7 +100,6 @@ export default async function HomePage() {
         )}
       </div>
 
-      <FacetGrid listings={allListings} />
       <CuratedListings listings={allListings} />
       <TrustEditorial />
       <ServicesBand />

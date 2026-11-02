@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { Container } from "@/components/ui/Container";
 
 // Two gradients intersected: one fades the top edge, the other the left and
@@ -32,13 +31,6 @@ export function Hero() {
             properties, and conversations all in one convenient place.
           </p>
         </div>
-
-        <Link
-          href="/listings"
-          className="mt-8 inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--color-dark-blue)] px-6 text-sm font-bold text-white transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-deep-blue)] lg:mt-10"
-        >
-          Browse listings
-        </Link>
       </Container>
 
       {/* Centred and capped at the page wrapper's width (1600px, growing only
