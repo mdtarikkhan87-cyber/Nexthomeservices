@@ -1,5 +1,4 @@
 import { SearchBar } from "@/components/shared/SearchBar";
-import { ClosingCta } from "@/components/home/ClosingCta";
 import { Hero } from "@/components/home/Hero";
 import { FacetGrid } from "@/components/home/FacetGrid";
 import { CuratedListings } from "@/components/home/CuratedListings";
@@ -106,11 +105,6 @@ export default async function HomePage() {
       <CuratedListings listings={allListings} />
       <TrustEditorial />
       <ServicesBand />
-
-      {/* Role-aware (see ClosingCta.tsx): what it offers depends on who is
-          reading it, so it never invites an anonymous visitor to do
-          something the access model no longer allows. */}
-      <ClosingCta />
     </div>
   );
 }
