@@ -2,10 +2,10 @@ import Link from "next/link";
 
 const FAQS = [
   { q: "How do I register?", a: "Choose your role (Landlord, Tenant/Buyer, Service Provider, or Advertiser) and follow the short verification steps for that role." },
-  { q: "How do I verify my account?", a: "Landlords and Service Providers confirm phone, email, and upload a document for review. Tenants/Buyers and Advertisers only confirm phone and email." },
+  { q: "How do I verify my account?", a: "Landlords and service providers confirm their phone and email, and upload a verification document for review. Tenants, buyers and advertisers only confirm phone and email." },
   { q: "How do I post a listing?", a: "Complete verification, subscribe (Landlords), then fill in your property details for admin review." },
   { q: "How do I search for a home?", a: "Use the Rent/Buy toggle and filter by state, price, and bedrooms — no account needed to browse." },
-  { q: "How do I subscribe?", a: "From your Landlord dashboard, choose a plan and pay via card, Paystack, or bank transfer." },
+  { q: "How do I subscribe?", a: "Online payment isn't available yet. Landlord subscriptions are currently activated by our team." },
 ];
 
 export default function HelpPage() {

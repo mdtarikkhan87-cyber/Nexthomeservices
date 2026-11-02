@@ -17,7 +17,7 @@ import { Reveal } from "./Reveal";
 const STEPS = [
   {
     title: "Identity checked",
-    body: "Landlords and service providers verify their phone number, email and a government ID before they can list. Anything that passes shows a Verified badge.",
+    body: "Landlords and service providers verify their phone number, email and a verification document before they can list. Anything that passes shows a Verified badge.",
   },
   {
     title: "Admin reviewed",
