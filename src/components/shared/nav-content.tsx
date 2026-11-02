@@ -225,41 +225,19 @@ export function MobileSheetContent({
   pathname,
   isAuthenticated,
   canListProperty = false,
-  loggedOutActions,
 }: {
   pathname: string;
   isAuthenticated: boolean;
   /** An acting Landlord: shows "List Your Property", which sits in the bar on
       wider screens and has no room there on a phone. */
   canListProperty?: boolean;
-  /** Shown to a signed-out visitor at the TOP of the sheet. On phones the bar
-      carries no Log in or Register (they live here), so callers always pass this. */
-  loggedOutActions?: ReactNode;
 }) {
   return (
     <div className="pb-2">
-      {/* Signed out: Log in / Register come FIRST, so they are on screen the
-          moment the menu opens instead of below a long list on a short phone. */}
-      {!isAuthenticated && loggedOutActions && (
-        <div className="border-b border-[var(--color-border-hairline)] px-3 pb-3 pt-3">{loggedOutActions}</div>
-      )}
-
       <SheetSection label="Listings">
         <MenuLink inMenu={false} href="/listings?mode=rent" label="Rent" />
         <MenuLink inMenu={false} href="/listings?mode=sale" label="Buy" />
         <MenuLink inMenu={false} href="/listings" label="All listings" />
-      </SheetSection>
-
-      <SheetSection label="Browse by location">
-        <MenuLink inMenu={false} href="/#browse-by" label="Choose a location" description="States with homes right now" />
-      </SheetSection>
-
-      <SheetSection label="Stay length">
-        <div className="grid grid-cols-2 gap-x-1">
-          {STAY_LENGTH.map((d) => (
-            <MenuLink key={d.href} inMenu={false} href={d.href} label={d.label.replace(" rentals", "")} />
-          ))}
-        </div>
       </SheetSection>
 
       <SheetSection label="More">
