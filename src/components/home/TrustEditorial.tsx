@@ -75,7 +75,7 @@ export function TrustEditorial() {
               </ol>
 
               <Link
-                href="/help"
+                href="/verification"
                 className="group mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-[var(--color-brand-accent)] hover:underline"
               >
                 How verification works
