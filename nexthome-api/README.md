@@ -14,6 +14,24 @@ npm run dev                 # nodemon, http://localhost:4000
 npm start                   # production: node src/server.js
 ```
 
+### Local database
+
+`DATABASE_URL` in your local `.env` must point at a database on your own machine, never
+at production (production's URL lives in Railway). `scripts/seed-dev.js` refuses to run
+against anything that is not `localhost`.
+
+```bash
+# 1. start the local Postgres (leave it running): lives outside the repo
+cd C:/Users/amish/nexthome-local-db && npm start     # postgresql://postgres:postgres@localhost:5432/nexthome_dev
+# 2. in this folder
+npx prisma migrate deploy      # schema up to date
+node scripts/seed-dev.js       # demo accounts and listings (password for all: password123)
+```
+
+Demo accounts: `admin@`, `tenant@`, `landlord@` (verified, subscription active),
+`landlord.new@` (not verified yet), `provider@`, `advertiser@` and `multi@` (several
+roles), all `@demo.test`. Re-running the seed resets them.
+
 The server validates its environment at boot (`src/lib/env.js`) and exits with a clear
 message if anything required is missing. `.env.example` lists every variable.
 `GET /health` returns `{ "status": "ok" }`.
