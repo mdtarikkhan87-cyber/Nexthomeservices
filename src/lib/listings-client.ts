@@ -150,6 +150,7 @@ function toFrontendListing(b: BackendListing): PropertyListing {
     galleryCount: b.galleryCount ?? b.galleryUrls?.length,
     verified: b.verified,
     status: STATUS_TO_FRONTEND[b.status],
+    createdAt: b.createdAt,
     availability: b.availability ?? "available",
     isPublished: b.isPublished ?? true,
     viewCount: b.viewCount,

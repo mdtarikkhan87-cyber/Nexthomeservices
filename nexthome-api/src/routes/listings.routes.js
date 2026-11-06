@@ -6,7 +6,7 @@ const prisma = require("../lib/prisma");
 const { toListItem } = require("../lib/listing-view");
 const { ACTOR, getSaverIds, publishListingChange, publishListingRemoved, publishAdminQueueChange } = require("../lib/realtime");
 const { deriveListingTitle } = require("../lib/listing-title");
-const { authenticate, requireRole } = require("../middleware/auth.middleware");
+const { authenticate, requireRole, requireVerifiedRole } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
@@ -92,7 +92,8 @@ function checkValidation(req, res) {
 }
 
 // -----------------------------------------------------------------------
-// POST /listings — create a new listing. Landlord only.
+// POST /listings — create a new listing. Verified landlord only (an
+// unverified landlord gets 403; see requireVerifiedRole).
 // Starts as status "pending_review" — only becomes visible to the public
 // once an admin approves it (Phase 6). Landlords can still see their own
 // pending listings via GET /listings/mine.
@@ -101,6 +102,7 @@ router.post(
   "/",
   authenticate,
   requireRole("landlord"),
+  requireVerifiedRole("landlord"),
   [
     body("type").isIn(LISTING_TYPES),
     body("description").isString().isLength({ min: 10 }),

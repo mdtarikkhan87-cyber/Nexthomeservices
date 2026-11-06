@@ -53,12 +53,18 @@ interface NavMenuProps {
   triggerAriaLabel?: string;
   panelClassName?: string;
   /** Shown above and below the list, outside role="menu" (plain text is not a menu item). */
-  header?: ReactNode;
+  header?: ReactNode | ((api: { close: () => void }) => ReactNode);
   footer?: ReactNode;
   align?: "left" | "right";
   /** Open on pointer hover (mouse only), as well as on click and keyboard. */
   openOnHover?: boolean;
   children: ReactNode;
+}
+
+/** Renders a header that wants to be handed the menu's close function. A
+    component rather than a direct call, so the call happens in its own render. */
+function HeaderSlot({ render, onClose }: { render: (api: { close: () => void }) => ReactNode; onClose: () => void }) {
+  return <>{render({ close: onClose })}</>;
 }
 
 // A menu button + panel, built to the ARIA menu-button pattern:
@@ -245,7 +251,7 @@ export function NavMenu({
               align === "right" ? "right-0 origin-top-right" : "left-0 origin-top-left"
             } ${panelClassName}`}
           >
-            {header}
+            {typeof header === "function" ? <HeaderSlot render={header} onClose={() => close(true)} /> : header}
             <div role="menu" aria-labelledby={triggerId}>
               {children}
             </div>

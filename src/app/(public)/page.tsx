@@ -1,8 +1,8 @@
+import { QuickLinks } from "@/components/home/QuickLinks";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { Hero } from "@/components/home/Hero";
 import { CuratedListings } from "@/components/home/CuratedListings";
-import { TrustEditorial } from "@/components/home/TrustEditorial";
-import { ServicesBand } from "@/components/home/ServicesBand";
+import { SafetyCard } from "@/components/home/SafetyCard";
 import { AdCarousel } from "@/components/home/AdCarousel";
 import { Container } from "@/components/ui/Container";
 import { apiSearchListings } from "@/lib/listings-client";
@@ -80,6 +80,7 @@ export default async function HomePage() {
         <div className="relative z-10 -mt-10 pb-8 lg:pb-10">
           <Container>
             <SearchBar />
+            <QuickLinks />
 
             {listingsUnavailable && (
               <div role="status" className="mt-6">
@@ -103,8 +104,7 @@ export default async function HomePage() {
         </div>
       )}
 
-      <TrustEditorial />
-      <ServicesBand />
+      <SafetyCard />
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import { PropertyCard } from "@/components/property/PropertyCard";
 import { FilterPanel } from "@/components/property/FilterPanel";
+import { MoreFiltersPanel } from "@/components/property/MoreFiltersPanel";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -21,7 +23,7 @@ import {
   subscribeStoredMode,
   writeStoredMode,
 } from "@/lib/listings-mode";
-import { Amenity, ListingType, PropertyListing } from "@/lib/types";
+import { ListingType, PropertyListing } from "@/lib/types";
 import {
   ActiveChip,
   EMPTY_FILTERS,
@@ -100,6 +102,10 @@ export function PropertyBrowser() {
   // with their filters already applied.
   const [filters, setFilters] = useState<ListingFilters>(() => filtersFromParams(searchParams));
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // The More filters panel. `?filters=open` (the homepage's "More filters")
+  // opens it on arrival, on every screen size.
+  const [moreOpen, setMoreOpen] = useState(() => searchParams.get("filters") === "open");
+  useBodyScrollLock(moreOpen);
 
   // MODE RESOLUTION, in precedence order:
   //
@@ -176,15 +182,6 @@ export function PropertyBrowser() {
     []
   );
 
-  const toggleAmenity = useCallback((a: Amenity) => {
-    setFilters((prev) => ({
-      ...prev,
-      amenities: prev.amenities.includes(a)
-        ? prev.amenities.filter((x) => x !== a)
-        : [...prev.amenities, a],
-    }));
-  }, []);
-
   const clearAll = useCallback(() => setFilters({ ...EMPTY_FILTERS }), []);
 
   const clearChip = useCallback((chip: ActiveChip) => {
@@ -219,7 +216,7 @@ export function PropertyBrowser() {
       mode={mode}
       filters={filters}
       set={set}
-      toggleAmenity={toggleAmenity}
+      onOpenMore={() => setMoreOpen(true)}
     />
   );
 
@@ -285,6 +282,18 @@ export function PropertyBrowser() {
             {panel}
           </div>
         </aside>
+
+        {moreOpen && (
+          <MoreFiltersPanel
+            mode={mode}
+            initial={filters}
+            onClose={() => setMoreOpen(false)}
+            onApply={(next) => {
+              setFilters(next);
+              setMoreOpen(false);
+            }}
+          />
+        )}
 
         {/* Mobile drawer. Height-capped and scrollable because the advanced
             section can now exceed a phone viewport — without this the

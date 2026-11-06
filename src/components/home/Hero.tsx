@@ -22,13 +22,11 @@ export function Hero() {
           {/* Two clamps, one per tier, so both lines always fit beside the
               paragraph: 40–60px on phones and tablets, 56–80px from `lg`. */}
           <h1 className="text-balance text-[clamp(2.5rem,9vw,3.75rem)] font-bold leading-[1.05] tracking-[-0.02em] text-[var(--color-text-primary)] lg:shrink-0 lg:text-[clamp(3.5rem,6vw,5rem)]">
-            Find your next home,
-            <br className="hidden md:block" /> with confidence.
+            Find Your Next Home
           </h1>
 
           <p className="mt-5 max-w-[30ch] text-base text-[var(--color-text-secondary)] lg:mt-3 lg:shrink-0">
-            Browse verified listings, message landlords directly, and keep track of everything you&apos;re
-            interested in from one account.
+            Explore properties for sale and rent, or find local professionals for your home.
           </p>
         </div>
       </Container>

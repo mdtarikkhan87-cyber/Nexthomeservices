@@ -15,7 +15,7 @@ export default function AdminComplaintsPage() {
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">Complaints</h1>
       <p className="mt-1.5 text-[var(--color-text-secondary)]">
-        Reports submitted through the public Report a concern form.
+        Reports submitted through the public Report a Concern form.
       </p>
 
       {complaints.length === 0 ? (

@@ -48,7 +48,7 @@ const LINK_GROUPS: { title: string; links: { href: string; label: string }[] }[]
     links: [
       { href: "/help", label: "Help & FAQ" },
       { href: "/feedback", label: "Send feedback" },
-      { href: "/complaints", label: "Report a concern" },
+      { href: "/complaints", label: "Report a Concern" },
     ],
   },
 ];

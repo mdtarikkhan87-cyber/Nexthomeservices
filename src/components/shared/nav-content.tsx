@@ -1,8 +1,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ReactNode } from "react";
-import { IconCheck, IconShield } from "@/components/ui/icons";
+import type { ComponentType, SVGProps } from "react";
+import {
+  IconAlert,
+  IconCheck,
+  IconClose,
+  IconHelp,
+  IconHome,
+  IconPlusSquare,
+  IconShield,
+  IconShieldCheck,
+  IconWrench,
+} from "@/components/ui/icons";
 import { MenuButton, MenuDivider, MenuLabel, MenuLink } from "@/components/shared/NavMenu";
 import { useAuth } from "@/lib/auth-context";
 import { useNotifications } from "@/lib/notification-context";
@@ -14,21 +24,102 @@ import type { RoleName } from "@/lib/types";
 //
 // Every destination below is an existing route or query param:
 //   /listings?mode=rent | sale      the Rent/Buy toggle on the Listings page
-//   /#browse-by                     the landing page's "Browse by" location cards
+//   /listings#f-state               the State filter at the top of the Listings filters
 //   /listings?mode=rent&duration=…  the Short-Term / Long-Term filter
 //   /listings?verified=1            the "Verified listings only" filter
+//   /services                       the Find Home Services directory
+//   /dashboard/listings/new         List Your Property (see MAIN_MENU_GROUPS)
+//   /verification                   How Verification Works
+//   /complaints                     Report a Concern
 //   /help                           "Help & FAQ" (the product's only FAQ page)
-//   /#how-it-works                  the landing page's trust-process section
 //   /dashboard, /admin, /account    the account destinations
 //
 // Left out because no page or section exists for them: "Contact". (Feedback and
 // Report a Concern exist, but they are forms, not a contact page.)
 
-export const MORE_LINKS = [
-  { href: "/#how-it-works", label: "How it works", description: "The checks behind every listing" },
-  { href: "/listings?verified=1", label: "Verified listings", description: "Only landlords we have checked" },
-  { href: "/help", label: "FAQs", description: "Answers to common questions" },
-] as const;
+// The main menu (the desktop "Menu" dropdown and the phone/tablet hamburger
+// sheet are built from this one list). Three groups, in this order:
+//
+//   (unlabelled)     Discover Properties · Find Home Services · List Your Property
+//   Trust & Safety   How Verification Works · Report a Concern
+//   Support          Help & FAQ
+//
+// What the old menu held, and where it went:
+//   How it works        -> How Verification Works (the dedicated page)
+//   FAQs                -> Help & FAQ
+//   Verified listings   -> the "Verified listings only" filter on /listings
+//   Rent / Buy / All    -> the Rent/Buy toggle on /listings (Discover Properties);
+//                          the desktop "Listings" dropdown still lists them
+//
+// "List Your Property" is the same destination for everyone: the dashboard's
+// new-listing page already shows a signed-out visitor the login gate (and
+// returns them), offers a signed-in non-landlord "Add the Landlord role", and
+// opens the form for a landlord.
+export const MAIN_MENU_GROUPS: {
+  label?: string;
+  links: { href: string; label: string; Icon: ComponentType<SVGProps<SVGSVGElement>> }[];
+}[] = [
+  {
+    links: [
+      { href: "/listings", label: "Discover Properties", Icon: IconHome },
+      { href: "/services", label: "Find Home Services", Icon: IconWrench },
+      { href: "/dashboard/listings/new", label: "List Your Property", Icon: IconPlusSquare },
+    ],
+  },
+  {
+    label: "Trust & Safety",
+    links: [
+      { href: "/verification", label: "How Verification Works", Icon: IconShieldCheck },
+      { href: "/complaints", label: "Report a Concern", Icon: IconAlert },
+    ],
+  },
+  {
+    label: "Support",
+    links: [{ href: "/help", label: "Help & FAQ", Icon: IconHelp }],
+  },
+];
+
+/** The menu panel's title row: "Menu" on the left, a close button on the right.
+    On phones and tablets the panel covers the header bar, so this row is sized
+    to the bar and its close button sits exactly where the menu button was. */
+export function MenuPanelHeader({ onClose, className = "" }: { onClose: () => void; className?: string }) {
+  return (
+    <div className={`flex items-center justify-between border-b border-[var(--color-border-hairline)] ${className}`}>
+      <p className="text-lg font-bold text-[var(--color-dark-blue)]">Menu</p>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close menu"
+        className="flex h-11 w-11 items-center justify-center rounded-full! border border-[var(--color-border-default)] text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)]"
+      >
+        <IconClose className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
+
+function MainMenuGroups({ inMenu, pathname }: { inMenu: boolean; pathname: string }) {
+  return (
+    <>
+      {MAIN_MENU_GROUPS.map((group, i) => (
+        <div key={group.label ?? "main"} role={inMenu ? "group" : undefined} aria-label={group.label}>
+          {i > 0 && <MenuDivider />}
+          {group.label && <MenuLabel>{group.label}</MenuLabel>}
+          {group.links.map((l) => (
+            <MenuLink
+              key={l.href}
+              inMenu={inMenu}
+              href={l.href}
+              label={l.label}
+              active={l.href === pathname}
+              icon={<l.Icon aria-hidden className="h-5 w-5" />}
+            />
+          ))}
+        </div>
+      ))}
+    </>
+  );
+}
 
 /** Every listing is reviewed before it goes live — said once, in the menu footer. */
 export function ReviewNote({ className = "" }: { className?: string }) {
@@ -65,7 +156,7 @@ export function ListingsMenuContent() {
 
       <div role="group" aria-label="Browse by location">
         <MenuLabel>Browse by location</MenuLabel>
-        <MenuLink href="/#browse-by" label="Choose a location" description="States with homes right now" />
+        <MenuLink href="/listings#f-state" label="Choose a location" description="Filter listings by state and area" />
       </div>
 
       <div role="group" aria-label="Stay length" className="md:col-span-2 lg:col-span-1">
@@ -79,15 +170,13 @@ export function ListingsMenuContent() {
 }
 
 // ---------------------------------------------------------------------------
-// Menu (secondary links)
+// Menu (the main menu)
 // ---------------------------------------------------------------------------
 
 export function MoreMenuContent({ pathname }: { pathname: string }) {
   return (
     <div className="p-2">
-      {MORE_LINKS.map((l) => (
-        <MenuLink key={l.href} href={l.href} label={l.label} description={l.description} active={l.href === pathname} />
-      ))}
+      <MainMenuGroups inMenu pathname={pathname} />
     </div>
   );
 }
@@ -211,39 +300,16 @@ export function AccountHeader() {
 // Mobile sheet
 // ---------------------------------------------------------------------------
 
-function SheetSection({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <section className="px-3 pb-2 pt-3" aria-label={label}>
-      <MenuLabel>{label}</MenuLabel>
-      {children}
-    </section>
-  );
-}
-
 /** The site navigation, as one scrolling sheet of 48px targets (the hamburger
     menu on phones and tablets). Account controls are NOT here — see
     MobileAccountPanel. */
-export function MobileSheetContent({ pathname }: { pathname: string }) {
+export function MobileSheetContent({ pathname, onClose }: { pathname: string; onClose: () => void }) {
   return (
     <div className="pb-2">
-      <SheetSection label="Listings">
-        <MenuLink inMenu={false} href="/listings?mode=rent" label="Rent" />
-        <MenuLink inMenu={false} href="/listings?mode=sale" label="Buy" />
-        <MenuLink inMenu={false} href="/listings" label="All listings" />
-      </SheetSection>
-
-      <SheetSection label="More">
-        {MORE_LINKS.map((l) => (
-          <MenuLink
-            key={l.href}
-            inMenu={false}
-            href={l.href}
-            label={l.label}
-            description={l.description}
-            active={l.href === pathname}
-          />
-        ))}
-      </SheetSection>
+      <MenuPanelHeader onClose={onClose} className="h-16 px-4 sm:px-6 md:h-20" />
+      <div className="px-3 pt-3">
+        <MainMenuGroups inMenu={false} pathname={pathname} />
+      </div>
 
       <ReviewNote className="px-6 pb-3 pt-4" />
     </div>

@@ -4,7 +4,7 @@ const { body, query, param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
 const { ACTOR, EVENTS, emitToUser, publishServiceChange, publishAdminQueueChange } = require("../lib/realtime");
-const { authenticate, requireRole } = require("../middleware/auth.middleware");
+const { authenticate, requireRole, requireVerifiedRole } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
@@ -36,13 +36,14 @@ function optionalAuthenticate(req, res, next) {
 }
 
 // -----------------------------------------------------------------------
-// POST /services — create a service listing. Service Provider only.
+// POST /services — create a service listing. Verified service provider only.
 // Starts as "pending_review" — same admin-approval gate as Listings.
 // -----------------------------------------------------------------------
 router.post(
   "/",
   authenticate,
   requireRole("service_provider"),
+  requireVerifiedRole("service_provider"),
   [
     body("category").isString().notEmpty(),
     body("description").isString().isLength({ min: 10 }),
