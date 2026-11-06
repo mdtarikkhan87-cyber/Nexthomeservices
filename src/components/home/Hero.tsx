@@ -27,8 +27,8 @@ export function Hero() {
           </h1>
 
           <p className="mt-5 max-w-[30ch] text-base text-[var(--color-text-secondary)] lg:mt-3 lg:shrink-0">
-            Browse verified listings, message landlords directly, and keep track of everything you&apos;re
-            interested in from one account.
+            Browse verified property listings, connect directly with landlords, and keep track of properties
+            that interest you, all from one account.
           </p>
         </div>
       </Container>
