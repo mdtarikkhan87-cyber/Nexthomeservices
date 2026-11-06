@@ -307,3 +307,34 @@ export function IconFilter(props: IconProps) {
     </svg>
   );
 }
+
+export function IconShieldCheck(props: IconProps) {
+  return (
+    <svg {...strokeProps} aria-hidden="true" {...props}>
+      <path d="M12 3 5 6v5.5c0 4.2 2.9 8 7 9.5 4.1-1.5 7-5.3 7-9.5V6z" />
+      <path d="m9 12 2.2 2.2L15.5 10" />
+    </svg>
+  );
+}
+
+/** An identity document: a card with a portrait and two lines of text. */
+export function IconIdCard(props: IconProps) {
+  return (
+    <svg {...strokeProps} aria-hidden="true" {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="9" cy="11" r="2" />
+      <path d="M6.5 16c.4-1.4 1.4-2 2.5-2s2.1.6 2.5 2M14.5 10h3.5M14.5 14h3.5" />
+    </svg>
+  );
+}
+
+/** A reviewed listing: a clipboard with a tick. */
+export function IconClipboardCheck(props: IconProps) {
+  return (
+    <svg {...strokeProps} aria-hidden="true" {...props}>
+      <rect x="5" y="4.5" width="14" height="16.5" rx="2" />
+      <path d="M9 4.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v.5" />
+      <path d="m9 13 2.2 2.2L15.5 11" />
+    </svg>
+  );
+}

@@ -2,7 +2,7 @@ import { QuickLinks } from "@/components/home/QuickLinks";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { Hero } from "@/components/home/Hero";
 import { CuratedListings } from "@/components/home/CuratedListings";
-import { TrustEditorial } from "@/components/home/TrustEditorial";
+import { SafetyCard } from "@/components/home/SafetyCard";
 import { AdCarousel } from "@/components/home/AdCarousel";
 import { Container } from "@/components/ui/Container";
 import { apiSearchListings } from "@/lib/listings-client";
@@ -104,7 +104,7 @@ export default async function HomePage() {
         </div>
       )}
 
-      <TrustEditorial />
+      <SafetyCard />
     </div>
   );
 }

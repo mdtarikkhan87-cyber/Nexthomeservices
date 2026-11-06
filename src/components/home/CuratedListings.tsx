@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PropertyCard } from "@/components/property/PropertyCard";
 import { Container } from "@/components/ui/Container";
+import { FOCUS_RING } from "@/components/ui/SelectField";
 import { IconArrowRight } from "@/components/ui/icons";
 import { ListingType, PropertyListing } from "@/lib/types";
 import { Eyebrow } from "./Eyebrow";
@@ -77,9 +78,25 @@ export function CuratedListings({ listings }: { listings: PropertyListing[] }) {
             </div>
           </div>
 
-          {/* One feature plate (2 cols) + supporting cards. A plain single
-              column on phones, where any asymmetry would just be arbitrary. */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+          {/* PHONES: a horizontal slider of equal cards (scroll-snap, the next
+              card peeks to show there is more), instead of a tall vertical
+              stack with a 420px feature plate. Native scrolling, so swipe,
+              trackpad and keyboard all work without a carousel library. */}
+          <div
+            role="region"
+            aria-label="Recently listed homes"
+            tabIndex={0}
+            className={`-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-4 [scrollbar-width:none] sm:-mx-6 sm:px-6 sm:scroll-px-6 md:hidden ${FOCUS_RING}`}
+          >
+            {filtered.map((l) => (
+              <div key={l.id} className="w-[82%] max-w-[22rem] shrink-0 snap-start">
+                <PropertyCard listing={l} />
+              </div>
+            ))}
+          </div>
+
+          {/* TABLETS AND UP: one feature plate (2 cols) + supporting cards. */}
+          <div className="hidden grid-cols-1 gap-6 md:grid md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
             <div className="md:col-span-2">
               <PropertyCard listing={feature} featured />
             </div>
