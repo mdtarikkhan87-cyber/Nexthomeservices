@@ -6,8 +6,12 @@ import {
   IconCheck,
   IconClipboardCheck,
   IconClose,
-  IconIdCard,
+  IconHelp,
+  IconInfo,
   IconMessageCircle,
+  IconShieldCheck,
+  IconUser,
+  IconXCircle,
 } from "@/components/ui/icons";
 
 export const metadata: Metadata = {
@@ -60,6 +64,25 @@ function Section({
       </div>
       <div className="mt-5 flex flex-col gap-4 text-[var(--color-text-secondary)]">{children}</div>
     </section>
+  );
+}
+
+type IconType = (props: SVGProps<SVGSVGElement>) => ReactNode;
+
+/** A section heading with its icon in a tile, used below the three numbered cards. */
+function IconHeading({ id, Icon, children }: { id: string; Icon: IconType; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span
+        aria-hidden
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-surface-dense)] text-[var(--color-brand-primary-text)]"
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+      <h2 id={id} className="u-heading text-2xl text-[var(--color-text-primary)] sm:text-3xl">
+        {children}
+      </h2>
+    </div>
   );
 }
 
@@ -126,7 +149,7 @@ export default function VerificationPage() {
         </p>
 
         <div className="mt-10 flex flex-col gap-6">
-          <Section n={1} title="Identity Checks" Icon={IconIdCard}>
+          <Section n={1} title="Identity Checks" Icon={IconUser}>
             <p>
               Before landlords and service providers can publish listings, they must verify their contact details
               and submit a document for review.
@@ -200,9 +223,9 @@ export default function VerificationPage() {
         </p>
 
         <section className="mt-14" aria-labelledby="badge">
-          <h2 id="badge" className="u-heading text-2xl text-[var(--color-text-primary)] sm:text-3xl">
+          <IconHeading id="badge" Icon={IconShieldCheck}>
             What Does the Verified Badge Mean?
-          </h2>
+          </IconHeading>
           <p className="mt-3 max-w-xl text-[var(--color-text-primary)]">
             A Verified badge means that a listing has been reviewed and approved by the NextHome team.
           </p>
@@ -232,7 +255,10 @@ export default function VerificationPage() {
           </div>
 
           <div className="mt-6 rounded-2xl bg-[color-mix(in_srgb,var(--color-light-blue)_16%,var(--color-surface-raised))] p-4 sm:p-5">
-            <h3 className="font-bold text-[var(--color-text-primary)]">Before making any payment</h3>
+            <h3 className="flex items-center gap-2 font-bold text-[var(--color-text-primary)]">
+              <IconInfo aria-hidden className="h-5 w-5 shrink-0 text-[var(--color-brand-primary-text)]" />
+              Before making any payment
+            </h3>
             <p className="mt-1.5 text-[var(--color-text-secondary)]">
               We recommend viewing the property and ensuring that all agreed terms are confirmed in writing before
               making any payment.
@@ -241,9 +267,9 @@ export default function VerificationPage() {
         </section>
 
         <section className="mt-14" aria-labelledby="rejected">
-          <h2 id="rejected" className="u-heading text-2xl text-[var(--color-text-primary)] sm:text-3xl">
+          <IconHeading id="rejected" Icon={IconXCircle}>
             What Happens if Your Verification Is Rejected?
-          </h2>
+          </IconHeading>
           <p className="mt-3 max-w-xl text-[var(--color-text-secondary)]">
             If your verification document is not approved, your account status will return to Setup Incomplete,
             and the rejected document will be removed from your submission.
@@ -268,9 +294,9 @@ export default function VerificationPage() {
         </section>
 
         <section className="mt-14 border-t border-[var(--color-border-hairline)] pt-8" aria-labelledby="more-help">
-          <h2 id="more-help" className="u-heading text-2xl text-[var(--color-text-primary)]">
+          <IconHeading id="more-help" Icon={IconHelp}>
             Need More Help?
-          </h2>
+          </IconHeading>
           <p className="mt-3 max-w-xl text-[var(--color-text-secondary)]">
             Visit our Help &amp; FAQ page for answers to other questions about using NextHome.
           </p>

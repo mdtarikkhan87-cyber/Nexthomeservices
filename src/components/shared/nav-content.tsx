@@ -1,7 +1,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { IconCheck, IconShield } from "@/components/ui/icons";
+import type { ComponentType, SVGProps } from "react";
+import {
+  IconAlert,
+  IconCheck,
+  IconClose,
+  IconHelp,
+  IconHome,
+  IconPlusSquare,
+  IconShield,
+  IconShieldCheck,
+  IconWrench,
+} from "@/components/ui/icons";
 import { MenuButton, MenuDivider, MenuLabel, MenuLink } from "@/components/shared/NavMenu";
 import { useAuth } from "@/lib/auth-context";
 import { useNotifications } from "@/lib/notification-context";
@@ -46,27 +57,46 @@ import type { RoleName } from "@/lib/types";
 // opens the form for a landlord.
 export const MAIN_MENU_GROUPS: {
   label?: string;
-  links: { href: string; label: string }[];
+  links: { href: string; label: string; Icon: ComponentType<SVGProps<SVGSVGElement>> }[];
 }[] = [
   {
     links: [
-      { href: "/listings", label: "Discover Properties" },
-      { href: "/services", label: "Find Home Services" },
-      { href: "/dashboard/listings/new", label: "List Your Property" },
+      { href: "/listings", label: "Discover Properties", Icon: IconHome },
+      { href: "/services", label: "Find Home Services", Icon: IconWrench },
+      { href: "/dashboard/listings/new", label: "List Your Property", Icon: IconPlusSquare },
     ],
   },
   {
     label: "Trust & Safety",
     links: [
-      { href: "/verification", label: "How Verification Works" },
-      { href: "/complaints", label: "Report a Concern" },
+      { href: "/verification", label: "How Verification Works", Icon: IconShieldCheck },
+      { href: "/complaints", label: "Report a Concern", Icon: IconAlert },
     ],
   },
   {
     label: "Support",
-    links: [{ href: "/help", label: "Help & FAQ" }],
+    links: [{ href: "/help", label: "Help & FAQ", Icon: IconHelp }],
   },
 ];
+
+/** The menu panel's title row: "Menu" on the left, a close button on the right.
+    On phones and tablets the panel covers the header bar, so this row is sized
+    to the bar and its close button sits exactly where the menu button was. */
+export function MenuPanelHeader({ onClose, className = "" }: { onClose: () => void; className?: string }) {
+  return (
+    <div className={`flex items-center justify-between border-b border-[var(--color-border-hairline)] ${className}`}>
+      <p className="text-lg font-bold text-[var(--color-dark-blue)]">Menu</p>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close menu"
+        className="flex h-11 w-11 items-center justify-center rounded-full! border border-[var(--color-border-default)] text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)]"
+      >
+        <IconClose className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
 
 function MainMenuGroups({ inMenu, pathname }: { inMenu: boolean; pathname: string }) {
   return (
@@ -76,7 +106,14 @@ function MainMenuGroups({ inMenu, pathname }: { inMenu: boolean; pathname: strin
           {i > 0 && <MenuDivider />}
           {group.label && <MenuLabel>{group.label}</MenuLabel>}
           {group.links.map((l) => (
-            <MenuLink key={l.href} inMenu={inMenu} href={l.href} label={l.label} active={l.href === pathname} />
+            <MenuLink
+              key={l.href}
+              inMenu={inMenu}
+              href={l.href}
+              label={l.label}
+              active={l.href === pathname}
+              icon={<l.Icon aria-hidden className="h-5 w-5" />}
+            />
           ))}
         </div>
       ))}
@@ -266,9 +303,10 @@ export function AccountHeader() {
 /** The site navigation, as one scrolling sheet of 48px targets (the hamburger
     menu on phones and tablets). Account controls are NOT here — see
     MobileAccountPanel. */
-export function MobileSheetContent({ pathname }: { pathname: string }) {
+export function MobileSheetContent({ pathname, onClose }: { pathname: string; onClose: () => void }) {
   return (
     <div className="pb-2">
+      <MenuPanelHeader onClose={onClose} className="h-16 px-4 sm:px-6 md:h-20" />
       <div className="px-3 pt-3">
         <MainMenuGroups inMenu={false} pathname={pathname} />
       </div>

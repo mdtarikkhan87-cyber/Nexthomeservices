@@ -14,6 +14,7 @@ import {
   AccountItems,
   ListingsMenuContent,
   MobileAccountPanel,
+  MenuPanelHeader,
   MobileSheetContent,
   MoreMenuContent,
   ReviewNote,
@@ -367,6 +368,7 @@ export function Header() {
                 </>
               )}
               panelClassName="w-[19rem]"
+              header={({ close }) => <MenuPanelHeader onClose={close} className="px-5 py-3" />}
             >
               <MoreMenuContent pathname={pathname} />
             </NavMenu>
@@ -544,9 +546,9 @@ export function Header() {
           onClick={(e) => {
             if ((e.target as HTMLElement).closest("a[href], button")) sheet.hide();
           }}
-          className="u-menu-panel absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] origin-top overflow-y-auto overscroll-contain rounded-b-3xl border-t border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] shadow-[0_24px_60px_-16px_rgba(23,42,58,0.32)] lg:hidden"
+          className="u-menu-panel absolute inset-x-0 top-0 max-h-[100dvh] origin-top overflow-y-auto overscroll-contain rounded-b-3xl bg-[var(--color-surface-raised)] shadow-[0_24px_60px_-16px_rgba(23,42,58,0.32)] lg:hidden"
         >
-          <MobileSheetContent pathname={pathname} />
+          <MobileSheetContent pathname={pathname} onClose={() => sheet.hide()} />
         </div>
       )}
 
