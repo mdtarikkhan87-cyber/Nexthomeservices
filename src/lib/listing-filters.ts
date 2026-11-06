@@ -21,6 +21,26 @@ import { isLgaInState } from "./nigeria-locations";
 // is how filter systems drift into disagreeing with themselves.
 // ---------------------------------------------------------------------------
 
+/**
+ * The property-type buttons in the More filters panel group the six stored
+ * types into the three a searcher thinks in. `propertyType` in the filters (and
+ * `ptype` in the URL) holds either a group key below or, for older links, one
+ * exact stored type.
+ */
+export const PROPERTY_GROUPS = {
+  house: { label: "House", types: ["duplex", "terrace", "detached"] },
+  flat: { label: "Flat / Apartment", types: ["apartment", "studio"] },
+  bungalow: { label: "Bungalow", types: ["bungalow"] },
+} as const satisfies Record<string, { label: string; types: readonly PropertyType[] }>;
+export type PropertyGroup = keyof typeof PROPERTY_GROUPS;
+
+export function isPropertyGroup(v: string): v is PropertyGroup {
+  return v in PROPERTY_GROUPS;
+}
+
+/** "New listings only" means created within this many days. */
+export const NEW_LISTING_DAYS = 14;
+
 export type SortKey = "recent" | "price-asc" | "price-desc" | "views";
 
 /**
@@ -61,6 +81,8 @@ export interface ListingFilters {
   /** AND semantics: a listing must have every selected amenity. */
   amenities: Amenity[];
   verifiedOnly: boolean;
+  /** "" = any listing; "new" = created in the last NEW_LISTING_DAYS days. */
+  listingType: string;
   sort: SortKey;
 }
 
@@ -75,6 +97,7 @@ export const EMPTY_FILTERS: ListingFilters = {
   furnishing: "",
   amenities: [],
   verifiedOnly: false,
+  listingType: "",
   sort: "recent",
 };
 
@@ -122,6 +145,7 @@ export function filtersFromParams(params: URLSearchParams): ListingFilters {
     furnishing: params.get("furnishing") ?? "",
     amenities,
     verifiedOnly: params.get("verified") === "1",
+    listingType: params.get("listed") === "new" ? "new" : "",
     sort: sort && sort in SORT_LABELS ? (sort as SortKey) : "recent",
   };
 }
@@ -138,6 +162,7 @@ export function filtersToParams(f: ListingFilters): URLSearchParams {
   if (f.furnishing) p.set("furnishing", f.furnishing);
   if (f.amenities.length) p.set("amenities", f.amenities.join(","));
   if (f.verifiedOnly) p.set("verified", "1");
+  if (f.listingType) p.set("listed", f.listingType);
   if (f.sort !== "recent") p.set("sort", f.sort);
   return p;
 }
@@ -181,7 +206,12 @@ export function matchesFilters(listing: PropertyListing, mode: ListingType, f: L
   if (mode === "rent" && f.duration && listing.rentDuration !== f.duration) return false;
   if (mode === "rent" && f.furnishing && listing.furnishing !== f.furnishing) return false;
 
-  if (f.propertyType && listing.propertyType !== f.propertyType) return false;
+  if (f.propertyType) {
+    const group = isPropertyGroup(f.propertyType) ? PROPERTY_GROUPS[f.propertyType].types : null;
+    const type = listing.propertyType;
+    if (!type) return false;
+    if (group ? !(group as readonly string[]).includes(type) : type !== f.propertyType) return false;
+  }
 
   if (f.amenities.length) {
     const have = listing.amenities ?? [];
@@ -189,6 +219,12 @@ export function matchesFilters(listing: PropertyListing, mode: ListingType, f: L
   }
 
   if (f.verifiedOnly && !listing.verified) return false;
+
+  // A listing with no recorded creation date is never "new".
+  if (f.listingType === "new") {
+    const created = listing.createdAt ? Date.parse(listing.createdAt) : NaN;
+    if (!Number.isFinite(created) || Date.now() - created > NEW_LISTING_DAYS * 24 * 60 * 60 * 1000) return false;
+  }
 
   return true;
 }
@@ -225,18 +261,24 @@ export function activeChips(f: ListingFilters, mode: ListingType, priceLabel: (v
   if (f.bedrooms) chips.push({ key: "bedrooms", label: `${f.bedrooms}+ bed` });
   if (f.bathrooms) chips.push({ key: "bathrooms", label: `${f.bathrooms}+ bath` });
   if (f.propertyType)
-    chips.push({ key: "propertyType", label: PROPERTY_TYPE_LABELS[f.propertyType as PropertyType] });
+    chips.push({
+      key: "propertyType",
+      label: isPropertyGroup(f.propertyType)
+        ? PROPERTY_GROUPS[f.propertyType].label
+        : PROPERTY_TYPE_LABELS[f.propertyType as PropertyType] ?? f.propertyType,
+    });
   if (mode === "rent" && f.duration)
     chips.push({ key: "duration", label: f.duration === "short-term" ? "Short-Term" : "Long-Term" });
   if (mode === "rent" && f.furnishing)
     chips.push({ key: "furnishing", label: FURNISHING_LABELS[f.furnishing as FurnishingStatus] });
   f.amenities.forEach((a) => chips.push({ key: "amenities", value: a, label: AMENITY_LABELS[a] }));
   if (f.verifiedOnly) chips.push({ key: "verifiedOnly", label: "Verified only" });
+  if (f.listingType === "new") chips.push({ key: "listingType", label: "New listings" });
   return chips;
 }
 
 /**
- * Count of active filters that live in the collapsed "More filters" section.
+ * Count of active filters that live in the More filters panel.
  *
  * This must stay in step with what FilterPanel actually renders there —
  * `duration` is displayed inside that section, so it has to be counted here
@@ -251,6 +293,7 @@ export function advancedCount(f: ListingFilters, mode: ListingType) {
   if (mode === "rent" && f.duration) n++;
   if (mode === "rent" && f.furnishing) n++;
   if (f.verifiedOnly) n++;
+  if (f.listingType) n++;
   n += f.amenities.length;
   return n;
 }

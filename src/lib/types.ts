@@ -247,6 +247,8 @@ export interface PropertyListing {
   galleryCount?: number;
   verified: boolean;
   status: ContentItemState;
+  /** When the listing was created (ISO date). Drives the "New listings only" filter. */
+  createdAt?: string;
   /** Absent means "available". */
   availability?: ListingAvailability;
   /** Owner-controlled visibility. Absent means published; `false` hides the
