@@ -24,15 +24,15 @@ export function SafetyCard() {
     <section id="how-it-works" className="bg-[var(--color-surface-raised)] py-12 md:py-16">
       <Container>
         <Reveal>
-          <div className="mx-auto max-w-3xl rounded-[var(--radius-feature)] bg-[var(--color-surface-inverted)] p-6 text-center sm:p-10">
+          <div className="mx-auto max-w-3xl rounded-[var(--radius-feature)] border border-[var(--color-border-hairline)] bg-[linear-gradient(160deg,color-mix(in_srgb,var(--color-light-blue)_24%,var(--color-surface-raised))_0%,var(--color-surface-raised)_70%)] p-6 text-center shadow-[var(--elevation-xs)] sm:p-10">
             <span
               aria-hidden
-              className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-surface-inverted-raised)] text-[var(--color-brand-accent)]"
+              className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-light-blue)_32%,var(--color-surface-raised))] text-[var(--color-brand-primary)]"
             >
               <IconShieldCheck className="h-6 w-6" />
             </span>
-            <h2 className="u-heading mt-4 text-2xl text-white sm:text-3xl">Your Safety Matters</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[var(--color-text-inverted-secondary)] sm:text-base">
+            <h2 className="u-heading mt-4 text-2xl text-[var(--color-text-primary)] sm:text-3xl">Your Safety Matters</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[var(--color-text-body)] sm:text-base">
               We review account information and property listings before publication to help you search with
               greater confidence.
             </p>
@@ -41,22 +41,22 @@ export function SafetyCard() {
               {POINTS.map(({ label, Icon }) => (
                 <li
                   key={label}
-                  className="flex flex-col items-center gap-2.5 rounded-2xl border border-[var(--color-border-inverted)] px-2 py-4 sm:px-4"
+                  className="flex flex-col items-center gap-2.5 rounded-2xl bg-[color-mix(in_srgb,var(--color-light-blue)_16%,var(--color-surface-raised))] px-2 py-4 sm:px-4"
                 >
-                  <Icon className="h-6 w-6 text-[var(--color-brand-accent)]" />
-                  <span className="text-xs font-bold leading-tight text-white sm:text-sm">{label}</span>
+                  <Icon className="h-6 w-6 text-[var(--color-brand-primary)]" />
+                  <span className="text-xs font-bold leading-tight text-[var(--color-text-primary)] sm:text-sm">{label}</span>
                 </li>
               ))}
             </ul>
 
-            <p className="mx-auto mt-6 max-w-xl text-xs leading-relaxed text-[var(--color-text-inverted-secondary)]">
+            <p className="mx-auto mt-6 max-w-xl text-xs leading-relaxed text-[var(--color-text-body)]">
               Review and approval do not guarantee that every listing detail is accurate or that a property has
               been physically inspected.
             </p>
 
             <Link
               href="/verification"
-              className="group mt-6 inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-[var(--color-off-white)] px-5 py-3 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-[var(--motion-duration-short)] hover:bg-white"
+              className="group mt-6 inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-[var(--color-dark-blue)] px-5 py-3 text-sm font-bold text-white transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-deep-blue)]"
             >
               How Verification Works
               <IconArrowRight className="h-3.5 w-3.5 transition-transform duration-[var(--motion-duration-short)] group-hover:translate-x-0.5" />
