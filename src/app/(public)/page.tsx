@@ -3,7 +3,6 @@ import { SearchBar } from "@/components/shared/SearchBar";
 import { Hero } from "@/components/home/Hero";
 import { CuratedListings } from "@/components/home/CuratedListings";
 import { TrustEditorial } from "@/components/home/TrustEditorial";
-import { ServicesBand } from "@/components/home/ServicesBand";
 import { AdCarousel } from "@/components/home/AdCarousel";
 import { Container } from "@/components/ui/Container";
 import { apiSearchListings } from "@/lib/listings-client";
@@ -106,7 +105,6 @@ export default async function HomePage() {
       )}
 
       <TrustEditorial />
-      <ServicesBand />
     </div>
   );
 }

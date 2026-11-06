@@ -1,0 +1,55 @@
+import Image from "next/image";
+import { Eyebrow } from "@/components/home/Eyebrow";
+import { IconArrowRight } from "@/components/ui/icons";
+
+// The dark promo card at the top of the Find Home Services page: a photograph
+// under a Dark Blue scrim, the headline, one line of support and one button.
+// It is the page's <h1>, and the button jumps to the directory just below it
+// (the page's own `#directory` anchor) instead of linking back to itself.
+export function ServicesIntroCard() {
+  return (
+    <div className="u-clip-corner relative overflow-hidden rounded-3xl">
+      <div className="relative w-full">
+        <Image
+          src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=1800&q=70"
+          alt=""
+          fill
+          priority
+          sizes="(min-width: 1280px) 1280px, 100vw"
+          className="object-cover"
+        />
+        {/* Horizontal scrim: the text sits left, so the gradient runs
+            left-to-right rather than bottom-up. Dark Blue only. */}
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(94deg, color-mix(in srgb, var(--color-dark-blue) 93%, transparent) 0%, color-mix(in srgb, var(--color-dark-blue) 72%, transparent) 46%, color-mix(in srgb, var(--color-dark-blue) 22%, transparent) 78%, transparent 100%)",
+          }}
+        />
+
+        <div className="relative flex min-h-[22rem] flex-col justify-center p-7 sm:min-h-[26rem] sm:p-12 lg:p-16">
+          <div className="max-w-lg">
+            <Eyebrow onDark>Services</Eyebrow>
+            <h1 className="u-heading mt-3 text-3xl text-white sm:text-[2.75rem]">
+              Electricians, plumbers and more, checked by us
+            </h1>
+            <p className="mt-4 max-w-md text-[var(--color-off-white)]/85">
+              Find verified electricians, plumbers and other tradespeople for after you&apos;ve moved in. We check
+              them the same way we check landlords.
+            </p>
+
+            <a
+              href="#directory"
+              className="group mt-8 inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-[var(--color-off-white)] px-5 py-3 text-sm font-bold text-[var(--color-dark-blue)] transition-colors duration-[var(--motion-duration-short)] hover:bg-white"
+            >
+              Browse all services
+              <IconArrowRight className="h-3.5 w-3.5 transition-transform duration-[var(--motion-duration-short)] group-hover:translate-x-0.5" />
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
