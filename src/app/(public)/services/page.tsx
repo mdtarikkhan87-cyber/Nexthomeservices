@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ServiceDirectory } from "@/components/property/ServiceDirectory";
-import { ServicesIntroCard } from "@/components/services/ServicesIntroCard";
 
 export const metadata: Metadata = {
   title: "Local service providers | NextHome",
@@ -9,21 +8,27 @@ export const metadata: Metadata = {
 };
 
 // Dedicated Services route — service content only, no property listings.
-// The page shell (the intro card) stays a server component; the
+// The page shell (eyebrow / heading / intro) stays a server component; the
 // category filter and provider grid live in ServiceDirectory because they
 // need client state.
 export default function ServiceDirectoryPage() {
   return (
     <div className="mx-auto w-full max-w-[var(--width-page)] px-4 py-10 sm:px-6 sm:py-14">
-      <ServicesIntroCard />
+      <div className="border-b border-[var(--color-border-hairline)] pb-8">
+        <p className="u-label text-[var(--color-brand-primary-text)]">Services</p>
+        <h1 className="u-display mt-3 max-w-xl text-[2.25rem] text-[var(--color-text-primary)] sm:text-5xl">
+          Find a service provider
+        </h1>
+        <p className="mt-4 max-w-lg text-[var(--color-text-secondary)]">
+          Electricians, plumbers, mechanics and other tradespeople, checked the same way we check landlords.
+        </p>
+      </div>
 
       {/* useSearchParams needs a Suspense boundary in the App Router —
           without it the build fails when prerendering this page. */}
-      <div id="directory" className="mt-10 scroll-mt-24">
-        <Suspense fallback={null}>
-          <ServiceDirectory />
-        </Suspense>
-      </div>
+      <Suspense fallback={null}>
+        <ServiceDirectory />
+      </Suspense>
     </div>
   );
 }
