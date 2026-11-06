@@ -1,60 +1,113 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { ReactNode, SVGProps } from "react";
 import { Eyebrow } from "@/components/home/Eyebrow";
-import { IconArrowRight, IconCheck, IconClose } from "@/components/ui/icons";
+import {
+  IconCheck,
+  IconClipboardCheck,
+  IconClose,
+  IconIdCard,
+  IconMessageCircle,
+} from "@/components/ui/icons";
 
 export const metadata: Metadata = {
-  title: "How verification works | NextHome",
+  title: "How Verification Works | NextHome",
   description:
-    "How NextHome checks landlords, service providers and listings by hand before anything goes live, and what the Verified badge does and doesn't mean.",
+    "How NextHome reviews landlords, service providers and listings before they go live, and what the Verified badge does and does not mean.",
 };
 
-// Every statement below describes what the product does today (admin review of
-// trust documents and listings, listing-scoped messaging, the report form), and
-// deliberately promises nothing the code does not do: no turnaround time, no
-// written rejection reason, no guarantee about a listing's contents.
-const STEPS = [
-  {
-    title: "Identity checked",
-    body: [
-      "Before a landlord or service provider can list anything, they confirm their phone number and email, then upload a verification document for our team to review by hand. The upload form asks for an ID or a utility bill, as a photo or scan (JPG, PNG, WebP or GIF) or a PDF up to 10 MB.",
-      "Nothing is approved automatically. A person on our team opens each document and decides. Documents are stored privately and only our team can open them.",
-    ],
-  },
-  {
-    title: "Every listing reviewed",
-    body: [
-      "Our team checks each listing before it is first published. Nothing goes live automatically. The reviewer reads the description, looks through the photos and can see whether the landlord's account is verified, then approves or rejects the listing.",
-      "Approved listings are published with a Verified badge. Rejected listings are not shown to anyone. Service listings and adverts go through the same approve-or-reject step.",
-    ],
-  },
-  {
-    title: "Messages stay on the record",
-    body: [
-      "Conversations about a listing stay attached to that listing, so there is a clear record if something needs sorting out later.",
-    ],
-    after: (
-      <p className="mt-3 max-w-xl text-sm leading-relaxed text-[var(--color-text-inverted-secondary)]">
-        If something does go wrong, use{" "}
-        <Link href="/complaints" className="font-bold text-[var(--color-brand-accent)] hover:underline">
-          Report a concern
-        </Link>{" "}
-        and it goes to our team.
-      </p>
-    ),
-  },
-];
+// The copy on this page is supplied by the client and is used as given. The
+// structure around it (numbered sections, the light-blue "what you need to do"
+// boxes, the two-column badge lists) follows the client's mockup.
 
-const MEANS = [
-  "A person on our team reviewed the listing and approved it.",
-  "Landlords have to be verified before they can submit a listing, and the reviewer can see whether the account is.",
-];
+const BUTTON =
+  "inline-flex items-center justify-center rounded-[var(--radius-control)] bg-[var(--color-brand-primary)] px-5 py-2.5 text-base font-bold text-white shadow-[var(--elevation-xs)] transition-[background-color,box-shadow] duration-[var(--motion-duration-short)] hover:bg-[var(--color-brand-primary-hover)] hover:shadow-[var(--elevation-sm)]";
+const BUTTON_OUTLINE =
+  "inline-flex items-center justify-center rounded-[var(--radius-control)] border border-[var(--color-deep-blue)] px-5 py-2.5 text-base font-bold text-[var(--color-deep-blue)] transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-surface-dense)]";
 
-const DOES_NOT_MEAN = [
-  "That every detail in the listing is accurate.",
-  "That we have visited the property.",
-  "That the home is still available. Landlords update that themselves.",
-];
+function Section({
+  n,
+  title,
+  Icon,
+  children,
+}: {
+  n: number;
+  title: string;
+  Icon: (props: SVGProps<SVGSVGElement>) => ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      aria-labelledby={`step-${n}`}
+      className="rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-5 shadow-[var(--elevation-xs)] sm:p-8"
+    >
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className="u-numeric flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-brand-primary)] text-sm font-bold text-white"
+        >
+          {n}
+        </span>
+        <span
+          aria-hidden
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-surface-dense)] text-[var(--color-brand-primary-text)]"
+        >
+          <Icon className="h-5 w-5" />
+        </span>
+        <h2 id={`step-${n}`} className="u-heading text-xl text-[var(--color-text-primary)] sm:text-2xl">
+          {title}
+        </h2>
+      </div>
+      <div className="mt-5 flex flex-col gap-4 text-[var(--color-text-secondary)]">{children}</div>
+    </section>
+  );
+}
+
+function H3({ children }: { children: ReactNode }) {
+  return <h3 className="mt-2 font-bold text-[var(--color-text-primary)]">{children}</h3>;
+}
+
+/** The light-blue box: a short lead-in and numbered steps. */
+function StepsBox({ title, steps }: { title: string; steps: string[] }) {
+  return (
+    <div className="rounded-2xl bg-[color-mix(in_srgb,var(--color-light-blue)_16%,var(--color-surface-raised))] p-4 sm:p-5">
+      <p className="font-bold text-[var(--color-text-primary)]">{title}</p>
+      <ol className="mt-3 flex flex-col gap-2.5">
+        {steps.map((step, i) => (
+          <li key={step} className="flex items-start gap-3 text-[var(--color-text-secondary)]">
+            <span
+              aria-hidden
+              className="u-numeric mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-raised)] text-xs font-bold text-[var(--color-brand-primary-text)]"
+            >
+              {i + 1}
+            </span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function ListCard({ title, items, tone }: { title: string; items: string[]; tone: "yes" | "no" }) {
+  return (
+    <div className="rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-5 shadow-[var(--elevation-xs)]">
+      <h3 className="font-bold text-[var(--color-text-primary)]">{title}</h3>
+      <ul className="mt-3 flex flex-col gap-3">
+        {items.map((t) => (
+          <li key={t} className="flex items-start gap-2.5 text-sm text-[var(--color-text-secondary)]">
+            {tone === "yes" ? (
+              <IconCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-status-verified)]" />
+            ) : (
+              <IconClose aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-text-secondary)]" />
+            )}
+            {t}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function VerificationPage() {
   return (
@@ -62,108 +115,171 @@ export default function VerificationPage() {
       <div className="mx-auto max-w-3xl">
         <Eyebrow>Verification</Eyebrow>
         <h1 className="u-display mt-3 text-[2.25rem] text-[var(--color-text-primary)] sm:text-5xl">
-          How verification works
+          How Verification Works
         </h1>
-        <p className="mt-4 max-w-xl text-[var(--color-text-secondary)]">
-          NextHome reviews landlords, service providers and every listing before anything goes live. Here is
-          what that involves.
+        <p className="mt-4 max-w-xl text-lg text-[var(--color-text-primary)]">
+          At NextHome, we review landlords, service providers and listings before they go live.
+        </p>
+        <p className="mt-3 max-w-xl text-[var(--color-text-secondary)]">
+          Our verification process helps users make more informed decisions when searching for properties or
+          local services.
         </p>
 
-        <section
-          aria-label="The three checks"
-          className="mt-10 rounded-[var(--radius-feature)] bg-[var(--color-surface-inverted)] p-6 sm:p-10"
-        >
-          <ol>
-            {STEPS.map((step, i) => (
-              <li
-                key={step.title}
-                className="grid grid-cols-[2.5rem_1fr] gap-x-4 border-t border-[var(--color-border-inverted)] py-7 first:border-t-0 first:pt-0 last:pb-0 sm:grid-cols-[3.5rem_1fr]"
-              >
-                <span className="u-numeric text-sm font-bold text-[var(--color-brand-accent)]">
-                  {String(i + 1).padStart(2, "0")}
+        <div className="mt-10 flex flex-col gap-6">
+          <Section n={1} title="Identity Checks" Icon={IconIdCard}>
+            <p>
+              Before landlords and service providers can publish listings, they must verify their contact details
+              and submit a document for review.
+            </p>
+            <StepsBox
+              title="Here's what you need to do:"
+              steps={[
+                "Confirm your phone number and email address.",
+                "Upload an identification document or utility bill.",
+                "Wait for our team to review your submission.",
+              ]}
+            />
+            <H3>Accepted document formats</H3>
+            <p>
+              You can upload a clear photo or scanned copy in JPG, PNG, WebP or GIF format, or a PDF file. The
+              maximum file size is 10 MB.
+            </p>
+            <H3>How we review your documents</H3>
+            <p>
+              Every document is reviewed by a member of our team. Verification is not approved automatically.
+            </p>
+            <p>
+              Your submitted documents are stored privately and can only be accessed by authorised NextHome team
+              members.
+            </p>
+          </Section>
+
+          <Section n={2} title="Listing Reviews" Icon={IconClipboardCheck}>
+            <p>Every listing is reviewed by our team before it is published.</p>
+            <p>
+              We check the listing description and photographs and confirm the relevant account&apos;s
+              verification status before deciding whether to approve or reject the listing.
+            </p>
+            <H3>What happens next?</H3>
+            <ul className="flex flex-col gap-2">
+              <li className="flex items-start gap-2.5">
+                <IconCheck aria-hidden className="mt-1 h-4 w-4 shrink-0 text-[var(--color-status-verified)]" />
+                <span>
+                  <strong className="text-[var(--color-text-primary)]">Approved:</strong> Your listing is published
+                  on NextHome with a Verified badge.
                 </span>
-                <div>
-                  <h2 className="text-xl font-bold text-white">{step.title}</h2>
-                  {step.body.map((p) => (
-                    <p key={p} className="mt-3 max-w-xl text-sm leading-relaxed text-[var(--color-text-inverted-secondary)]">
-                      {p}
-                    </p>
-                  ))}
-                  {step.after}
-                </div>
               </li>
-            ))}
-          </ol>
-        </section>
-        <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
-          Document and listing reviews happen as quickly as our team can get to them.
+              <li className="flex items-start gap-2.5">
+                <IconClose aria-hidden className="mt-1 h-4 w-4 shrink-0 text-[var(--color-text-secondary)]" />
+                <span>
+                  <strong className="text-[var(--color-text-primary)]">Rejected:</strong> Your listing will not be
+                  published or displayed to visitors.
+                </span>
+              </li>
+            </ul>
+            <p>Property listings, service listings and advertisements all go through this approval process.</p>
+          </Section>
+
+          <Section n={3} title="Message Records" Icon={IconMessageCircle}>
+            <p>Messages about a property or service listing are kept together with that listing.</p>
+            <p>
+              This helps maintain a record of conversations in case a concern or disagreement arises later.
+            </p>
+            <H3>Need to report a problem?</H3>
+            <p>Use Report a Concern to notify the NextHome team.</p>
+            <div>
+              <Link href="/complaints" className={BUTTON}>
+                Report a Concern
+              </Link>
+            </div>
+          </Section>
+        </div>
+
+        <p className="mt-6 text-sm text-[var(--color-text-secondary)]">
+          Our team reviews verification documents and listings as quickly as possible. Review times may vary.
         </p>
 
-        <section className="mt-14">
-          <h2 className="u-heading text-2xl text-[var(--color-text-primary)] sm:text-3xl">
-            What the Verified badge means (and doesn&apos;t)
+        <section className="mt-14" aria-labelledby="badge">
+          <h2 id="badge" className="u-heading text-2xl text-[var(--color-text-primary)] sm:text-3xl">
+            What Does the Verified Badge Mean?
           </h2>
-          <p className="mt-3 max-w-xl text-[var(--color-text-secondary)]">
-            The badge is a check by a person, not a guarantee. Treat it as one piece of information when you
-            decide, and look at the property and agree terms in writing before you pay anyone.
+          <p className="mt-3 max-w-xl text-[var(--color-text-primary)]">
+            A Verified badge means that a listing has been reviewed and approved by the NextHome team.
+          </p>
+          <p className="mt-2 max-w-xl text-[var(--color-text-secondary)]">
+            However, verification does not guarantee that every detail in a listing is correct.
           </p>
 
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-5 shadow-[var(--elevation-xs)]">
-              <h3 className="font-bold text-[var(--color-text-primary)]">It means</h3>
-              <ul className="mt-3 flex flex-col gap-3">
-                {MEANS.map((t) => (
-                  <li key={t} className="flex items-start gap-2.5 text-sm text-[var(--color-text-secondary)]">
-                    <IconCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-status-verified)]" />
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-[var(--radius-card)] border border-[var(--color-border-hairline)] bg-[var(--color-surface-raised)] p-5 shadow-[var(--elevation-xs)]">
-              <h3 className="font-bold text-[var(--color-text-primary)]">It doesn&apos;t mean</h3>
-              <ul className="mt-3 flex flex-col gap-3">
-                {DOES_NOT_MEAN.map((t) => (
-                  <li key={t} className="flex items-start gap-2.5 text-sm text-[var(--color-text-secondary)]">
-                    <IconClose aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-text-secondary)]" />
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <ListCard
+              title="What the badge confirms"
+              tone="yes"
+              items={[
+                "A member of our team has reviewed and approved the listing.",
+                "Landlords must complete account verification before submitting property listings.",
+                "Our reviewers can check the landlord's verification status during the listing review.",
+              ]}
+            />
+            <ListCard
+              title="What the badge does not guarantee"
+              tone="no"
+              items={[
+                "That every detail provided in the listing is accurate.",
+                "That a NextHome representative has physically inspected the property.",
+                "That the property is still available. Landlords are responsible for updating availability.",
+              ]}
+            />
+          </div>
+
+          <div className="mt-6 rounded-2xl bg-[color-mix(in_srgb,var(--color-light-blue)_16%,var(--color-surface-raised))] p-4 sm:p-5">
+            <h3 className="font-bold text-[var(--color-text-primary)]">Before making any payment</h3>
+            <p className="mt-1.5 text-[var(--color-text-secondary)]">
+              We recommend viewing the property and ensuring that all agreed terms are confirmed in writing before
+              making any payment.
+            </p>
           </div>
         </section>
 
-        <section className="mt-14">
-          <h2 className="u-heading text-2xl text-[var(--color-text-primary)] sm:text-3xl">
-            If verification is turned down
+        <section className="mt-14" aria-labelledby="rejected">
+          <h2 id="rejected" className="u-heading text-2xl text-[var(--color-text-primary)] sm:text-3xl">
+            What Happens if Your Verification Is Rejected?
           </h2>
           <p className="mt-3 max-w-xl text-[var(--color-text-secondary)]">
-            If a document isn&apos;t approved, the role goes back to &ldquo;Setup incomplete&rdquo; and the
-            document is removed from your submission. Open your{" "}
-            <Link href="/account" className="font-bold text-[var(--color-brand-primary)] hover:underline">
-              Account page
-            </Link>{" "}
-            and choose Finish verification to upload a new one.
+            If your verification document is not approved, your account status will return to Setup Incomplete,
+            and the rejected document will be removed from your submission.
           </p>
-          <p className="mt-3 max-w-xl text-[var(--color-text-secondary)]">
-            At the moment a decision does not come with a written reason. If you are unsure what was wrong,{" "}
-            <Link href="/feedback" className="font-bold text-[var(--color-brand-primary)] hover:underline">
-              send us feedback
+          <div className="mt-5 max-w-xl">
+            <StepsBox
+              title="To submit a new document:"
+              steps={["Go to your Account page.", "Select Finish Verification.", "Upload a new document for review."]}
+            />
+          </div>
+          <p className="mt-5 max-w-xl text-[var(--color-text-secondary)]">
+            Please note that verification decisions do not currently include a written explanation.
+          </p>
+          <p className="mt-2 max-w-xl text-[var(--color-text-secondary)]">
+            If you need clarification or assistance, you can contact our team using Send Feedback.
+          </p>
+          <div className="mt-4">
+            <Link href="/feedback" className={BUTTON_OUTLINE}>
+              Send Feedback
             </Link>
-            .
-          </p>
+          </div>
         </section>
 
-        <div className="mt-14 border-t border-[var(--color-border-hairline)] pt-6">
-          <Link
-            href="/help"
-            className="group inline-flex items-center gap-1.5 text-sm font-bold text-[var(--color-brand-primary)] hover:underline"
-          >
-            Anything else is in Help &amp; FAQ
-            <IconArrowRight className="h-3.5 w-3.5 transition-transform duration-[var(--motion-duration-short)] group-hover:translate-x-0.5" />
-          </Link>
-        </div>
+        <section className="mt-14 border-t border-[var(--color-border-hairline)] pt-8" aria-labelledby="more-help">
+          <h2 id="more-help" className="u-heading text-2xl text-[var(--color-text-primary)]">
+            Need More Help?
+          </h2>
+          <p className="mt-3 max-w-xl text-[var(--color-text-secondary)]">
+            Visit our Help &amp; FAQ page for answers to other questions about using NextHome.
+          </p>
+          <div className="mt-4">
+            <Link href="/help" className={BUTTON_OUTLINE}>
+              Help &amp; FAQ
+            </Link>
+          </div>
+        </section>
       </div>
     </div>
   );
