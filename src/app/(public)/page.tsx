@@ -1,3 +1,4 @@
+import { QuickLinks } from "@/components/home/QuickLinks";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { Hero } from "@/components/home/Hero";
 import { CuratedListings } from "@/components/home/CuratedListings";
@@ -80,6 +81,7 @@ export default async function HomePage() {
         <div className="relative z-10 -mt-10 pb-8 lg:pb-10">
           <Container>
             <SearchBar />
+            <QuickLinks />
 
             {listingsUnavailable && (
               <div role="status" className="mt-6">

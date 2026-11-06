@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
+import { IconFilter } from "@/components/ui/icons";
 import { FOCUS_RING, SelectField } from "@/components/ui/SelectField";
 import { SERVICE_CATEGORIES } from "@/lib/service-categories";
 import { NIGERIAN_STATES, lgasForState } from "@/lib/nigeria-locations";
@@ -75,7 +76,10 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
   // The Buy/Rent tabs choose the DESTINATION ROUTE now — `mode` is no
   // longer carried as a query param into a shared /search page, it selects
   // /buy or /rent. The filter params themselves are unchanged.
-  const handleSearch = () => {
+  // `moreFilters` is the "More filters" button: the same search, but the
+  // Listings page opens its filter drawer on arrival (`?filters=open`), so a
+  // phone or tablet lands on the full filter set rather than on results.
+  const handleSearch = (moreFilters = false) => {
     // Services routes to its own directory, and now carries location with it:
     // ServiceListing has a state and an LGA (added when the directory gained
     // its location filter), so these params land as real, applied filters
@@ -100,6 +104,7 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
     // now, so the tab selects a ?mode= on the shared /listings route rather
     // than a destination route. The filter params are unchanged.
     params.set("mode", mode);
+    if (moreFilters) params.set("filters", "open");
     router.push(`/listings?${params.toString()}`);
   };
 
@@ -273,16 +278,28 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
           )}
         </div>
 
+        {/* Property modes only: Services has no filters beyond the fields above. */}
+        {mode !== "services" && (
+          <button
+            type="button"
+            onClick={() => handleSearch(true)}
+            className={`u-ui inline-flex min-h-12 shrink-0 items-center justify-center gap-2 self-start rounded-2xl! px-3 text-[15px] font-bold text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] lg:self-center ${FOCUS_RING}`}
+          >
+            <IconFilter className="h-[18px] w-[18px]" />
+            More filters
+          </button>
+        )}
+
         <button
           type="button"
-          onClick={handleSearch}
+          onClick={() => handleSearch()}
           className={`inline-flex min-h-14 w-full items-center justify-center gap-2.5 rounded-2xl! bg-[var(--color-brand-primary)] px-8 text-base font-bold text-white shadow-[0_8px_20px_-8px_rgba(4,146,194,0.6)] transition-[background-color,transform,box-shadow] duration-200 hover:bg-[var(--color-deep-blue)] active:scale-[0.97] lg:w-auto lg:shrink-0 ${FOCUS_RING}`}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
             <circle cx="11" cy="11" r="7" />
             <path d="m21 21-4.35-4.35" />
           </svg>
-          Search
+          {mode === "services" ? "Search Services" : "Search Properties"}
         </button>
       </div>
     </div>

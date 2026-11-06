@@ -99,7 +99,8 @@ export function PropertyBrowser() {
   // reload, and so links from the homepage SearchBar and facet tiles land
   // with their filters already applied.
   const [filters, setFilters] = useState<ListingFilters>(() => filtersFromParams(searchParams));
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // `?filters=open` (the homepage's "More filters") opens the drawer on arrival.
+  const [filtersOpen, setFiltersOpen] = useState(() => searchParams.get("filters") === "open");
 
   // MODE RESOLUTION, in precedence order:
   //
