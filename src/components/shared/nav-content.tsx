@@ -13,7 +13,7 @@ import type { RoleName } from "@/lib/types";
 //
 // Every destination below is an existing route or query param:
 //   /listings?mode=rent | sale      the Rent/Buy toggle on the Listings page
-//   /#browse-by                     the landing page's "Browse by" location cards
+//   /listings#f-state               the State filter at the top of the Listings filters
 //   /listings?mode=rent&duration=…  the Short-Term / Long-Term filter
 //   /listings?verified=1            the "Verified listings only" filter
 //   /services                       the Find Home Services directory
@@ -119,7 +119,7 @@ export function ListingsMenuContent() {
 
       <div role="group" aria-label="Browse by location">
         <MenuLabel>Browse by location</MenuLabel>
-        <MenuLink href="/#browse-by" label="Choose a location" description="States with homes right now" />
+        <MenuLink href="/listings#f-state" label="Choose a location" description="Filter listings by state and area" />
       </div>
 
       <div role="group" aria-label="Stay length" className="md:col-span-2 lg:col-span-1">
