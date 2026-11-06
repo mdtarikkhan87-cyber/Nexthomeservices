@@ -208,10 +208,24 @@ export function Header() {
 
   const listingsActive = isListingsSection(pathname);
 
-  // Below 1024px (phones AND tablets) the header is compact: the logo and one
-  // pill on the right. Signed out the pill is "Login | menu"; signed in it is
-  // "profile | menu" — the profile button opens the account panel, the menu
-  // button opens site navigation. The full header starts at `lg`.
+  // Below 1024px the header is compact. PHONES (below `md`): the logo is
+  // centred, Login (signed out) or the profile button (signed in) is on the
+  // left and the menu button is on the right. TABLETS (`md` to `lg`): the logo
+  // stays left and one pill on the right holds "Login | menu" or "profile |
+  // menu". The profile button opens the account panel, the menu button opens
+  // site navigation. The full header starts at `lg`.
+  const toggleAccount = () => {
+    if (account.open) account.hide();
+    else {
+      sheet.hide();
+      account.show();
+    }
+  };
+  const accountLabel = account.open
+    ? "Close account menu"
+    : unreadCount > 0
+      ? `Account menu, ${unreadCount} unread notifications`
+      : "Account menu";
 
   return (
     <header
@@ -228,7 +242,7 @@ export function Header() {
           with the hero text; other routes use the fluid page container (1152px
           on laptops), so the logo stays aligned with each page's content. */}
       <div
-        className={`flex h-16 items-center justify-between gap-3 sm:gap-6 md:h-20 ${
+        className={`relative flex h-16 items-center justify-between gap-3 sm:gap-6 md:h-20 ${
           isHome ? CONTAINER_CLASS : PAGE_CONTAINER_CLASS
         }`}
       >
@@ -258,11 +272,46 @@ export function Header() {
               scale and cannot be (see REVISION_LOG.md §16a) — do not "fix" it
               by scaling further. min-h-11 is the touch-target floor; -mx-2/px-2
               widens the narrow mark to it without moving it optically. */}
+          {/* Phones only: Login, or the profile button, on the LEFT. */}
+          {isAuthenticated ? (
+            <button
+              type="button"
+              className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full! border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] shadow-[var(--elevation-xs)] md:hidden ${FOCUS_RING}`}
+              onClick={toggleAccount}
+              aria-expanded={account.open}
+              aria-controls="mobile-account"
+              aria-label={accountLabel}
+            >
+              {account.open ? (
+                <IconClose className="h-5 w-5 text-[var(--color-deep-blue)]" />
+              ) : (
+                <Avatar name={user?.name ?? "Account"} size={30} className="ring-0" />
+              )}
+              {unreadCount > 0 && !account.open && (
+                <span
+                  aria-hidden
+                  className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-[var(--color-brand-primary)] ring-2 ring-[var(--color-surface-raised)]"
+                />
+              )}
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              onClick={() => sheet.hide()}
+              className={`flex h-11 shrink-0 items-center rounded-full! border border-[var(--color-border-default)] bg-[var(--color-surface-raised)] px-4 text-sm font-bold text-[var(--color-dark-blue)] shadow-[var(--elevation-xs)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] md:hidden ${FOCUS_RING}`}
+            >
+              Login
+            </Link>
+          )}
+
+          {/* On phones the logo is taken out of the flow and centred on the
+              bar (the Login/profile button and the menu button balance it on
+              either side); from `md` it is an ordinary left-aligned item. */}
           <Link
             href="/"
             aria-label="NextHome — go to homepage"
             aria-current={isHome ? "page" : undefined}
-            className="-mx-2 flex min-h-11 shrink-0 items-center rounded-xl px-2"
+            className="absolute left-1/2 -translate-x-1/2 flex min-h-11 shrink-0 items-center rounded-xl px-2 md:static md:-mx-2 md:translate-x-0"
           >
             <Image
               src="/brand/nexthome-logo-primary.png"
@@ -438,23 +487,11 @@ export function Header() {
             {isAuthenticated ? (
               <button
                 type="button"
-                className={`relative flex h-full w-12 items-center justify-center rounded-l-full! transition-colors duration-200 hover:bg-[var(--color-surface-base)] md:w-14 ${FOCUS_RING}`}
-                onClick={() => {
-                  if (account.open) account.hide();
-                  else {
-                    sheet.hide();
-                    account.show();
-                  }
-                }}
+                className={`relative hidden h-full w-12 items-center justify-center rounded-l-full! transition-colors duration-200 hover:bg-[var(--color-surface-base)] md:flex md:w-14 ${FOCUS_RING}`}
+                onClick={toggleAccount}
                 aria-expanded={account.open}
                 aria-controls="mobile-account"
-                aria-label={
-                  account.open
-                    ? "Close account menu"
-                    : unreadCount > 0
-                      ? `Account menu, ${unreadCount} unread notifications`
-                      : "Account menu"
-                }
+                aria-label={accountLabel}
               >
                 {account.open ? (
                   <IconClose className="h-5 w-5 text-[var(--color-deep-blue)] md:h-6 md:w-6" />
@@ -472,15 +509,15 @@ export function Header() {
               <Link
                 href="/login"
                 onClick={() => sheet.hide()}
-                className={`flex h-full items-center rounded-l-full! pl-4 pr-3 text-sm font-bold md:pl-5 md:pr-4 md:text-[15px] text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
+                className={`hidden h-full items-center rounded-l-full! pl-4 pr-3 text-sm font-bold md:flex md:pl-5 md:pr-4 md:text-[15px] text-[var(--color-dark-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
               >
                 Login
               </Link>
             )}
-            <span aria-hidden className="h-5 w-px bg-[var(--color-border-default)] md:h-6" />
+            <span aria-hidden className="hidden h-5 w-px bg-[var(--color-border-default)] md:block md:h-6" />
             <button
               type="button"
-              className={`flex h-full w-12 items-center justify-center rounded-r-full! text-[var(--color-deep-blue)] md:w-14 transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
+              className={`flex h-full w-11 items-center justify-center rounded-full! text-[var(--color-deep-blue)] md:w-14 md:rounded-l-none! md:rounded-r-full! transition-colors duration-200 hover:bg-[var(--color-surface-base)] ${FOCUS_RING}`}
               onClick={() => {
                 if (sheet.open) sheet.hide();
                 else {
