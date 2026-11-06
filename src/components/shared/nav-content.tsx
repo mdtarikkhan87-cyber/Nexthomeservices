@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ReactNode } from "react";
 import { IconCheck, IconShield } from "@/components/ui/icons";
 import { MenuButton, MenuDivider, MenuLabel, MenuLink } from "@/components/shared/NavMenu";
 import { useAuth } from "@/lib/auth-context";
@@ -17,18 +16,73 @@ import type { RoleName } from "@/lib/types";
 //   /#browse-by                     the landing page's "Browse by" location cards
 //   /listings?mode=rent&duration=…  the Short-Term / Long-Term filter
 //   /listings?verified=1            the "Verified listings only" filter
+//   /services                       the Find Home Services directory
+//   /dashboard/listings/new         List Your Property (see MAIN_MENU_GROUPS)
+//   /verification                   How Verification Works
+//   /complaints                     Report a Concern
 //   /help                           "Help & FAQ" (the product's only FAQ page)
-//   /#how-it-works                  the landing page's trust-process section
 //   /dashboard, /admin, /account    the account destinations
 //
 // Left out because no page or section exists for them: "Contact". (Feedback and
 // Report a Concern exist, but they are forms, not a contact page.)
 
-export const MORE_LINKS = [
-  { href: "/#how-it-works", label: "How it works", description: "The checks behind every listing" },
-  { href: "/listings?verified=1", label: "Verified listings", description: "Only landlords we have checked" },
-  { href: "/help", label: "FAQs", description: "Answers to common questions" },
-] as const;
+// The main menu (the desktop "Menu" dropdown and the phone/tablet hamburger
+// sheet are built from this one list). Three groups, in this order:
+//
+//   (unlabelled)     Discover Properties · Find Home Services · List Your Property
+//   Trust & Safety   How Verification Works · Report a Concern
+//   Support          Help & FAQ
+//
+// What the old menu held, and where it went:
+//   How it works        -> How Verification Works (the dedicated page)
+//   FAQs                -> Help & FAQ
+//   Verified listings   -> the "Verified listings only" filter on /listings
+//   Rent / Buy / All    -> the Rent/Buy toggle on /listings (Discover Properties);
+//                          the desktop "Listings" dropdown still lists them
+//
+// "List Your Property" is the same destination for everyone: the dashboard's
+// new-listing page already shows a signed-out visitor the login gate (and
+// returns them), offers a signed-in non-landlord "Add the Landlord role", and
+// opens the form for a landlord.
+export const MAIN_MENU_GROUPS: {
+  label?: string;
+  links: { href: string; label: string }[];
+}[] = [
+  {
+    links: [
+      { href: "/listings", label: "Discover Properties" },
+      { href: "/services", label: "Find Home Services" },
+      { href: "/dashboard/listings/new", label: "List Your Property" },
+    ],
+  },
+  {
+    label: "Trust & Safety",
+    links: [
+      { href: "/verification", label: "How Verification Works" },
+      { href: "/complaints", label: "Report a Concern" },
+    ],
+  },
+  {
+    label: "Support",
+    links: [{ href: "/help", label: "Help & FAQ" }],
+  },
+];
+
+function MainMenuGroups({ inMenu, pathname }: { inMenu: boolean; pathname: string }) {
+  return (
+    <>
+      {MAIN_MENU_GROUPS.map((group, i) => (
+        <div key={group.label ?? "main"} role={inMenu ? "group" : undefined} aria-label={group.label}>
+          {i > 0 && <MenuDivider />}
+          {group.label && <MenuLabel>{group.label}</MenuLabel>}
+          {group.links.map((l) => (
+            <MenuLink key={l.href} inMenu={inMenu} href={l.href} label={l.label} active={l.href === pathname} />
+          ))}
+        </div>
+      ))}
+    </>
+  );
+}
 
 /** Every listing is reviewed before it goes live — said once, in the menu footer. */
 export function ReviewNote({ className = "" }: { className?: string }) {
@@ -79,15 +133,13 @@ export function ListingsMenuContent() {
 }
 
 // ---------------------------------------------------------------------------
-// Menu (secondary links)
+// Menu (the main menu)
 // ---------------------------------------------------------------------------
 
 export function MoreMenuContent({ pathname }: { pathname: string }) {
   return (
     <div className="p-2">
-      {MORE_LINKS.map((l) => (
-        <MenuLink key={l.href} href={l.href} label={l.label} description={l.description} active={l.href === pathname} />
-      ))}
+      <MainMenuGroups inMenu pathname={pathname} />
     </div>
   );
 }
@@ -211,39 +263,15 @@ export function AccountHeader() {
 // Mobile sheet
 // ---------------------------------------------------------------------------
 
-function SheetSection({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <section className="px-3 pb-2 pt-3" aria-label={label}>
-      <MenuLabel>{label}</MenuLabel>
-      {children}
-    </section>
-  );
-}
-
 /** The site navigation, as one scrolling sheet of 48px targets (the hamburger
     menu on phones and tablets). Account controls are NOT here — see
     MobileAccountPanel. */
 export function MobileSheetContent({ pathname }: { pathname: string }) {
   return (
     <div className="pb-2">
-      <SheetSection label="Listings">
-        <MenuLink inMenu={false} href="/listings?mode=rent" label="Rent" />
-        <MenuLink inMenu={false} href="/listings?mode=sale" label="Buy" />
-        <MenuLink inMenu={false} href="/listings" label="All listings" />
-      </SheetSection>
-
-      <SheetSection label="More">
-        {MORE_LINKS.map((l) => (
-          <MenuLink
-            key={l.href}
-            inMenu={false}
-            href={l.href}
-            label={l.label}
-            description={l.description}
-            active={l.href === pathname}
-          />
-        ))}
-      </SheetSection>
+      <div className="px-3 pt-3">
+        <MainMenuGroups inMenu={false} pathname={pathname} />
+      </div>
 
       <ReviewNote className="px-6 pb-3 pt-4" />
     </div>
