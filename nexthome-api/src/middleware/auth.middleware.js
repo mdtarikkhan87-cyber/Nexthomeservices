@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const prisma = require("../lib/prisma");
 
 // "Is there a valid account behind this request at all?"
 //
@@ -42,6 +43,45 @@ function requireRole(...allowedRoles) {
   };
 }
 
+// "Has this account's role been through document review?"
+//
+// requireRole only asks whether the account HOLDS a role (read from the JWT).
+// Holding a role is not the same as being verified in it: a new landlord holds
+// the role from the moment they register, and only becomes "role_verified" once
+// an admin approves their document (admin.routes.js, reviewUserRole). Creating
+// a listing is gated on the second, and the check has to live here: the
+// dashboard hides the form for an unverified role, but that is a convenience,
+// and anyone can call the endpoint directly.
+//
+// The state is read from the database on every request (never from the token),
+// so an approval or a rejection takes effect immediately.
+//
+// Usage: router.post("/", authenticate, requireRole("landlord"), requireVerifiedRole("landlord"), handler)
+const VERIFIED_ROLE_LABELS = { landlord: "landlord", service_provider: "service provider" };
+
+function requireVerifiedRole(role) {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated." });
+    }
+    try {
+      const held = await prisma.userRole.findUnique({
+        where: { userId_role: { userId: req.user.sub, role } },
+        select: { state: true },
+      });
+      if (!held || held.state !== "role_verified") {
+        const label = VERIFIED_ROLE_LABELS[role] ?? role;
+        return res.status(403).json({
+          message: `Your ${label} account needs to be verified before you can list. Finish verification from your Account page.`,
+        });
+      }
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
 // "Is this account the admin?"
 //
 // Usage: router.get("/something", authenticate, requireAdmin, handler)
@@ -58,4 +98,4 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { authenticate, requireRole, requireAdmin };
+module.exports = { authenticate, requireRole, requireVerifiedRole, requireAdmin };
