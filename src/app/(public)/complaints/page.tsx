@@ -38,7 +38,7 @@ export default function ComplaintsPage() {
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10 sm:px-6 sm:py-14">
-      <h1 className="text-3xl font-bold tracking-tight text-[var(--color-text-primary)] sm:text-4xl">Report a concern</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-[var(--color-text-primary)] sm:text-4xl">Report a Concern</h1>
       <p className="mt-1 text-[var(--color-text-secondary)]">
         Report a bad-actor landlord, a suspicious listing, or a scam attempt.
       </p>

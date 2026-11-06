@@ -121,7 +121,7 @@ const SECTIONS: Section[] = [
             agreement. Keep conversations in NextHome messaging rather than moving to a personal number straight
             away, so there is a record if something goes wrong. If anything feels off, use{" "}
             <Link href="/complaints" className={LINK}>
-              Report a concern
+              Report a Concern
             </Link>
             .
           </>
@@ -157,7 +157,7 @@ const SECTIONS: Section[] = [
           <>
             Use{" "}
             <Link href="/complaints" className={LINK}>
-              Report a concern
+              Report a Concern
             </Link>{" "}
             with the listing title or the user&apos;s name, and our team will look into it.
           </>
@@ -209,7 +209,7 @@ export default function HelpPage() {
         </Link>{" "}
         or{" "}
         <Link href="/complaints" className={LINK}>
-          report a concern
+          Report a Concern
         </Link>
         .
       </p>
