@@ -33,6 +33,25 @@ Demo accounts: `admin@`, `tenant@`, `landlord@` (verified, subscription active),
 roles), `serviceuser@` (Service User only: no saving homes or messaging landlords) and
 `serviceuser.renter@` (Service User + Renter / Buyer), all `@demo.test`. Re-running the seed resets them.
 
+### Deploying a schema change (production)
+
+Nothing in this repo runs migrations on deploy: the Dockerfile starts the server
+with `node src/server.js` and there is no `railway.json`. Unless a **Pre-deploy
+Command** is set on the Railway service (Settings, Deploy), run them by hand,
+and run them BEFORE pushing the code that needs them:
+
+```bash
+cd nexthome-api
+# DATABASE_URL = the production database's PUBLIC connection URL (not the
+# railway.internal one), set in this shell only. Never put it in .env.
+npx prisma migrate status    # read-only: lists what is pending
+npx prisma migrate deploy    # applies only what is pending
+```
+
+Additive migrations (a new table, column or enum value) are safe to apply while
+the old code is still running, which is why the order is migrate first, then
+deploy the code.
+
 The server validates its environment at boot (`src/lib/env.js`) and exits with a clear
 message if anything required is missing. `.env.example` lists every variable.
 `GET /health` returns `{ "status": "ok" }`.

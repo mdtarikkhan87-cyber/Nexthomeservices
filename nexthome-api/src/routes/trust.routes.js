@@ -182,12 +182,17 @@ router.post(
       return res.status(404).json({ message: "You don't hold this role." });
     }
 
+    // A verified role that REPLACES its document goes back into review, like a
+    // new submission: what an admin approved is no longer what is on file, so
+    // the verified status can't be kept with an unreviewed document. Sending
+    // the very same document again is not a change and leaves it verified.
+    const replacedWhileVerified = userRole.state === "role_verified" && userRole.documentUrl !== req.body.documentUrl;
     const updated = await prisma.userRole.update({
       where: { id: userRole.id },
       data: {
         documentUrl: req.body.documentUrl,
         documentSubmittedAt: new Date(),
-        state: userRole.state === "role_verified" ? userRole.state : "pending_admin_document_review",
+        state: userRole.state === "role_verified" && !replacedWhileVerified ? "role_verified" : "pending_admin_document_review",
       },
     });
 
