@@ -79,6 +79,7 @@ export function PropertyCard({
     requireAuth({
       actionLabel: `Log in to save "${listing.title}"`,
       suggestedRole: "tenant-buyer",
+      propertyAction: true,
       onResume: () => {
         if (saved) unsaveListing(listing.id);
         else saveListing(listing.id);

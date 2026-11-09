@@ -65,8 +65,8 @@ router.post(
   requireRole("advertiser"),
   [
     imageUrlRule(body("imageUrl").isString().notEmpty()),
-    body("headline").isString().isLength({ min: 3 }),
-    body("linkUrl").isURL(),
+    body("headline").isString().isLength({ min: 3, max: 120 }).withMessage("The headline must be 3 to 120 characters."),
+    body("linkUrl").isURL({ protocols: ["http", "https"], require_protocol: true }).withMessage("The link must start with http:// or https://"),
   ],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
@@ -176,8 +176,8 @@ router.patch(
   [
     param("id").isString(),
     imageUrlRule(body("imageUrl").optional().isString().notEmpty()),
-    body("headline").optional().isString().isLength({ min: 3 }),
-    body("linkUrl").optional().isURL(),
+    body("headline").optional().isString().isLength({ min: 3, max: 120 }).withMessage("The headline must be 3 to 120 characters."),
+    body("linkUrl").optional().isURL({ protocols: ["http", "https"], require_protocol: true }).withMessage("The link must start with http:// or https://"),
   ],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
@@ -192,11 +192,18 @@ router.patch(
 
     const { imageUrl, headline, linkUrl } = req.body;
     const data = { imageUrl, headline, linkUrl };
-    // A replaced creative is a newly uploaded, unreviewed image that is private
-    // until approved - so a LIVE ad that gets one goes back into review (it
-    // also couldn't be shown to the public with a private image).
-    const newCreativeNeedsReview = typeof imageUrl === "string" && imageUrl.startsWith(PENDING_AD_PREFIX);
-    if (newCreativeNeedsReview && existing.status === "live") data.status = "pending_review";
+    // RE-REVIEW. Approval covered a specific headline, destination link and
+    // image. Changing any of them on a LIVE ad (the link above all: approved for
+    // one destination, pointed somewhere else afterwards) sends it back into
+    // review and off the public banner until an admin approves it again. Only an
+    // actual change counts: saving the same values (or only different
+    // surrounding spaces) leaves it live. A replaced creative is also a newly
+    // uploaded private image, which is why it could never stay live unreviewed.
+    const contentChanged =
+      (headline !== undefined && String(headline).trim() !== existing.headline.trim()) ||
+      (linkUrl !== undefined && String(linkUrl).trim() !== existing.linkUrl.trim()) ||
+      (imageUrl !== undefined && imageUrl !== existing.imageUrl);
+    if (contentChanged && existing.status === "live") data.status = "pending_review";
 
     const updated = await prisma.advertisement.update({ where: { id: req.params.id }, data });
 

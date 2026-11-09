@@ -15,7 +15,7 @@ import { RoleName } from "@/lib/types";
 // The private copy of this label map that used to live here is gone — it is
 // how two surfaces drift into calling the same role two different things
 // (ROLE_EXPERIENCE_AUDIT.md §6, gap 8). lib/roles.ts owns the vocabulary.
-const ADDABLE: RoleName[] = ["landlord", "tenant-buyer", "service-provider", "advertiser"];
+const ADDABLE: RoleName[] = ["landlord", "tenant-buyer", "service-user", "service-provider", "advertiser"];
 
 // COMPONENT_ARCHITECTURE.md §4: Account/Verification Status Panel — must
 // visually separate account-level (shared) vs. role-level state

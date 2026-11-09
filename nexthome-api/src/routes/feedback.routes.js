@@ -23,7 +23,7 @@ function checkValidation(req, res) {
 router.post(
   "/",
   authenticate,
-  [body("body").isString().trim().notEmpty()],
+  [body("body").isString().trim().notEmpty().isLength({ max: 3000 }).withMessage("Feedback can be up to 3000 characters.")],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
 

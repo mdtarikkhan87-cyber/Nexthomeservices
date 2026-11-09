@@ -133,7 +133,7 @@ export function UserRatings({ userId, label }: { userId: string; label: string }
           </div>
           <div>
             <Label htmlFor="rating-comment">Comment (optional)</Label>
-            <Textarea id="rating-comment" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} />
+            <Textarea id="rating-comment" rows={3} maxLength={1000} value={comment} onChange={(e) => setComment(e.target.value)} />
           </div>
           <div className="flex gap-2">
             <Button type="submit" size="dense" disabled={isSubmitting}>

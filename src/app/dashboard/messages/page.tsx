@@ -330,6 +330,7 @@ function MessagesPageInner() {
           <Textarea
             placeholder="Write a reply…"
             rows={2}
+            maxLength={1000}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />

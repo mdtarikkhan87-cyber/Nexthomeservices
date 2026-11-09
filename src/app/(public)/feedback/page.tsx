@@ -48,6 +48,7 @@ export default function FeedbackPage() {
           <Textarea
             placeholder="Tell us what's not working or what to improve"
             rows={5}
+            maxLength={3000}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
           />

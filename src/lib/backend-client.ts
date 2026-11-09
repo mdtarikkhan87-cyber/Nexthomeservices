@@ -11,7 +11,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 // every existing frontend file, we translate at this one boundary.
 // ---------------------------------------------------------------------------
 
-type BackendRoleName = "landlord" | "tenant_buyer" | "service_provider" | "advertiser";
+type BackendRoleName = "landlord" | "tenant_buyer" | "service_provider" | "advertiser" | "service_user";
 type BackendRoleState = "role_added" | "pending_admin_document_review" | "role_verified";
 type BackendSubscriptionState = "inactive" | "pending_confirmation" | "active";
 
@@ -39,12 +39,14 @@ const ROLE_TO_BACKEND: Record<RoleName, BackendRoleName> = {
   "tenant-buyer": "tenant_buyer",
   "service-provider": "service_provider",
   "advertiser": "advertiser",
+  "service-user": "service_user",
 };
 const ROLE_TO_FRONTEND: Record<BackendRoleName, RoleName> = {
   landlord: "landlord",
   tenant_buyer: "tenant-buyer",
   service_provider: "service-provider",
   advertiser: "advertiser",
+  service_user: "service-user",
 };
 const STATE_TO_FRONTEND: Record<BackendRoleState, HeldRole["state"]> = {
   role_added: "role-added",
@@ -104,7 +106,10 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, body.message || `Request failed with status ${res.status}`);
+    // Validator failures come back as { errors: [{ msg }] } with no `message`:
+    // show the first specific reason rather than a bare status code.
+    const reason = Array.isArray(body.errors) ? body.errors.find((e: { msg?: string }) => e.msg && e.msg !== "Invalid value")?.msg : undefined;
+    throw new ApiError(res.status, body.message || reason || `Request failed with status ${res.status}`);
   }
   if (res.status === 204) return undefined as T;
   return res.json();

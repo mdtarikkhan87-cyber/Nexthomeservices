@@ -45,6 +45,10 @@ import { RoleName } from "@/lib/types";
 interface PendingAction {
   actionLabel: string;
   suggestedRole?: RoleName;
+  /** A property feature (save a home, message a landlord). A signed-in account
+      whose only role is Service User is shown a notice instead of resuming; the
+      server refuses the same actions. */
+  propertyAction?: boolean;
   onResume: () => void;
 }
 
@@ -177,22 +181,27 @@ function AuthPrompt({
 }
 
 export function AuthGateProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, canUsePropertyFeatures } = useAuth();
   const pathname = usePathname();
   const [pending, setPending] = useState<PendingAction | null>(null);
+  const [propertyBlocked, setPropertyBlocked] = useState(false);
 
   // Driven by the logical open state, not by the modal's mount lifetime.
-  useBodyScrollLock(pending !== null);
+  useBodyScrollLock(pending !== null || propertyBlocked);
 
   const requireAuth = useCallback(
     (action: PendingAction) => {
       if (isAuthenticated) {
+        if (action.propertyAction && !canUsePropertyFeatures) {
+          setPropertyBlocked(true);
+          return;
+        }
         action.onResume();
         return;
       }
       setPending(action);
     },
-    [isAuthenticated]
+    [isAuthenticated, canUsePropertyFeatures]
   );
 
   const dismiss = () => setPending(null);
@@ -201,6 +210,26 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
     <AuthGateContext.Provider value={{ requireAuth }}>
       {children}
       <AnimatePresence>
+        {propertyBlocked && (
+          <Overlay onDismiss={() => setPropertyBlocked(false)} align="bottom-on-mobile" labelledBy="property-blocked-title">
+            <h2 id="property-blocked-title" className="text-lg font-bold text-[var(--color-text-primary)]">
+              This needs the Renter / Buyer role
+            </h2>
+            <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+              Your account is a Service User account: it can browse and message service providers, but it can&apos;t
+              save homes or message landlords. Add the Renter / Buyer role to do that. It uses the phone and email you
+              already verified.
+            </p>
+            <div className="mt-5 flex flex-col gap-2.5 sm:flex-row-reverse">
+              <Link href="/account" onClick={() => setPropertyBlocked(false)} className="flex sm:flex-1">
+                <Button className="w-full">Add the Renter / Buyer role</Button>
+              </Link>
+              <Button variant="secondary" className="sm:flex-1" onClick={() => setPropertyBlocked(false)}>
+                Not now
+              </Button>
+            </div>
+          </Overlay>
+        )}
         {pending && (
           <Overlay onDismiss={dismiss} align="bottom-on-mobile" labelledBy="auth-prompt-title">
             <AuthPrompt

@@ -18,8 +18,8 @@ function checkValidation(req, res) {
 // -----------------------------------------------------------------------
 // POST /ratings — leave a rating on another user (PRD §8.1: a
 // tenant/buyer rates a landlord after contacting them via a listing).
-// Not restricted to a specific role — any authenticated user can rate any
-// other, mirroring the schema (Rating has no role or listing constraint).
+// Not restricted to a specific role, but the rater and ratee must have messaged
+// each other (a shared conversation), and each rater has one rating per ratee.
 // -----------------------------------------------------------------------
 router.post(
   "/",
@@ -27,7 +27,7 @@ router.post(
   [
     body("rateeId").isString().notEmpty(),
     body("score").isInt({ min: 1, max: 5 }),
-    body("comment").optional().isString(),
+    body("comment").optional().isString().isLength({ max: 1000 }),
   ],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
@@ -43,16 +43,40 @@ router.post(
       return res.status(404).json({ message: "That user doesn't exist." });
     }
 
-    const rating = await prisma.rating.create({
-      data: {
-        raterId: req.user.sub,
-        rateeId,
-        score,
-        comment,
+    // A rating has to come from a real interaction: the rater and the ratee
+    // must share a conversation (about a listing or a service). Without this
+    // anyone could rate anyone they had never dealt with.
+    const interaction = await prisma.conversation.findFirst({
+      where: {
+        OR: [
+          { participantAId: req.user.sub, participantBId: rateeId },
+          { participantAId: rateeId, participantBId: req.user.sub },
+        ],
       },
+      select: { id: true },
+    });
+    if (!interaction) {
+      return res.status(403).json({ message: "You can rate someone after you've messaged them." });
+    }
+
+    // One rating per rater and target. A second submission REPLACES the first
+    // (people change their mind) instead of stacking another row, so a score
+    // can't be inflated or bombed by repeating it. Any older duplicates that
+    // already exist for the pair are removed in the same step.
+    const rating = await prisma.$transaction(async (tx) => {
+      const existing = await tx.rating.findMany({
+        where: { raterId: req.user.sub, rateeId },
+        orderBy: { createdAt: "desc" },
+      });
+      if (existing.length === 0) {
+        return { created: true, row: await tx.rating.create({ data: { raterId: req.user.sub, rateeId, score, comment } }) };
+      }
+      const [latest, ...older] = existing;
+      if (older.length) await tx.rating.deleteMany({ where: { id: { in: older.map((r) => r.id) } } });
+      return { created: false, row: await tx.rating.update({ where: { id: latest.id }, data: { score, comment: comment ?? null } }) };
     });
 
-    res.status(201).json(rating);
+    res.status(rating.created ? 201 : 200).json(rating.row);
   },
 );
 

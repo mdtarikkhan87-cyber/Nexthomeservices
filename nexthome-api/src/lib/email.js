@@ -69,6 +69,7 @@ const ROLE_BULLETS = {
   tenant_buyer: "Browse verified rental and sale listings, and message landlords directly, in-app.",
   service_provider: "List your services and get discovered by people who actually need them.",
   advertiser: "Put your ads in front of our audience, reviewed and placed by our team.",
+  service_user: "Find verified electricians, plumbers and other tradespeople, and message them directly, in-app.",
 };
 
 // The welcome email doubles as the verification email sent on registration

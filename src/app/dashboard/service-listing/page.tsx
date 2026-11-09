@@ -321,6 +321,7 @@ export default function ServiceListingPage() {
             id="svc-desc"
             required
             rows={4}
+            maxLength={3000}
             placeholder="Describe your services and coverage area"
             value={description}
             onChange={(e) => setDescription(e.target.value)}

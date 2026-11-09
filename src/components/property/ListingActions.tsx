@@ -78,6 +78,7 @@ export function ListingActions({
   const openComposer = () =>
     requireAuth({
       actionLabel: enquiryLabel,
+      propertyAction: true,
       onResume: () => {
         setMessage(defaultMessage);
         setComposerOpen(true);
@@ -88,6 +89,7 @@ export function ListingActions({
     requireAuth({
       actionLabel: `Log in to save "${listingTitle}"`,
       suggestedRole: "tenant-buyer",
+      propertyAction: true,
       onResume: () => setSaved((v) => !v),
     });
 
@@ -167,7 +169,7 @@ export function ListingActions({
               {sendError}
             </p>
           )}
-          <Textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} />
+          <Textarea rows={3} maxLength={1000} value={message} onChange={(e) => setMessage(e.target.value)} />
           <div className="mt-2 flex justify-end gap-2">
             <Button variant="secondary" size="dense" onClick={() => setComposerOpen(false)}>
               Cancel

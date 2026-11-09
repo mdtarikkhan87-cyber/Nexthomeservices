@@ -56,6 +56,7 @@ export default function ComplaintsPage() {
           <Input
             required
             minLength={3}
+            maxLength={200}
             placeholder="Listing title or user name"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
@@ -63,6 +64,7 @@ export default function ComplaintsPage() {
           <Textarea
             required
             minLength={10}
+            maxLength={3000}
             placeholder="Describe what happened"
             rows={5}
             value={body}

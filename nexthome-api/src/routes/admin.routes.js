@@ -40,12 +40,13 @@ function checkValidation(req, res) {
   return true;
 }
 
-const VALID_ROLES = ["landlord", "tenant_buyer", "service_provider", "advertiser"];
+const VALID_ROLES = ["landlord", "tenant_buyer", "service_provider", "advertiser", "service_user"];
 const ROLE_LABELS = {
   landlord: "Landlord",
   tenant_buyer: "Renter / Buyer",
   service_provider: "Service Provider",
   advertiser: "Advertiser",
+  service_user: "Service User",
 };
 
 // Real, persisted audit trail — this used to be client-side React state only

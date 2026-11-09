@@ -16,7 +16,7 @@ import { ContentItemState, RoleName } from "./types";
 
 // Same translation reasoning as every other -client.ts file: Prisma enums
 // can't use hyphens, so several fields are underscored server-side.
-type BackendRoleName = "landlord" | "tenant_buyer" | "service_provider" | "advertiser";
+type BackendRoleName = "landlord" | "tenant_buyer" | "service_provider" | "advertiser" | "service_user";
 type BackendRoleState = "role_added" | "pending_admin_document_review" | "role_verified";
 type BackendContentItemState = "pending_review" | "live" | "rejected";
 type BackendSubscriptionState = "inactive" | "pending_confirmation" | "active";
@@ -27,12 +27,14 @@ const ROLE_TO_FRONTEND: Record<BackendRoleName, RoleName> = {
   tenant_buyer: "tenant-buyer",
   service_provider: "service-provider",
   advertiser: "advertiser",
+  service_user: "service-user",
 };
 const ROLE_TO_BACKEND: Record<RoleName, BackendRoleName> = {
   landlord: "landlord",
   "tenant-buyer": "tenant_buyer",
   "service-provider": "service_provider",
   advertiser: "advertiser",
+  "service-user": "service_user",
 };
 const ROLE_STATE_TO_FRONTEND: Record<BackendRoleState, AdminUserRoleRow["state"]> = {
   role_added: "role-added",

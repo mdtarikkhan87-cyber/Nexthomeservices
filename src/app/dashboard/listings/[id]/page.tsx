@@ -185,7 +185,12 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
       // shared-room details this page also renders. The title comes from the
       // response because the server derives it (e.g. a new bedroom count
       // changes it).
-      setListing((prev) => (prev ? { ...prev, ...patch, title: updated.title } : prev));
+      // The server sends a live listing back to review when its content changes
+      // (the Verified badge goes too), so take the status from the response and
+      // say so, rather than leaving "Live" on screen for a hidden listing.
+      const wentBackToReview = listing.status === "live" && updated.status === "pending-review";
+      setListing((prev) => (prev ? { ...prev, ...patch, title: updated.title, status: updated.status, verified: updated.verified } : prev));
+      if (wentBackToReview) setPublishNotice("Your changes need review again. The listing is hidden from search until our team approves it.");
       void refetchMyListings();
       setEditing(false);
     } catch (err) {
@@ -304,7 +309,7 @@ export default function ListingManagementDetail({ params }: PageProps<"/dashboar
           )}
           <div>
             <Label htmlFor="edit-description">Description</Label>
-            <Textarea id="edit-description" rows={8} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+            <Textarea id="edit-description" rows={8} maxLength={5000} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
           </div>
           {editError && <p role="alert" className="text-sm font-bold text-red-600">{editError}</p>}
           <div className="flex gap-3">

@@ -105,7 +105,7 @@ router.post(
   requireVerifiedRole("landlord"),
   [
     body("type").isIn(LISTING_TYPES),
-    body("description").isString().isLength({ min: 10 }),
+    body("description").isString().isLength({ min: 10, max: 5000 }).withMessage("The description must be 10 to 5000 characters."),
     body("price").isInt({ min: 0 }),
     body("currency").optional().isString(),
     body("state").isString().notEmpty(),
@@ -319,7 +319,7 @@ router.patch(
   requireRole("landlord"),
   [
     param("id").isString(),
-    body("description").optional().isString().isLength({ min: 10 }),
+    body("description").optional().isString().isLength({ min: 10, max: 5000 }).withMessage("The description must be 10 to 5000 characters."),
     body("price").optional().isInt({ min: 0 }),
     body("bedrooms").optional().isInt({ min: 0 }),
     body("bathrooms").optional().isInt({ min: 0 }),
@@ -364,14 +364,35 @@ router.patch(
       propertyType: existing.propertyType,
       occupancyType: existing.occupancyType,
     });
+    // RE-REVIEW. What the public sees and the admin approved is the content:
+    // description, price, bedrooms, bathrooms and photos. If an owner changes
+    // any of those on a LIVE listing, it goes back to review (and loses the
+    // Verified badge until approved again), exactly like a new listing, instead
+    // of publishing the edit unchecked. Only an actual change counts: saving the
+    // form with the same values leaves it live. The owner-only toggles
+    // (availability: rented/sold, isPublished) never trigger review.
+    const same = (a, b) => JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
+    const contentChanged =
+      (description !== undefined && String(description).trim() !== String(existing.description).trim()) ||
+      (price !== undefined && Number(price) !== existing.price) ||
+      (bedrooms !== undefined && Number(bedrooms) !== existing.bedrooms) ||
+      (bathrooms !== undefined && Number(bathrooms) !== existing.bathrooms) ||
+      (photoUrl !== undefined && photoUrl !== existing.photoUrl) ||
+      (galleryUrls !== undefined && !same(galleryUrls, existing.galleryUrls));
+    const sendBackToReview = contentChanged && existing.status === "live";
+
     const updated = await prisma.listing.update({
       where: { id: req.params.id },
-      data: { title, description, price, bedrooms, bathrooms, availability, isPublished, photoUrl, galleryUrls },
+      data: {
+        title, description, price, bedrooms, bathrooms, availability, isPublished, photoUrl, galleryUrls,
+        ...(sendBackToReview && { status: "pending_review", verified: false }),
+      },
     });
 
     // Committed. Covers rented/sold, unpublish/republish and edits: the owner's
     // other tabs update, and anyone who saved it is told to refresh their Saved list.
     await publishListingChange(updated, ACTOR.SELF);
+    if (sendBackToReview) publishAdminQueueChange("listing"); // it is in the review queue again
 
     res.json(updated);
   },

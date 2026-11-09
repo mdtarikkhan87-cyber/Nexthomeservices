@@ -44,8 +44,8 @@ router.post(
   "/",
   optionalAuthenticate,
   [
-    body("subject").isString().isLength({ min: 3 }),
-    body("body").isString().isLength({ min: 10 }),
+    body("subject").isString().isLength({ min: 3, max: 200 }).withMessage("The subject must be 3 to 200 characters."),
+    body("body").isString().isLength({ min: 10, max: 3000 }).withMessage("The details must be 10 to 3000 characters."),
   ],
   async (req, res) => {
     if (!checkValidation(req, res)) return;

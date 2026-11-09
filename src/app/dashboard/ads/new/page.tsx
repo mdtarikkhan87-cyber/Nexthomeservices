@@ -101,6 +101,7 @@ export default function SubmitAdvertisementPage() {
             id="ad-title"
             required
             minLength={3}
+            maxLength={120}
             placeholder="What is this ad promoting?"
             value={headline}
             onChange={(e) => setHeadline(e.target.value)}

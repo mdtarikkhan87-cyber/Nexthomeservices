@@ -95,6 +95,7 @@ export function RoleOverview({ role }: { role: RoleName }) {
         <TenantOverview name={user?.name} context={current?.context ?? "rent"} setContext={setTenantBuyerContext} />
       )}
       {role === "service-provider" && <ProviderOverview name={user?.name} />}
+      {role === "service-user" && <ServiceUserOverview name={user?.name} />}
       {role === "advertiser" && <AdvertiserOverview name={user?.name} />}
     </div>
   );
@@ -804,6 +805,89 @@ function ProviderOverview({ name }: { name?: string }) {
 // ---------------------------------------------------------------------------
 // Tenant / buyer
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Service User: finds and messages service providers; no property features.
+// ---------------------------------------------------------------------------
+function ServiceUserOverview({ name }: { name?: string }) {
+  const { user } = useAuth();
+  const conversations = useConversations();
+  const chats = conversations ? conversations.filter((c) => c.contextHref.startsWith("/services/")) : null;
+  const unread = chats && user ? chats.filter((c) => isConversationUnread(c, user.id)).length : null;
+
+  const attention: AttentionItem[] = [];
+  const u = unreadItem(chats, user?.id, "reply", "new reply", "new replies");
+  if (u) attention.push(u);
+  const summary =
+    chats === null ? null : unread ? `${plural(unread, "reply", "replies")} waiting for you.` : "Find a service provider, or check your conversations.";
+
+  return (
+    <>
+      <OverviewHeader
+        name={name}
+        summary={summary}
+        actions={
+          <PrimaryAction href="/services" icon={<IconSearch className="h-[18px] w-[18px]" />}>
+            Find a service provider
+          </PrimaryAction>
+        }
+      />
+
+      <StatGrid>
+        <StatTile label="Conversations" value={chats ? chats.length : null} icon={<IconInbox className="h-[18px] w-[18px]" />} href="/dashboard/messages" />
+        <StatTile label="Unread messages" value={unread} icon={<IconMessageCircle className="h-[18px] w-[18px]" />} href="/dashboard/messages" />
+      </StatGrid>
+
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch">
+        <Card labelledBy="su-chats-h" className="lg:flex-[2] lg:basis-[34rem]">
+          <CardHeader id="su-chats-h" title="Your conversations" subtitle={chats ? plural(chats.length, "conversation") : undefined} href="/dashboard/messages" />
+          {chats === null ? (
+            <div className="p-4 pt-0 sm:p-6 sm:pt-0">
+              <RowListSkeleton rows={3} />
+            </div>
+          ) : chats.length === 0 ? (
+            <p className="border-t border-[var(--color-border-hairline)] px-4 py-6 text-sm text-[var(--color-text-secondary)] sm:px-6">
+              You haven’t contacted anyone yet. Open a service provider and send a message to start a conversation.
+            </p>
+          ) : (
+            <ul>
+              {chats.slice(0, 5).map((c) => {
+                const isUnread = user ? isConversationUnread(c, user.id) : false;
+                const awaiting = !!user && c.lastMessageSenderId === user.id;
+                return (
+                  <li key={c.id} className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6 ${ROW}`}>
+                    <IconTile tone="info" size={40}>
+                      <IconWrench className="h-5 w-5" />
+                    </IconTile>
+                    <div className="flex min-w-0 flex-1 basis-48 flex-col gap-0.5">
+                      <Link href={c.contextHref} className="truncate text-sm font-bold text-[var(--color-text-primary)] hover:underline">
+                        {c.contextTitle}
+                      </Link>
+                      <span className="text-[13px] text-[var(--color-text-secondary)]">{user ? otherParticipant(c, user.id).name : ""}</span>
+                    </div>
+                    <span className="w-28 shrink-0 text-[13px] text-[var(--color-text-secondary)]">{formatRelativeTime(new Date(c.updatedAt))}</span>
+                    <div className="w-32 shrink-0">
+                      <StatusBadge kind={isUnread ? "live" : "pending"} label={isUnread ? "New reply" : awaiting ? "Awaiting reply" : "Read"} dense />
+                    </div>
+                    <Link href="/dashboard/messages" className="shrink-0">
+                      <Button variant="secondary" size="dense">
+                        View chat
+                      </Button>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
+        <SidePanel>
+          <AttentionCard items={attention} loading={conversations === null} />
+          <NotificationsCard />
+        </SidePanel>
+      </div>
+    </>
+  );
+}
 
 function TenantOverview({
   name,
