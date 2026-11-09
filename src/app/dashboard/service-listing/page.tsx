@@ -14,9 +14,9 @@ import { ServiceListing } from "@/lib/types";
 import {
   apiCreateServiceListing,
   apiFetchMyServiceListings,
+  apiFetchServiceCategories,
   apiUpdateServiceListing,
 } from "@/lib/services-client";
-import { SERVICE_CATEGORIES } from "@/lib/service-categories";
 
 const STATUS_TO_BADGE_KIND: Record<ServiceListing["status"], StatusKind> = {
   "pending-review": "pending",
@@ -36,7 +36,13 @@ export default function ServiceListingPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [category, setCategory] = useState(SERVICE_CATEGORIES[0]);
+  // Free text: whatever trade this provider offers. The server tidies it (spaces,
+  // capitalisation) so "electrician" and "Electrician" are one category.
+  const [category, setCategory] = useState("");
+  // Categories already in the directory, offered as suggestions while typing
+  // (a datalist: suggestions only, never a restriction), so a provider who
+  // offers what others already list tends to pick the same spelling.
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [description, setDescription] = useState("");
   // COVERAGE AREA, not an address: the state this provider works in, plus
   // every LGA inside it they will travel to. Customers filter the directory
@@ -66,6 +72,11 @@ export default function ServiceListingPage() {
 
   useEffect(() => {
     let cancelled = false;
+    apiFetchServiceCategories()
+      .then((list) => {
+        if (!cancelled) setSuggestions(list);
+      })
+      .catch(() => {});
     apiFetchMyServiceListings()
       .then((listings) => {
         if (cancelled) return;
@@ -154,6 +165,7 @@ export default function ServiceListingPage() {
               ? await apiUpdateServiceListing(existing.id, payload)
               : await apiCreateServiceListing(payload);
             setExisting(saved);
+            setCategory(saved.category); // show it as the server stored it (tidied)
             notify({
               role: "service-provider",
               kind: "content-status",
@@ -171,13 +183,23 @@ export default function ServiceListingPage() {
       >
         <div>
           <Label htmlFor="category">Category</Label>
-          <Select id="category" required value={category} onChange={(e) => setCategory(e.target.value)}>
-            {SERVICE_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+          <Input
+            id="category"
+            required
+            minLength={2}
+            maxLength={40}
+            list="category-suggestions"
+            autoComplete="off"
+            placeholder="e.g. Electrician, Swimming coach"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            hint="The trade or service you offer. Customers can find you under this name."
+          />
+          <datalist id="category-suggestions">
+            {suggestions.map((c) => (
+              <option key={c} value={c} />
             ))}
-          </Select>
+          </datalist>
         </div>
 
         <div>
