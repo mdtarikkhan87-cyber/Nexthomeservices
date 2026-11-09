@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const { body, query, param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
+const { normalizeCategory, CATEGORY_PATTERN } = require("../lib/service-category");
 const { ACTOR, EVENTS, emitToUser, publishServiceChange, publishAdminQueueChange } = require("../lib/realtime");
 const { authenticate, requireRole, requireVerifiedRole } = require("../middleware/auth.middleware");
 
@@ -45,7 +46,12 @@ router.post(
   requireRole("service_provider"),
   requireVerifiedRole("service_provider"),
   [
-    body("category").isString().notEmpty(),
+    body("category")
+      .customSanitizer(normalizeCategory)
+      .isLength({ min: 2, max: 40 })
+      .withMessage("Enter the service you offer, 2 to 40 characters.")
+      .matches(CATEGORY_PATTERN)
+      .withMessage("Use letters, numbers and spaces only."),
     body("description").isString().isLength({ min: 10 }),
     body("state").isString().notEmpty(),
     // Empty/omitted lgas means "covers the whole state" (PRD §6.6) — not
@@ -191,7 +197,13 @@ router.patch(
   requireRole("service_provider"),
   [
     param("id").isString(),
-    body("category").optional().isString().notEmpty(),
+    body("category")
+      .optional()
+      .customSanitizer(normalizeCategory)
+      .isLength({ min: 2, max: 40 })
+      .withMessage("Enter the service you offer, 2 to 40 characters.")
+      .matches(CATEGORY_PATTERN)
+      .withMessage("Use letters, numbers and spaces only."),
     body("description").optional().isString().isLength({ min: 10 }),
     body("state").optional().isString().notEmpty(),
     body("lgas").optional().isArray(),
