@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
+import { Analytics } from "@vercel/analytics/next";
 
 // Brand Guidelines p.9: Quicksand Bold (headings) / Quicksand Medium (body).
 //
@@ -67,6 +68,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <style>{`[data-reveal]{opacity:1!important;transform:none!important}`}</style>
         </noscript>
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );
