@@ -762,6 +762,7 @@ export default function PostPropertyPage() {
             <Textarea
               id="description"
               rows={5}
+              maxLength={5000}
               value={draft.description}
               onChange={(e) => set("description", e.target.value)}
               error={errors.description}

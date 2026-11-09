@@ -106,7 +106,10 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, body.message || `Request failed with status ${res.status}`);
+    // Validator failures come back as { errors: [{ msg }] } with no `message`:
+    // show the first specific reason rather than a bare status code.
+    const reason = Array.isArray(body.errors) ? body.errors.find((e: { msg?: string }) => e.msg && e.msg !== "Invalid value")?.msg : undefined;
+    throw new ApiError(res.status, body.message || reason || `Request failed with status ${res.status}`);
   }
   if (res.status === 204) return undefined as T;
   return res.json();
