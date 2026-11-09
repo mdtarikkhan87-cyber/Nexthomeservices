@@ -2,7 +2,7 @@ const express = require("express");
 const { body, param, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
-const { authenticate } = require("../middleware/auth.middleware");
+const { authenticate, isServiceUserOnly, SERVICE_USER_ONLY_MESSAGE } = require("../middleware/auth.middleware");
 const { getIO } = require("../lib/socket");
 const { emitToUser } = require("../lib/realtime");
 
@@ -64,6 +64,12 @@ router.post(
       return res.status(400).json({
         message: "Provide only one of listingId or serviceListingId, not both.",
       });
+    }
+
+    // Messaging a landlord is a property feature; messaging a service provider
+    // is not. A Service User-only account may start the second, never the first.
+    if (listingId && (await isServiceUserOnly(req.user.sub))) {
+      return res.status(403).json({ message: SERVICE_USER_ONLY_MESSAGE });
     }
 
     // Figure out who the other participant is: the listing's landlord, or

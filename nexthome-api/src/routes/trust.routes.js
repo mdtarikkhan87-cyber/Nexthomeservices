@@ -11,7 +11,7 @@ const { ACTOR, publishRoleChange, publishAccountChange, publishAdminQueueChange 
 const router = express.Router();
 
 const EMAIL_TOKEN_TTL_HOURS = 24;
-const ROLES_NEEDING_TRUST_LAYER = ["landlord", "tenant_buyer", "service_provider", "advertiser"];
+const ROLES_NEEDING_TRUST_LAYER = ["landlord", "tenant_buyer", "service_provider", "advertiser", "service_user"];
 
 function checkValidation(req, res) {
   const errors = validationResult(req);

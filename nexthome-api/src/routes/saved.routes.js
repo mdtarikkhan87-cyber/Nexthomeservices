@@ -4,7 +4,7 @@ const { param, validationResult } = require("express-validator");
 const prisma = require("../lib/prisma");
 const { ACTOR, EVENTS, emitToUser } = require("../lib/realtime");
 const { toListItem } = require("../lib/listing-view");
-const { authenticate } = require("../middleware/auth.middleware");
+const { authenticate, requirePropertyAccess } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
@@ -25,7 +25,7 @@ function checkValidation(req, res) {
 // wherever a signed-in visitor is browsing, not only under an active
 // tenant-buyer role.
 // -----------------------------------------------------------------------
-router.get("/", authenticate, async (req, res) => {
+router.get("/", authenticate, requirePropertyAccess, async (req, res) => {
   const saved = await prisma.savedListing.findMany({
     // Unpublished listings drop out of Saved while hidden; the saved rows are
     // kept, so they reappear automatically if the owner publishes again.
@@ -42,7 +42,7 @@ router.get("/", authenticate, async (req, res) => {
 // read the same to the user (heart filled in), so saving twice is a
 // success, not an error.
 // -----------------------------------------------------------------------
-router.put("/:listingId", authenticate, [param("listingId").isString()], async (req, res) => {
+router.put("/:listingId", authenticate, requirePropertyAccess, [param("listingId").isString()], async (req, res) => {
   if (!checkValidation(req, res)) return;
 
   const listing = await prisma.listing.findUnique({ where: { id: req.params.listingId } });
@@ -62,7 +62,7 @@ router.put("/:listingId", authenticate, [param("listingId").isString()], async (
 // DELETE /saved/:listingId — unsave. Idempotent for the same reason as
 // PUT above — unsaving something already unsaved is still a success.
 // -----------------------------------------------------------------------
-router.delete("/:listingId", authenticate, [param("listingId").isString()], async (req, res) => {
+router.delete("/:listingId", authenticate, requirePropertyAccess, [param("listingId").isString()], async (req, res) => {
   if (!checkValidation(req, res)) return;
 
   await prisma.savedListing.deleteMany({

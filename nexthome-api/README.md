@@ -29,8 +29,9 @@ node scripts/seed-dev.js       # demo accounts and listings (password for all: p
 ```
 
 Demo accounts: `admin@`, `tenant@`, `landlord@` (verified, subscription active),
-`landlord.new@` (not verified yet), `provider@`, `advertiser@` and `multi@` (several
-roles), all `@demo.test`. Re-running the seed resets them.
+`landlord.new@` (not verified yet), `provider@`, `advertiser@`, `multi@` (several
+roles), `serviceuser@` (Service User only: no saving homes or messaging landlords) and
+`serviceuser.renter@` (Service User + Renter / Buyer), all `@demo.test`. Re-running the seed resets them.
 
 The server validates its environment at boot (`src/lib/env.js`) and exits with a clear
 message if anything required is missing. `.env.example` lists every variable.

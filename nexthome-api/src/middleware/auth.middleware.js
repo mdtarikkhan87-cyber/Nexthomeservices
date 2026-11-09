@@ -82,6 +82,42 @@ function requireVerifiedRole(role) {
   };
 }
 
+// "May this account use the property features (save a home, message a landlord)?"
+//
+// A Service User account exists to find and contact service providers, with no
+// property features. The rule is about the account's WHOLE set of roles: it is
+// blocked only when Service User is the only role it holds. An account that
+// also holds Renter / Buyer (or Landlord, Service Provider, Advertiser) keeps
+// full access, exactly as any other multi-role account does, and an admin
+// (which holds no roles) is never blocked.
+//
+// Read from the database on every call, never from the token: someone who
+// adds the Renter / Buyer role must be able to save a home straight away,
+// without logging out and in to refresh their token.
+const SERVICE_USER_ONLY_MESSAGE =
+  "Service User accounts can browse and message service providers, but can't save homes or message landlords. Add the Renter / Buyer role from your Account page to do that.";
+
+async function isServiceUserOnly(userId) {
+  const held = await prisma.userRole.findMany({ where: { userId }, select: { role: true } });
+  return held.length > 0 && held.every((r) => r.role === "service_user");
+}
+
+// Usage: router.put("/", authenticate, requirePropertyAccess, handler)
+// MUST be used AFTER `authenticate`.
+async function requirePropertyAccess(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Not authenticated." });
+  }
+  try {
+    if (await isServiceUserOnly(req.user.sub)) {
+      return res.status(403).json({ message: SERVICE_USER_ONLY_MESSAGE });
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
 // "Is this account the admin?"
 //
 // Usage: router.get("/something", authenticate, requireAdmin, handler)
@@ -98,4 +134,12 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { authenticate, requireRole, requireVerifiedRole, requireAdmin };
+module.exports = {
+  authenticate,
+  requireRole,
+  requireVerifiedRole,
+  requirePropertyAccess,
+  isServiceUserOnly,
+  SERVICE_USER_ONLY_MESSAGE,
+  requireAdmin,
+};

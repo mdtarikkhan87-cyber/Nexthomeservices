@@ -26,7 +26,7 @@ const { ACTOR, publishRoleChange, publishAccountChange } = require("../lib/realt
 const router = express.Router();
 
 // Every role your frontend's registration screen can submit.
-const VALID_ROLES = ["landlord", "tenant_buyer", "service_provider", "advertiser"];
+const VALID_ROLES = ["landlord", "tenant_buyer", "service_provider", "advertiser", "service_user"];
 
 // What the signed-in user may be sent about themselves. Secrets never leave
 // the server: the password hash, and the mother's maiden name (a recovery

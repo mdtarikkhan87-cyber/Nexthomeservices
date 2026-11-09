@@ -36,6 +36,7 @@ enum RoleName {
   tenant_buyer
   service_provider
   advertiser
+  service_user // finds and contacts service providers; no property features
 }
 
 enum RoleState {

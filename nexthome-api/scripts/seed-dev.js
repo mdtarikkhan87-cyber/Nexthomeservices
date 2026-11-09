@@ -65,6 +65,10 @@ const USERS = [
       { role: "advertiser", state: "role_verified" },
     ],
   },
+  // Finds and messages service providers only: blocked from saving homes and messaging landlords.
+  { email: "serviceuser@demo.test", name: "Sola Serviceuser", roles: [{ role: "service_user", state: "role_verified" }] },
+  // Service User plus Renter / Buyer: full access on both sides.
+  { email: "serviceuser.renter@demo.test", name: "Remi Both", roles: [{ role: "service_user", state: "role_verified" }, { role: "tenant_buyer", state: "role_verified", context: "rent" }] },
 ];
 
 // Owned by landlord@demo.test. `n` makes the fixed id.
