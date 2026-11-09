@@ -1,15 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { IconFilter } from "@/components/ui/icons";
 import { FOCUS_RING, SelectField } from "@/components/ui/SelectField";
-import { SERVICE_CATEGORIES } from "@/lib/service-categories";
+import { apiFetchServiceCategories } from "@/lib/services-client";
 import { NIGERIAN_STATES, lgasForState } from "@/lib/nigeria-locations";
-
-// Same list the provider signup form and the /services directory filter use,
-// so this dropdown and the directory can never disagree about what exists.
-const SERVICE_TYPES = [...SERVICE_CATEGORIES].sort();
 
 // PRD §4 approves price range, state, and bedrooms as filters (state must
 // stay a fixed dropdown, never free text). Buckets are mode-specific since
@@ -72,6 +68,25 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
   const [bedrooms, setBedrooms] = useState("");
   const [duration, setDuration] = useState("");
   const [serviceType, setServiceType] = useState("");
+  // The Service type options are the categories that actually have live
+  // service listings (GET /services/categories), fetched the first time the
+  // Services tab is opened, so a new category shows up with no code change.
+  const [serviceTypes, setServiceTypes] = useState<string[] | null>(null);
+  useEffect(() => {
+    if (mode !== "services" || serviceTypes !== null) return;
+    let cancelled = false;
+    Promise.resolve().then(async () => {
+      try {
+        const list = await apiFetchServiceCategories();
+        if (!cancelled) setServiceTypes(list);
+      } catch {
+        if (!cancelled) setServiceTypes([]); // "Any service" still works
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, serviceTypes]);
 
   // The Buy/Rent tabs choose the DESTINATION ROUTE now — `mode` is no
   // longer carried as a query param into a shared /search page, it selects
@@ -123,8 +138,8 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
     [state]
   );
   const serviceOptions = useMemo(
-    () => [{ value: "", label: "Any service" }, ...SERVICE_TYPES.map((c) => ({ value: c, label: c }))],
-    []
+    () => [{ value: "", label: "Any service" }, ...(serviceTypes ?? []).map((c) => ({ value: c, label: c }))],
+    [serviceTypes]
   );
 
   // Switching mode clears the price: rent/sale buckets use different scales.
