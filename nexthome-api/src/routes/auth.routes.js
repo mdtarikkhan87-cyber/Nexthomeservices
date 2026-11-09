@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const { body, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
+const { isPreRegistrationDocumentKey } = require("../lib/document-key");
 const { authenticate } = require("../middleware/auth.middleware");
 const { sendEmail, buildWelcomeEmailHtml } = require("../lib/email");
 const {
@@ -122,6 +123,21 @@ router.post(
       }
     }
 
+    // A document key sent with registration must be one this phone number's
+    // pre-registration upload produced (documents/pending-<hash of the verified
+    // phone>/...). If the phone could not be verified (e.g. the verification
+    // token expired) the document is simply not attached and can be submitted
+    // again from the account page; a verified phone with someone else's key is
+    // refused outright.
+    let acceptedDocumentUrl = documentUrl;
+    if (documentUrl) {
+      if (!phoneVerifiedAt) {
+        acceptedDocumentUrl = undefined;
+      } else if (!isPreRegistrationDocumentKey(documentUrl, phone)) {
+        return res.status(400).json({ message: "That document wasn't uploaded for this phone number. Please upload it again." });
+      }
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
     const uniqueRoles = Array.from(new Set(roles));
 
@@ -142,12 +158,12 @@ router.post(
             // to pending_admin_document_review at creation instead of the
             // separate authenticated POST /trust/roles/:role/document call
             // this used to require after the account already existed.
-            const needsReview = documentUrl && VALID_ROLES.includes(role);
+            const needsReview = acceptedDocumentUrl && VALID_ROLES.includes(role);
             return {
               role,
               state: needsReview ? "pending_admin_document_review" : initialRoleState(role),
               subscriptionState: initialSubscriptionState(role),
-              documentUrl: needsReview ? documentUrl : undefined,
+              documentUrl: needsReview ? acceptedDocumentUrl : undefined,
               documentSubmittedAt: needsReview ? new Date() : undefined,
             };
           }),

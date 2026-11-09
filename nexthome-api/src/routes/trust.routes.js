@@ -3,6 +3,7 @@ const express = require("express");
 const { body, query, validationResult } = require("express-validator");
 
 const prisma = require("../lib/prisma");
+const { isOwnDocumentKey } = require("../lib/document-key");
 const { authenticate } = require("../middleware/auth.middleware");
 const { startVerification, checkVerification, respondWithVerifyError } = require("../lib/twilio");
 const { sendEmail } = require("../lib/email");
@@ -164,6 +165,14 @@ router.post(
     const { role } = req.params;
     if (!ROLES_NEEDING_TRUST_LAYER.includes(role)) {
       return res.status(400).json({ message: "This role doesn't require document review." });
+    }
+
+    // The reported key must be one this account uploaded itself
+    // (documents/<own id>/...). Otherwise someone could point their role at
+    // another user's document, or any other object, and have an admin review it
+    // as theirs.
+    if (!isOwnDocumentKey(req.body.documentUrl, req.user.sub)) {
+      return res.status(400).json({ message: "That document wasn't uploaded by your account. Please upload it again." });
     }
 
     const userRole = await prisma.userRole.findUnique({

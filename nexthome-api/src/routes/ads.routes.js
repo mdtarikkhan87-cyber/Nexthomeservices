@@ -65,8 +65,8 @@ router.post(
   requireRole("advertiser"),
   [
     imageUrlRule(body("imageUrl").isString().notEmpty()),
-    body("headline").isString().isLength({ min: 3 }),
-    body("linkUrl").isURL(),
+    body("headline").isString().isLength({ min: 3, max: 120 }).withMessage("The headline must be 3 to 120 characters."),
+    body("linkUrl").isURL({ protocols: ["http", "https"], require_protocol: true }).withMessage("The link must start with http:// or https://"),
   ],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
@@ -176,8 +176,8 @@ router.patch(
   [
     param("id").isString(),
     imageUrlRule(body("imageUrl").optional().isString().notEmpty()),
-    body("headline").optional().isString().isLength({ min: 3 }),
-    body("linkUrl").optional().isURL(),
+    body("headline").optional().isString().isLength({ min: 3, max: 120 }).withMessage("The headline must be 3 to 120 characters."),
+    body("linkUrl").optional().isURL({ protocols: ["http", "https"], require_protocol: true }).withMessage("The link must start with http:// or https://"),
   ],
   async (req, res) => {
     if (!checkValidation(req, res)) return;

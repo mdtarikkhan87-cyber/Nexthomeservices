@@ -176,7 +176,7 @@ router.get(
 router.post(
   "/:id/messages",
   authenticate,
-  [param("id").isString(), body("body").isString().trim().notEmpty()],
+  [param("id").isString(), body("body").isString().trim().notEmpty().isLength({ max: 1000 }).withMessage("Messages can be up to 1000 characters.")],
   async (req, res) => {
     if (!checkValidation(req, res)) return;
 

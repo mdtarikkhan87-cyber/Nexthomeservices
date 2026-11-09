@@ -51,8 +51,10 @@ router.post(
       .isLength({ min: 2, max: 40 })
       .withMessage("Enter the service you offer, 2 to 40 characters.")
       .matches(CATEGORY_PATTERN)
-      .withMessage("Use letters, numbers and spaces only."),
-    body("description").isString().isLength({ min: 10 }),
+      .withMessage("Use letters, numbers and spaces only.")
+      .matches(/\p{L}/u)
+      .withMessage("Include at least one letter."),
+    body("description").isString().isLength({ min: 10, max: 3000 }).withMessage("The description must be 10 to 3000 characters."),
     body("state").isString().notEmpty(),
     // Empty/omitted lgas means "covers the whole state" (PRD §6.6) — not
     // missing data, a real answer.
@@ -83,6 +85,18 @@ router.post(
   },
 );
 
+// The category filter is a LITERAL, case-insensitive comparison. It must not be
+// a pattern: Prisma's `mode: "insensitive"` is implemented with ILIKE, where
+// `%` and `_` are wildcards, so `?category=%` used to match everything. Instead
+// the stored spellings that equal the input ignoring case and surrounding
+// spaces are looked up first, and the query then filters with an exact `in`.
+async function storedSpellingsOf(category) {
+  const wanted = String(category).trim().toLowerCase();
+  if (!wanted) return [];
+  const rows = await prisma.serviceListing.findMany({ distinct: ["category"], select: { category: true } });
+  return rows.map((r) => r.category).filter((c) => c.trim().toLowerCase() === wanted);
+}
+
 // -----------------------------------------------------------------------
 // GET /services — public search. Only ever returns "live" listings.
 // Query params: state, category, lga, page, limit
@@ -106,8 +120,9 @@ router.get(
     const where = {
       status: "live",
       ...(state && { state }),
-      // Case-insensitive, so a link like ?category=plumber finds "Plumber".
-      ...(category && { category: { equals: String(category).trim(), mode: "insensitive" } }),
+      // Case-insensitive but literal, so ?category=plumber finds "Plumber" and
+      // ?category=% finds nothing (see storedSpellingsOf above).
+      ...(category && { category: { in: await storedSpellingsOf(category) } }),
       // A provider with an empty lgas list covers the whole state — matches
       // any lga filter for that state. Otherwise, the requested lga must be
       // explicitly in their coverage list.
@@ -203,8 +218,10 @@ router.patch(
       .isLength({ min: 2, max: 40 })
       .withMessage("Enter the service you offer, 2 to 40 characters.")
       .matches(CATEGORY_PATTERN)
-      .withMessage("Use letters, numbers and spaces only."),
-    body("description").optional().isString().isLength({ min: 10 }),
+      .withMessage("Use letters, numbers and spaces only.")
+      .matches(/\p{L}/u)
+      .withMessage("Include at least one letter."),
+    body("description").optional().isString().isLength({ min: 10, max: 3000 }).withMessage("The description must be 10 to 3000 characters."),
     body("state").optional().isString().notEmpty(),
     body("lgas").optional().isArray(),
     body("photoUrl").optional().isString(),
@@ -223,12 +240,28 @@ router.patch(
     // Only a fixed set of fields — never let the request body silently
     // overwrite providerId, status, or verified.
     const { category, description, state, lgas, photoUrl } = req.body;
+
+    // RE-REVIEW. Everything on a service listing is content the public sees and
+    // an admin approved (the category even becomes an option in the homepage
+    // dropdown). Changing any of it on a LIVE listing sends it back to review
+    // and drops the Verified badge until approved again, like a new listing.
+    // Only an actual change counts: saving the form unchanged leaves it live.
+    const sameSet = (a, b) => JSON.stringify([...(a ?? [])].sort()) === JSON.stringify([...(b ?? [])].sort());
+    const contentChanged =
+      (category !== undefined && String(category).trim() !== existing.category.trim()) ||
+      (description !== undefined && String(description).trim() !== existing.description.trim()) ||
+      (state !== undefined && state !== existing.state) ||
+      (lgas !== undefined && !sameSet(lgas, existing.lgas)) ||
+      (photoUrl !== undefined && (photoUrl || null) !== (existing.photoUrl || null));
+    const sendBackToReview = contentChanged && existing.status === "live";
+
     const updated = await prisma.serviceListing.update({
       where: { id: req.params.id },
-      data: { category, description, state, lgas, photoUrl },
+      data: { category, description, state, lgas, photoUrl, ...(sendBackToReview && { status: "pending_review", verified: false }) },
     });
 
     publishServiceChange(updated, ACTOR.SELF);
+    if (sendBackToReview) publishAdminQueueChange("listing"); // back in the review queue
 
     res.json(updated);
   },
