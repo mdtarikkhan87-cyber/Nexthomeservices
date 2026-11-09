@@ -27,7 +27,7 @@ import type { RoleName } from "@/lib/types";
 //   /listings#f-state               the State filter at the top of the Listings filters
 //   /listings?mode=rent&duration=…  the Short-Term / Long-Term filter
 //   /listings?verified=1            the "Verified listings only" filter
-//   /services                       the Find Home Services directory
+//   /services                       the Services directory (Find a service provider)
 //   /dashboard/listings/new         List Your Property (see MAIN_MENU_GROUPS)
 //   /verification                   How Verification Works
 //   /complaints                     Report a Concern
@@ -40,7 +40,7 @@ import type { RoleName } from "@/lib/types";
 // The main menu (the desktop "Menu" dropdown and the phone/tablet hamburger
 // sheet are built from this one list). Three groups, in this order:
 //
-//   (unlabelled)     Discover Properties · Find Home Services · List Your Property
+//   (unlabelled)     Discover Properties · Services · List Your Property
 //   Trust & Safety   How Verification Works · Report a Concern
 //   Support          Help & FAQ
 //
@@ -62,7 +62,7 @@ export const MAIN_MENU_GROUPS: {
   {
     links: [
       { href: "/listings", label: "Discover Properties", Icon: IconHome },
-      { href: "/services", label: "Find Home Services", Icon: IconWrench },
+      { href: "/services", label: "Services", Icon: IconWrench },
       { href: "/dashboard/listings/new", label: "List Your Property", Icon: IconPlusSquare },
     ],
   },

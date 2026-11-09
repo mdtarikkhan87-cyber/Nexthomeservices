@@ -8,7 +8,6 @@ import { Select } from "@/components/ui/Input";
 import { IconArrowRight } from "@/components/ui/icons";
 import { ServiceListing } from "@/lib/types";
 import { apiSearchServices } from "@/lib/services-client";
-import { SERVICE_CATEGORIES } from "@/lib/service-categories";
 import {
   NIGERIAN_STATES,
   coversWholeState,
@@ -17,29 +16,17 @@ import {
   lgasForState,
 } from "@/lib/nigeria-locations";
 
-// The card treatment below is unchanged from the previous flat list — only
-// a category filter was added in front of it, so the directory stays
-// scannable as more trades are added rather than growing into one long
-// undifferentiated grid. Chips reuse the SearchBar tab pill styling
-// (brand-primary when selected, dense surface on hover) rather than
-// introducing a new control.
+// The directory filters by location only: a state, and an LGA scoped to it.
+// (The category tabs were removed; providers still show their trade on each
+// card.)
 export function ServiceDirectory() {
-  const categories = SERVICE_CATEGORIES;
-
-  // Seeded from the URL so the homepage Services search actually lands on a
-  // filtered directory. Validated against the real category list — an
-  // unknown ?category= falls back to "all" rather than rendering an empty
-  // grid the chips give no way to escape.
+  // Seeded from the URL so the homepage Services search lands on a filtered
+  // directory.
   const searchParams = useSearchParams();
-  const requested = searchParams.get("category") ?? "";
-  const [category, setCategory] = useState<string>(
-    categories.includes(requested) ? requested : ""
-  );
 
   // Location, on the same two-level model as the property filters: a state,
-  // and an LGA scoped to it. Both are validated on the way in for the same
-  // reason as the category — a hand-edited or stale link must not apply a
-  // filter the controls cannot display.
+  // and an LGA scoped to it. Both are validated on the way in: a hand-edited
+  // or stale link must not apply a filter the controls cannot display.
   const [state, setState] = useState<string>(() => {
     const s = searchParams.get("state") ?? "";
     return NIGERIAN_STATES.includes(s) ? s : "";
@@ -75,7 +62,6 @@ export function ServiceDirectory() {
       if (!cancelled) setIsLoading(true);
       try {
         const res = await apiSearchServices({
-          category: category || undefined,
           state: state || undefined,
           lga: lga || undefined,
         });
@@ -89,44 +75,24 @@ export function ServiceDirectory() {
     return () => {
       cancelled = true;
     };
-  }, [category, state, lga]);
+  }, [state, lga]);
 
   const FIELD_LABEL =
     "u-ui mb-2 block text-[13px] font-semibold text-[var(--color-text-primary)]";
 
-  const chipClass =
-    "u-ui inline-flex shrink-0 items-center rounded-full px-4 py-2 text-[13px] font-semibold transition-colors duration-[var(--motion-duration-short)]";
-
   return (
     <>
-      <div className="mt-7 flex flex-wrap items-center gap-2" role="group" aria-label="Filter by service category">
-        {[{ value: "", label: "All services" }, ...categories.map((c) => ({ value: c, label: c }))].map((chip) => (
-          <button
-            key={chip.value || "all"}
-            onClick={() => setCategory(chip.value)}
-            aria-pressed={category === chip.value}
-            className={`${chipClass} ${
-              category === chip.value
-                ? "bg-[var(--color-brand-primary)] text-white shadow-[var(--elevation-xs)]"
-                : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-dense)]"
-            }`}
-          >
-            {chip.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Location filters sit under the category chips, in the same order as
-          the property sidebar — State, then the LGA it scopes — so a visitor
-          who has used one filter surface already knows this one. Selects
-          rather than chips: 37 states and up to 44 LGAs cannot be a chip row.
+      {/* Location filters, in the same order as the property sidebar —
+          State, then the LGA it scopes — so a visitor who has used one filter
+          surface already knows this one. Selects rather than chips: 37 states
+          and up to 44 LGAs cannot be a chip row.
 
           COVERAGE CAVEAT: a provider is listed at one base LGA, so filtering
           to an LGA can hide a trade who would happily travel there. That is
           a property of the data model (see ServiceListing.lga), not of this
           control, and it is why the LGA filter is optional and never
           pre-applied. */}
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:max-w-xl sm:grid-cols-2">
+      <div className="mt-7 grid grid-cols-1 gap-4 sm:max-w-xl sm:grid-cols-2">
         <div>
           <label className={FIELD_LABEL} htmlFor="svc-state">
             State
@@ -176,10 +142,7 @@ export function ServiceDirectory() {
           No providers match that filter yet.{" "}
           <button
             type="button"
-            onClick={() => {
-              setCategory("");
-              changeState("");
-            }}
+            onClick={() => changeState("")}
             className="font-bold text-[var(--color-brand-primary-text)] underline underline-offset-2"
           >
             Clear filters
