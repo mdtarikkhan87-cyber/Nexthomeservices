@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Select } from "@/components/ui/Input";
 import { IconArrowRight } from "@/components/ui/icons";
@@ -16,13 +16,24 @@ import {
   lgasForState,
 } from "@/lib/nigeria-locations";
 
-// The directory filters by location only: a state, and an LGA scoped to it.
-// (The category tabs were removed; providers still show their trade on each
-// card.)
+// The directory's own filters are location only: a state, and an LGA scoped
+// to it (the category tabs were removed). A category can still arrive in the
+// URL (`?category=Plumber`, from the homepage Services search); it is honoured
+// here and shown as a removable chip, so a filter that came from a link is
+// never invisible.
 export function ServiceDirectory() {
   // Seeded from the URL so the homepage Services search lands on a filtered
   // directory.
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const category = (searchParams.get("category") ?? "").trim();
+  const clearCategory = () => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("category");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
 
   // Location, on the same two-level model as the property filters: a state,
   // and an LGA scoped to it. Both are validated on the way in: a hand-edited
@@ -62,6 +73,7 @@ export function ServiceDirectory() {
       if (!cancelled) setIsLoading(true);
       try {
         const res = await apiSearchServices({
+          category: category || undefined,
           state: state || undefined,
           lga: lga || undefined,
         });
@@ -75,7 +87,7 @@ export function ServiceDirectory() {
     return () => {
       cancelled = true;
     };
-  }, [state, lga]);
+  }, [category, state, lga]);
 
   const FIELD_LABEL =
     "u-ui mb-2 block text-[13px] font-semibold text-[var(--color-text-primary)]";
@@ -121,6 +133,22 @@ export function ServiceDirectory() {
         </div>
       </div>
 
+      {category && (
+        <p className="mt-5">
+          <button
+            type="button"
+            onClick={clearCategory}
+            aria-label={`Remove the ${category} filter`}
+            className="u-ui inline-flex items-center gap-2 rounded-full bg-[var(--color-brand-primary)] px-4 py-2 text-[13px] font-semibold capitalize text-white shadow-[var(--elevation-xs)] transition-colors duration-[var(--motion-duration-short)] hover:bg-[var(--color-brand-primary-hover)]"
+          >
+            {category}
+            <span aria-hidden className="text-base leading-none">
+              ×
+            </span>
+          </button>
+        </p>
+      )}
+
       <p className="u-ui mt-6 text-[13px] font-semibold text-[var(--color-text-secondary)]">
         {isLoading ? (
           "Loading providers…"
@@ -142,7 +170,10 @@ export function ServiceDirectory() {
           No providers match that filter yet.{" "}
           <button
             type="button"
-            onClick={() => changeState("")}
+            onClick={() => {
+              if (category) clearCategory();
+              changeState("");
+            }}
             className="font-bold text-[var(--color-brand-primary-text)] underline underline-offset-2"
           >
             Clear filters

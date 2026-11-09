@@ -86,6 +86,13 @@ export async function apiSearchServices(
   return { services: result.services.map(toFrontendService), pagination: result.pagination };
 }
 
+/** The distinct categories that currently have at least one live service
+    listing (alphabetical). Drives the homepage "Service type" dropdown. */
+export async function apiFetchServiceCategories(): Promise<string[]> {
+  const result = await apiRequest<{ categories: string[] }>("/services/categories");
+  return result.categories;
+}
+
 export async function apiFetchServiceById(id: string): Promise<ServiceListing> {
   const result = await apiRequest<BackendServiceListing>(`/services/${id}`);
   return toFrontendService(result);

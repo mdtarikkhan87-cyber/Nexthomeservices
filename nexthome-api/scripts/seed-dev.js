@@ -79,7 +79,7 @@ const LISTINGS = [
 ];
 
 const SERVICES = [
-  { n: 1, category: "Plumbing", status: "live", state: "Lagos", lgas: [], description: "Licensed plumber covering Lagos Island and Mainland. Fast call-outs, fair prices." },
+  { n: 1, category: "Plumber", status: "live", state: "Lagos", lgas: [], description: "Licensed plumber covering Lagos Island and Mainland. Fast call-outs, fair prices." },
   { n: 2, category: "Electrician", status: "live", state: "Abuja (FCT)", lgas: ["Municipal Area Council", "Bwari"], description: "Wiring, inverter installation and fault finding across central Abuja." },
   { n: 3, category: "Painter", status: "pending_review", state: "Oyo", lgas: [], description: "Interior and exterior painting. Awaiting review." },
 ];

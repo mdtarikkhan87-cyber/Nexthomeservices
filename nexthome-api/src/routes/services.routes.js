@@ -100,7 +100,8 @@ router.get(
     const where = {
       status: "live",
       ...(state && { state }),
-      ...(category && { category }),
+      // Case-insensitive, so a link like ?category=plumber finds "Plumber".
+      ...(category && { category: { equals: String(category).trim(), mode: "insensitive" } }),
       // A provider with an empty lgas list covers the whole state — matches
       // any lga filter for that state. Otherwise, the requested lga must be
       // explicitly in their coverage list.
@@ -124,6 +125,30 @@ router.get(
     });
   },
 );
+
+// -----------------------------------------------------------------------
+// GET /services/categories — the distinct categories that have at least one
+// LIVE service listing, alphabetical. Public. This is what the homepage's
+// "Service type" dropdown offers, so a category appears there as soon as a
+// listing in it goes live, and disappears when none is left; nothing is
+// hard-coded. Two spellings that differ only by case or surrounding space
+// ("Tutor" / "tutor ") are one category (the first spelling seen is kept).
+// IMPORTANT: declared before GET /:id, or Express matches "categories" as an id.
+// -----------------------------------------------------------------------
+router.get("/categories", async (req, res) => {
+  const rows = await prisma.serviceListing.findMany({
+    where: { status: "live" },
+    select: { category: true },
+    distinct: ["category"],
+    orderBy: { category: "asc" },
+  });
+  const seen = new Map();
+  for (const { category } of rows) {
+    const name = category.trim();
+    if (name && !seen.has(name.toLowerCase())) seen.set(name.toLowerCase(), name);
+  }
+  res.json({ categories: [...seen.values()] });
+});
 
 // -----------------------------------------------------------------------
 // GET /services/mine — the authenticated provider's own listings,
