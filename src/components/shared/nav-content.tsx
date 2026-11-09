@@ -131,44 +131,6 @@ export function ReviewNote({ className = "" }: { className?: string }) {
   );
 }
 
-// Location links are live data on the landing page (fetched server-side), which
-// the header cannot see without a request of its own — so the menu points at
-// that section instead of listing states, and shows no counts.
-const STAY_LENGTH = [
-  { href: "/listings?mode=rent&duration=short-term", label: "Short-Term rentals" },
-  { href: "/listings?mode=rent&duration=long-term", label: "Long-Term rentals" },
-] as const;
-
-// ---------------------------------------------------------------------------
-// Listings
-// ---------------------------------------------------------------------------
-
-/** The Listings menu body: Browse · Browse by location · Stay length. */
-export function ListingsMenuContent() {
-  return (
-    <div className="grid max-h-[calc(100dvh-8rem)] gap-x-4 gap-y-5 overflow-y-auto p-4 md:grid-cols-2 md:p-5 lg:grid-cols-3">
-      <div role="group" aria-label="Browse">
-        <MenuLabel>Browse</MenuLabel>
-        <MenuLink href="/listings?mode=rent" label="Rent" />
-        <MenuLink href="/listings?mode=sale" label="Buy" />
-        <MenuLink href="/listings" label="All listings" />
-      </div>
-
-      <div role="group" aria-label="Browse by location">
-        <MenuLabel>Browse by location</MenuLabel>
-        <MenuLink href="/listings#f-state" label="Choose a location" description="Filter listings by state and area" />
-      </div>
-
-      <div role="group" aria-label="Stay length" className="md:col-span-2 lg:col-span-1">
-        <MenuLabel>Stay length</MenuLabel>
-        {STAY_LENGTH.map((d) => (
-          <MenuLink key={d.href} href={d.href} label={d.label} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Menu (the main menu)
 // ---------------------------------------------------------------------------

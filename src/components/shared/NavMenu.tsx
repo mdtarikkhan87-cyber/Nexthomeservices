@@ -50,6 +50,8 @@ interface NavMenuProps {
   /** What the button shows. */
   trigger: (state: { open: boolean }) => ReactNode;
   triggerClassName?: string;
+  /** The trigger's corner radius (important-suffixed, as the base is). */
+  triggerShape?: string;
   triggerAriaLabel?: string;
   panelClassName?: string;
   /** Shown above and below the list, outside role="menu" (plain text is not a menu item). */
@@ -78,6 +80,7 @@ function HeaderSlot({ render, onClose }: { render: (api: { close: () => void }) 
 export function NavMenu({
   trigger,
   triggerClassName = "",
+  triggerShape = "rounded-xl!",
   triggerAriaLabel,
   panelClassName = "",
   header,
@@ -231,7 +234,7 @@ export function NavMenu({
           aria-label={triggerAriaLabel}
           onClick={onTriggerClick}
           onKeyDown={onTriggerKeyDown}
-          className={`rounded-xl! ${FOCUS_RING} ${triggerClassName}`}
+          className={`${triggerShape} ${FOCUS_RING} ${triggerClassName}`}
         >
           {trigger({ open })}
         </button>
