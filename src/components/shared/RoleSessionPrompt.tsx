@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { Overlay } from "@/components/ui/Overlay";
-import { IconArrowRight, IconHome, IconMegaphone, IconMessageCircle, IconShield } from "@/components/ui/icons";
+import { IconArrowRight, IconHome, IconMegaphone, IconMessageCircle, IconShield, IconWrench } from "@/components/ui/icons";
 import { useAuth } from "@/lib/auth-context";
 import { ROLE_BLURBS, ROLE_DESTINATION_LABEL, roleDisplay, roleLandingHref } from "@/lib/roles";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
@@ -39,6 +39,7 @@ const ROLE_ICONS: Record<RoleName, typeof IconHome> = {
   landlord: IconShield,
   "service-provider": IconMessageCircle,
   advertiser: IconMegaphone,
+  "service-user": IconWrench,
 };
 
 export function RoleSessionPrompt() {

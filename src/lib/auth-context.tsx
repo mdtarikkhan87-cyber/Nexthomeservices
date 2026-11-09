@@ -86,6 +86,10 @@ interface AuthContextValue extends AuthState {
   setActiveRole: (role: RoleName) => void;
   addRole: (role: RoleName) => Promise<void>;
   addRoles: (roles: RoleName[]) => Promise<void>;
+  /** False only for an account whose sole role is Service User: it finds and
+      messages service providers but has no property features (save a home,
+      message a landlord). The server enforces the same rule. */
+  canUsePropertyFeatures: boolean;
   chooseSessionRole: (role: RoleName) => void;
   clearRolePreference: (userId?: string) => void;
   setTenantBuyerContext: (context: TenantBuyerContext) => void;
@@ -110,7 +114,7 @@ function toAuthUser(r: NonNullable<Awaited<ReturnType<typeof apiFetchCurrentUser
   };
 }
 
-const ROLE_PRIORITY: RoleName[] = ["tenant-buyer", "landlord", "service-provider", "advertiser"];
+const ROLE_PRIORITY: RoleName[] = ["tenant-buyer", "landlord", "service-provider", "advertiser", "service-user"];
 
 function primaryRole(roles: RoleName[]): RoleName | null {
   return ROLE_PRIORITY.find((r) => roles.includes(r)) ?? roles[0] ?? null;
@@ -336,6 +340,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshUser,
       applyRoleUpdate,
       applyUserPatch,
+      canUsePropertyFeatures: !(state.roles.length > 0 && state.roles.every((r) => r.role === "service-user")),
     }),
     [state, login, register, logout, setActiveRole, chooseSessionRole, clearRolePreference, addRole, addRoles, setTenantBuyerContext, refreshUser, applyRoleUpdate, applyUserPatch],
   );

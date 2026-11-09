@@ -19,12 +19,14 @@ import { ROLE_BLURBS, ROLE_LABELS, roleLandingHref } from "@/lib/roles";
 import { RoleName } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const PRIMARY_ROLES: RoleName[] = ["tenant-buyer", "landlord"];
+// The roles for people who USE the site sit together at the top (Renter / Buyer,
+// Service User), then Landlord; the roles that offer something under "Also available".
+const PRIMARY_ROLES: RoleName[] = ["tenant-buyer", "service-user", "landlord"];
 const SECONDARY_ROLES: RoleName[] = ["service-provider", "advertiser"];
 
 // Every role now goes through phone + document review — extended from the
 // original landlord/service-provider-only scope (PRD §6.1) to all four.
-const NEEDS_TRUST_LAYER: RoleName[] = ["landlord", "tenant-buyer", "service-provider", "advertiser"];
+const NEEDS_TRUST_LAYER: RoleName[] = ["landlord", "tenant-buyer", "service-provider", "advertiser", "service-user"];
 
 type Step = "role" | "basic-info" | "trust-layer" | "pending";
 

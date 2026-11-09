@@ -57,6 +57,12 @@ const NAV_BY_ROLE: Record<RoleName, NavItem[]> = {
     { href: "/dashboard/messages", label: "Messages", Icon: IconMessageCircle },
     { href: "/dashboard/notifications", label: "Notifications", Icon: IconBell },
   ],
+  "service-user": [
+    { href: ROLE_DASHBOARD_HOME["service-user"], label: "Overview", Icon: IconGrid },
+    { href: "/services", label: "Find a service provider", Icon: IconWrench },
+    { href: "/dashboard/messages", label: "Messages", Icon: IconMessageCircle },
+    { href: "/dashboard/notifications", label: "Notifications", Icon: IconBell },
+  ],
   advertiser: [
     { href: ROLE_DASHBOARD_HOME.advertiser, label: "Overview", Icon: IconGrid },
     { href: "/dashboard/ads", label: "My Advertisements", Icon: IconMegaphone },
@@ -77,6 +83,7 @@ const ROLE_ICON: Record<RoleName, NavItem["Icon"]> = {
   "tenant-buyer": IconStar,
   "service-provider": IconWrench,
   advertiser: IconMegaphone,
+  "service-user": IconWrench,
 };
 
 export function DashboardNav({ role }: { role: RoleName }) {

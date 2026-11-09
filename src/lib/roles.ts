@@ -43,6 +43,7 @@ export const ROLE_LABELS: Record<RoleName, string> = {
   "tenant-buyer": "Renter / Buyer",
   "service-provider": "Service Provider",
   advertiser: "Advertiser",
+  "service-user": "Service User",
 };
 
 /** Short form for tight chrome (the header switcher), where the full
@@ -52,6 +53,7 @@ export const ROLE_LABELS_SHORT: Record<RoleName, string> = {
   "tenant-buyer": "Renter",
   "service-provider": "Services",
   advertiser: "Advertiser",
+  "service-user": "Service User",
 };
 
 /** What the header switcher shows once there is room for it (from `sm`): the
@@ -68,6 +70,7 @@ export const ROLE_BLURBS: Record<RoleName, string> = {
   "tenant-buyer": "Search listings, save homes and message landlords. Free.",
   "service-provider": "Offer a trade service to people who have just moved. Free to join.",
   advertiser: "Promote a business, property, or service on NextHome.",
+  "service-user": "Find and message electricians, plumbers and other service providers. Free.",
 };
 
 /**
@@ -98,6 +101,7 @@ export const ROLE_LANDING_HREF: Record<RoleName, string> = {
   "tenant-buyer": "/listings",
   "service-provider": "/dashboard/services",
   advertiser: "/dashboard/ads",
+  "service-user": "/services",
 };
 
 export function roleLandingHref(role: RoleName): string {
@@ -111,6 +115,7 @@ export const ROLE_DESTINATION_LABEL: Record<RoleName, string> = {
   landlord: "Takes you to your landlord dashboard",
   "service-provider": "Takes you to your service dashboard",
   advertiser: "Takes you to your advertisements",
+  "service-user": "Takes you to Services",
 };
 
 /**
@@ -128,6 +133,7 @@ export const ROLE_DASHBOARD_HOME: Record<RoleName, string> = {
   "tenant-buyer": "/dashboard",
   "service-provider": "/dashboard/services",
   advertiser: "/dashboard",
+  "service-user": "/dashboard",
 };
 
 // ---------------------------------------------------------------------------

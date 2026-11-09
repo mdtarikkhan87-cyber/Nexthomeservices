@@ -78,6 +78,7 @@ export function ListingActions({
   const openComposer = () =>
     requireAuth({
       actionLabel: enquiryLabel,
+      propertyAction: true,
       onResume: () => {
         setMessage(defaultMessage);
         setComposerOpen(true);
@@ -88,6 +89,7 @@ export function ListingActions({
     requireAuth({
       actionLabel: `Log in to save "${listingTitle}"`,
       suggestedRole: "tenant-buyer",
+      propertyAction: true,
       onResume: () => setSaved((v) => !v),
     });
 

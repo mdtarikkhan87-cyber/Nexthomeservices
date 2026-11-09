@@ -16,11 +16,15 @@ const SECTIONS: Section[] = [
     items: [
       {
         q: "How do I register?",
-        a: "Choose your role (Landlord, Renter / Buyer, Service Provider or Advertiser) and follow the short verification steps for that role.",
+        a: "Choose your role (Renter / Buyer, Service User, Landlord, Service Provider or Advertiser) and follow the short verification steps for that role.",
       },
       {
         q: "Can I have more than one role?",
         a: "Yes. One account can be a renter and a landlord at the same time, and you can add more roles later from your Account page. Once you hold more than one, use Switch role in the account menu to move between them.",
+      },
+      {
+        q: "What is a Service User account?",
+        a: "A Service User account is for finding and messaging electricians, plumbers and other service providers. It can't save homes or message landlords. If you also want to rent or buy, add the Renter / Buyer role from your Account page and the same account does both.",
       },
     ],
   },

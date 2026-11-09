@@ -3,7 +3,7 @@
 // UI code can never collapse these three distinct layers into one generic
 // "status" — see DESIGN_SYSTEM.md §7.
 
-export type RoleName = "landlord" | "tenant-buyer" | "service-provider" | "advertiser";
+export type RoleName = "landlord" | "tenant-buyer" | "service-provider" | "advertiser" | "service-user";
 
 // Role-level verification state (PRODUCT_DECISIONS.md §6)
 export type RoleState =

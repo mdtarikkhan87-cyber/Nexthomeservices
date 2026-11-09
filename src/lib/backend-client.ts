@@ -11,7 +11,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 // every existing frontend file, we translate at this one boundary.
 // ---------------------------------------------------------------------------
 
-type BackendRoleName = "landlord" | "tenant_buyer" | "service_provider" | "advertiser";
+type BackendRoleName = "landlord" | "tenant_buyer" | "service_provider" | "advertiser" | "service_user";
 type BackendRoleState = "role_added" | "pending_admin_document_review" | "role_verified";
 type BackendSubscriptionState = "inactive" | "pending_confirmation" | "active";
 
@@ -39,12 +39,14 @@ const ROLE_TO_BACKEND: Record<RoleName, BackendRoleName> = {
   "tenant-buyer": "tenant_buyer",
   "service-provider": "service_provider",
   "advertiser": "advertiser",
+  "service-user": "service_user",
 };
 const ROLE_TO_FRONTEND: Record<BackendRoleName, RoleName> = {
   landlord: "landlord",
   tenant_buyer: "tenant-buyer",
   service_provider: "service-provider",
   advertiser: "advertiser",
+  service_user: "service-user",
 };
 const STATE_TO_FRONTEND: Record<BackendRoleState, HeldRole["state"]> = {
   role_added: "role-added",
