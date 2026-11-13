@@ -33,10 +33,10 @@ export function CuratedListings({ listings }: { listings: PropertyListing[] }) {
   if (!feature) return null;
 
   return (
-    <section className="bg-[var(--color-surface-raised)] py-12 md:py-20">
+        <section className="bg-[var(--color-surface-raised)] py-4 md:py-6">
       <Container>
         <Reveal>
-          <div className="mb-10 flex flex-wrap items-end justify-between gap-5">
+                    <div className="mb-4 flex flex-wrap items-end justify-between gap-5">
             <div>
               <Eyebrow>Recently listed</Eyebrow>
               <h2 className="u-heading mt-3 max-w-md text-3xl text-[var(--color-text-primary)] sm:text-4xl">
@@ -86,7 +86,7 @@ export function CuratedListings({ listings }: { listings: PropertyListing[] }) {
             role="region"
             aria-label="Recently listed homes"
             tabIndex={0}
-            className={`-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-4 [scrollbar-width:none] sm:-mx-6 sm:px-6 sm:scroll-px-6 md:hidden ${FOCUS_RING}`}
+            className={`-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:-mx-6 sm:px-6 sm:scroll-px-6 md:hidden ${FOCUS_RING}`}
           >
             {filtered.map((l) => (
               <div key={l.id} className="w-[82%] max-w-[22rem] shrink-0 snap-start">

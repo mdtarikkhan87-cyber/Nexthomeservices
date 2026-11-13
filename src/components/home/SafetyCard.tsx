@@ -21,7 +21,7 @@ const POINTS = [
 
 export function SafetyCard() {
   return (
-    <section id="how-it-works" className="bg-[var(--color-surface-raised)] py-12 md:py-16">
+        <section id="how-it-works" className="bg-[var(--color-surface-raised)] py-6 md:py-6">
       <Container>
         <Reveal>
           <div className="rounded-[var(--radius-feature)] border border-[var(--color-border-hairline)] bg-[linear-gradient(160deg,color-mix(in_srgb,var(--color-light-blue)_24%,var(--color-surface-raised))_0%,var(--color-surface-raised)_70%)] p-6 text-center shadow-[var(--elevation-xs)] sm:p-10 lg:grid lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-x-16 lg:p-14 lg:text-left">

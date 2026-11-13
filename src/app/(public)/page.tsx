@@ -77,7 +77,7 @@ export default async function HomePage() {
 
         {/* The search card floats over the photograph's bottom edge, in the
             same container as everything else. */}
-        <div className="relative z-10 -mt-10 pb-8 lg:pb-10">
+                <div className="relative z-10 -mt-10 pb-2 lg:pb-2">
           <Container>
             <SearchBar />
             <QuickLinks />
@@ -99,7 +99,7 @@ export default async function HomePage() {
           under the listings — renders nothing when there's no live ad for this
           placement, so it costs nothing when empty. */}
       {bannerAds.length > 0 && (
-        <div className="pb-12 md:pb-20">
+                <div className="pb-4 md:pb-4">
           <AdCarousel ads={bannerAds} />
         </div>
       )}
