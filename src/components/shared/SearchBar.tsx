@@ -1,20 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { IconFilter } from "@/components/ui/icons";
 import { FOCUS_RING, SelectField } from "@/components/ui/SelectField";
-import { apiFetchServiceCategories } from "@/lib/services-client";
 import { NIGERIAN_STATES, lgasForState } from "@/lib/nigeria-locations";
 
 // PRD §4 approves price range, state, and bedrooms as filters (state must
 // stay a fixed dropdown, never free text). Buckets are mode-specific since
 // rent and sale prices operate on entirely different scales.
-// TASK 3 adds a third tab. The mode union widens, but PRICE_RANGES stays
-// keyed on "rent" | "sale" ONLY — FilterPanel and PropertyBrowser index it
-// with ListingType, so widening its key would break both at the type level
-// and hand them a `undefined` bucket list at runtime.
-export type SearchMode = "rent" | "sale" | "services";
+export type SearchMode = "rent" | "sale";
 
 export const PRICE_RANGES: Record<"rent" | "sale", { value: string; label: string }[]> = {
   rent: [
@@ -32,7 +27,6 @@ export const PRICE_RANGES: Record<"rent" | "sale", { value: string; label: strin
 const TABS: { value: SearchMode; label: string }[] = [
   { value: "sale", label: "Buy" },
   { value: "rent", label: "Rent" },
-  { value: "services", label: "Services" },
 ];
 
 const BEDROOM_OPTIONS = [
@@ -57,6 +51,10 @@ const STATE_OPTIONS_BASE = NIGERIAN_STATES.map((s) => ({ value: s, label: s }));
 //                           Duration · Search, with hairline dividers.
 // Only the markup changed in the redesign; the state, the option lists, the
 // resets and the URLs built below are exactly what they were.
+//
+// Services was removed as a search mode (2026-11): the homepage search is
+// Buy/Rent only now. The dedicated /services page has its own Service type
+// filter — see ServiceDirectory.tsx.
 export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }) {
   const router = useRouter();
   const [mode, setMode] = useState<SearchMode>(initialMode);
@@ -67,26 +65,6 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
   const [priceRange, setPriceRange] = useState("");
   const [bedrooms, setBedrooms] = useState("");
   const [duration, setDuration] = useState("");
-  const [serviceType, setServiceType] = useState("");
-  // The Service type options are the categories that actually have live
-  // service listings (GET /services/categories), fetched the first time the
-  // Services tab is opened, so a new category shows up with no code change.
-  const [serviceTypes, setServiceTypes] = useState<string[] | null>(null);
-  useEffect(() => {
-    if (mode !== "services" || serviceTypes !== null) return;
-    let cancelled = false;
-    Promise.resolve().then(async () => {
-      try {
-        const list = await apiFetchServiceCategories();
-        if (!cancelled) setServiceTypes(list);
-      } catch {
-        if (!cancelled) setServiceTypes([]); // "Any service" still works
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [mode, serviceTypes]);
 
   // The Buy/Rent tabs choose the DESTINATION ROUTE now — `mode` is no
   // longer carried as a query param into a shared /search page, it selects
@@ -95,20 +73,6 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
   // Listings page opens its filter drawer on arrival (`?filters=open`), so a
   // phone or tablet lands on the full filter set rather than on results.
   const handleSearch = (moreFilters = false) => {
-    // Services routes to its own directory, and now carries location with it:
-    // ServiceListing has a state and an LGA (added when the directory gained
-    // its location filter), so these params land as real, applied filters
-    // rather than the no-op they would have been before.
-    if (mode === "services") {
-      const p = new URLSearchParams();
-      if (serviceType) p.set("category", serviceType);
-      if (state) p.set("state", state);
-      if (state && lga) p.set("lga", lga);
-      const qs = p.toString();
-      router.push(`/services${qs ? `?${qs}` : ""}`);
-      return;
-    }
-
     const params = new URLSearchParams();
     if (state) params.set("state", state);
     if (state && lga) params.set("lga", lga);
@@ -124,9 +88,9 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
   };
 
   // Rent and sale prices are on different scales, so the bucket list (and the
-  // selected bucket) follow the mode. Services has no price.
+  // selected bucket) follow the mode.
   const priceOptions = useMemo(
-    () => (mode === "services" ? [] : [{ value: "", label: "Any price" }, ...PRICE_RANGES[mode]]),
+    () => [{ value: "", label: "Any price" }, ...PRICE_RANGES[mode]],
     [mode]
   );
   const stateOptions = useMemo(
@@ -136,10 +100,6 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
   const lgaOptions = useMemo(
     () => (state ? [{ value: "", label: `All LGAs in ${state}` }, ...lgasForState(state).map((l) => ({ value: l, label: l }))] : []),
     [state]
-  );
-  const serviceOptions = useMemo(
-    () => [{ value: "", label: "Any service" }, ...(serviceTypes ?? []).map((c) => ({ value: c, label: c }))],
-    [serviceTypes]
   );
 
   // Switching mode clears the price: rent/sale buckets use different scales.
@@ -165,14 +125,11 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
   const modeIndex = TABS.findIndex((t) => t.value === mode);
 
   // From `lg`, the field columns depend on the mode: Duration exists only in
-  // Rent, and Services swaps price/beds/duration for a service type. The
-  // Location column is always the widest.
+  // Rent. The Location column is always the widest.
   const columns =
     mode === "rent"
       ? "lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)]"
-      : mode === "sale"
-        ? "lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.9fr)]"
-        : "lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]";
+      : "lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1.1fr)_minmax(0,0.9fr)]";
 
   // A hairline divider before every field after the first, from `lg`.
   const cell =
@@ -181,20 +138,20 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
   return (
     <div
       role="search"
-      aria-label="Search homes and services"
+      aria-label="Search homes"
       className="w-full max-w-full rounded-3xl border border-[color-mix(in_srgb,var(--color-dark-blue)_8%,transparent)] bg-[var(--color-surface-raised)] p-4 shadow-[var(--elevation-float)] sm:p-5 lg:p-6"
     >
-      {/* Mode toggle. Only Buy/Rent/Services are real, approved search modes
+      {/* Mode toggle. Only Buy/Rent are real, approved search modes
           (PRODUCT_UNDERSTANDING.md §5, PRD §4). The Blue pill slides under
           the active label. */}
       <div
         role="radiogroup"
         aria-label="Search for"
-        className="relative grid w-full grid-cols-3 rounded-full bg-[var(--color-surface-base)] p-1 md:w-[22rem]"
+        className="relative grid w-full grid-cols-2 rounded-full bg-[var(--color-surface-base)] p-1 md:w-[16rem]"
       >
         <span
           aria-hidden
-          className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-full bg-[var(--color-brand-primary)] shadow-[0_2px_8px_-2px_rgba(4,146,194,0.5)] transition-transform duration-200 ease-out"
+          className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/2)] rounded-full bg-[var(--color-brand-primary)] shadow-[0_2px_8px_-2px_rgba(4,146,194,0.5)] transition-transform duration-200 ease-out"
           style={{ transform: `translateX(${modeIndex * 100}%)` }}
         />
         {TABS.map((tab, i) => {
@@ -225,17 +182,15 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
         <div className={`grid min-w-0 grid-cols-2 gap-3 lg:flex-1 lg:gap-0 ${columns}`}>
           {/* Location. Kept a dropdown, not free text — PRD §4: "Location
               filtering uses a dropdown list of states rather than free text,
-              so results stay accurate." Live in every mode, Services included.
-              The LGA picker sits INSIDE this field and appears only once a
-              state is chosen: an LGA name is only unambiguous within its
-              state. */}
+              so results stay accurate." The LGA picker sits INSIDE this
+              field and appears only once a state is chosen: an LGA name is
+              only unambiguous within its state. */}
           <div className={`${cell} col-span-2 flex flex-col gap-3 lg:col-span-1 lg:gap-0`}>
             <SelectField
               label="Location"
               value={state}
               options={stateOptions}
-              // The old prompt, kept as the field's resting text in Rent and Buy.
-              placeholder={mode === "services" ? "Any state" : "State, locality or area"}
+              placeholder="State, locality or area"
               searchable
               searchPlaceholder="Search states"
               onChange={(v) => {
@@ -257,34 +212,18 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
             )}
           </div>
 
-          {/* Property-only fields. `PRICE_RANGES[mode]` is indexed above, which
-              is exactly why the services mode must not reach this branch —
-              PRICE_RANGES has no "services" key. */}
-          {mode !== "services" && (
-            <>
-              <div className={cell}>
-                <SelectField label="Price" value={priceRange} options={priceOptions} onChange={setPriceRange} />
-              </div>
-              <div className={cell}>
-                <SelectField
-                  label="Bedrooms"
-                  value={bedrooms}
-                  options={BEDROOM_OPTIONS}
-                  onChange={setBedrooms}
-                  panelClassName="right-0 left-auto lg:left-0 lg:right-auto"
-                />
-              </div>
-            </>
-          )}
-
-          {/* Service Type — the one Services field that genuinely filters.
-              Options come from the live catalog, so the dropdown can never
-              offer a category with no providers behind it. */}
-          {mode === "services" && (
-            <div className={`${cell} col-span-2 lg:col-span-1`}>
-              <SelectField label="Service type" value={serviceType} options={serviceOptions} onChange={setServiceType} />
-            </div>
-          )}
+          <div className={cell}>
+            <SelectField label="Price" value={priceRange} options={priceOptions} onChange={setPriceRange} />
+          </div>
+          <div className={cell}>
+            <SelectField
+              label="Bedrooms"
+              value={bedrooms}
+              options={BEDROOM_OPTIONS}
+              onChange={setBedrooms}
+              panelClassName="right-0 left-auto lg:left-0 lg:right-auto"
+            />
+          </div>
 
           {mode === "rent" && (
             <div className={`${cell} col-span-2 lg:col-span-1`}>
@@ -293,17 +232,14 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
           )}
         </div>
 
-        {/* Property modes only: Services has no filters beyond the fields above. */}
-        {mode !== "services" && (
-          <button
-            type="button"
-            onClick={() => handleSearch(true)}
-            className={`u-ui inline-flex min-h-12 shrink-0 items-center justify-center gap-2 self-start rounded-2xl! px-3 text-[15px] font-bold text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] lg:self-center ${FOCUS_RING}`}
-          >
-            <IconFilter className="h-[18px] w-[18px]" />
-            More filters
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => handleSearch(true)}
+          className={`u-ui inline-flex min-h-12 shrink-0 items-center justify-center gap-2 self-start rounded-2xl! px-3 text-[15px] font-bold text-[var(--color-deep-blue)] transition-colors duration-200 hover:bg-[var(--color-surface-base)] lg:self-center ${FOCUS_RING}`}
+        >
+          <IconFilter className="h-[18px] w-[18px]" />
+          More filters
+        </button>
 
         <button
           type="button"
@@ -314,7 +250,7 @@ export function SearchBar({ initialMode = "rent" }: { initialMode?: SearchMode }
             <circle cx="11" cy="11" r="7" />
             <path d="m21 21-4.35-4.35" />
           </svg>
-          {mode === "services" ? "Search Services" : "Search Properties"}
+          Search Properties
         </button>
       </div>
     </div>

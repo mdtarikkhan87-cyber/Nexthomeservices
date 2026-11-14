@@ -11,7 +11,7 @@ import { IconArrowRight, IconHome, IconWrench } from "@/components/ui/icons";
 const LINKS = [
   {
     href: "/services",
-    title: "Services",
+    title: "Find Services",
     body: "Find local plumbers, electricians and other professionals",
     Icon: IconWrench,
   },

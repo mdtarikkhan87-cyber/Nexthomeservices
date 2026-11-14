@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Select } from "@/components/ui/Input";
 import { IconArrowRight } from "@/components/ui/icons";
 import { ServiceListing } from "@/lib/types";
-import { apiSearchServices } from "@/lib/services-client";
+import { apiSearchServices, apiFetchServiceCategories } from "@/lib/services-client";
 import {
   NIGERIAN_STATES,
   coversWholeState,
@@ -27,13 +27,42 @@ export function ServiceDirectory() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const category = (searchParams.get("category") ?? "").trim();
-  const clearCategory = () => {
+  // Category is now a real control on this page (not just something that
+  // arrives via URL from the homepage, since the homepage search no longer
+  // has a Services tab). Still seeded from the URL so an old shared link
+  // keeps working.
+  const [category, setCategory] = useState<string>(() => searchParams.get("category") ?? "");
+  const clearCategory = () => setCategory("");
+
+  // The category options are the categories that actually have live service
+  // listings (GET /services/categories), so the dropdown never offers one
+  // with no providers behind it.
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve().then(async () => {
+      try {
+        const list = await apiFetchServiceCategories();
+        if (!cancelled) setCategoryOptions(list);
+      } catch {
+        if (!cancelled) setCategoryOptions([]);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Keep the URL in sync so the filter stays shareable/bookmarkable, same as
+  // state/lga below.
+  useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
-    next.delete("category");
+    if (category) next.set("category", category);
+    else next.delete("category");
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category]);
 
   // Location, on the same two-level model as the property filters: a state,
   // and an LGA scoped to it. Both are validated on the way in: a hand-edited
@@ -104,7 +133,20 @@ export function ServiceDirectory() {
           a property of the data model (see ServiceListing.lga), not of this
           control, and it is why the LGA filter is optional and never
           pre-applied. */}
-      <div className="mt-7 grid grid-cols-1 gap-4 sm:max-w-xl sm:grid-cols-2">
+      <div className="mt-7 grid grid-cols-1 gap-4 sm:max-w-xl sm:grid-cols-3">
+        <div>
+          <label className={FIELD_LABEL} htmlFor="svc-category">
+            Service type
+          </label>
+          <Select id="svc-category" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="">Any service</option>
+            {categoryOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </div>
         <div>
           <label className={FIELD_LABEL} htmlFor="svc-state">
             State
