@@ -132,8 +132,25 @@ export function Header() {
           isHome ? CONTAINER_CLASS : PAGE_CONTAINER_CLASS
         }`}
       >
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          {/* LEFT slot. Phones: Login, or the profile button. Laptops: Login, or the account dropdown. */}
+                <Link
+          href="/"
+          aria-label="NextHome — go to homepage"
+          aria-current={isHome ? "page" : undefined}
+          className="flex min-h-11 shrink-0 items-center rounded-xl px-2"
+        >
+          <Image
+            src="/brand/nexthome-logo-primary.png"
+            alt="NextHome"
+            width={2267}
+            height={2958}
+            priority
+            className="h-14 w-auto"
+          />
+        </Link>
+
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          {/* Login/account controls now sit here, on the right, next to Menu.
+              Phones: Login, or the profile button. Laptops: Login, or the account dropdown. */}
           {isAuthenticated ? (
             <>
             <button
@@ -158,7 +175,7 @@ export function Header() {
             </button>
             <div className="hidden lg:block">
               <NavMenu
-                align="left"
+                align="right"
                 triggerAriaLabel={unreadCount > 0 ? `Account menu, ${unreadCount} unread notifications` : "Account menu"}
                 triggerClassName={`relative h-11 w-11 justify-center ${PILL.replace("px-4", "px-0")}`}
                 triggerShape="rounded-full!"
@@ -193,28 +210,6 @@ export function Header() {
             </Link>
           )}
 
-          {/* On phones and laptops the logo is taken out of the flow and centred
-              on the bar (the left and right controls balance it); on tablets it
-              is an ordinary left-aligned item. */}
-          <Link
-            href="/"
-            aria-label="NextHome — go to homepage"
-            aria-current={isHome ? "page" : undefined}
-            className="absolute left-1/2 -translate-x-1/2 flex min-h-11 shrink-0 items-center rounded-xl px-2 md:static md:-mx-2 md:translate-x-0 lg:absolute lg:left-1/2 lg:mx-0 lg:-translate-x-1/2"
-          >
-            <Image
-              src="/brand/nexthome-logo-primary.png"
-              alt="NextHome"
-              width={2267}
-              height={2958}
-              priority
-              className="h-14 w-auto"
-            />
-          </Link>
-
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           {/* RIGHT slot, laptops: the Menu dropdown, with the same groups as the
               phone menu (and the same "every listing is reviewed" note under
               them). */}
